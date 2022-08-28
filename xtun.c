@@ -64,7 +64,7 @@ typedef struct xtun_s {
     net_device_s* phys;
     u64 hash; // THE PATH HASH
     u32 _x;
-    u16 _y;
+    u16 ID; // TODO: "ENVIA COM DESTINO AO TUNEL Y DO PEER; O PEER SABE QUE SEU TUNEL Y CORRESPONDE AO MEU TUNEL X"
 #define ETH_HDR_SIZE 14
     u16 eDst[ETH_ALEN/sizeof(u16)];
     u16 eSrc[ETH_ALEN/sizeof(u16)];
@@ -73,8 +73,7 @@ typedef struct xtun_s {
     u8  iVersion;
     u8  iTOS;
     u16 iSize;
-    u8  xSrc; // MY TUNNEL ID
-    u8  xDst; // YOUR TUNNEL ID
+    u16 xID; // YOUR TUNNEL ID
     u16 iFrag;
     u8  iTTL;
     u8  iProtocol;
@@ -97,11 +96,11 @@ typedef struct xtun_cfg_s {
     //u16 _y;
     //u8  iTOS;
     //u8  iTTL;
+    u16 xID;
     u32 iSrc;
     u32 iDst;
     u16 uSrc;
     u16 uDst;
-    u16 xDst;
 } xtun_cfg_s;
 
 #define XTUN_ID(xtun) ((uint)(xtun - virts))
@@ -117,7 +116,7 @@ typedef struct xtun_cfg_s {
 #define XTUN_CFG(v, c, x, p, seth, sip, sudp, deth, dip, dudp) { \
     .virt = v, \
     .phys = p, \
-    .xDst = x, \
+    .xID = x, \
     .eSrc = seth, \
     .eDst = deth, \
     .iSrc = sip, \
@@ -147,7 +146,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
     xtun_s* const pkt = PTR(skb_mac_header(skb));
-    net_device_s* const virt = virts[BE8(pkt->xDst) % TUNS_N];
+    net_device_s* const virt = virts[BE8(pkt->xID) % TUNS_N];
     xtun_s* const xtun = netdev_priv(virt);
    
     const u64 hash = (u64)(uintptr_t)skb->dev
@@ -157,8 +156,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
       + ((u64)pkt->eSrc[0] << 12)
       + ((u64)pkt->eSrc[1] << 16)
       + ((u64)pkt->eSrc[2] << 20)
-      + ((u64)pkt->xSrc    << 24)
-      + ((u64)pkt->xDst    << 28)
+      + ((u64)pkt->xID     << 24)
       + ((u64)pkt->iSrc    << 32)
       + ((u64)pkt->iDst    << 36)
       + ((u64)pkt->uSrc    << 40)
@@ -170,8 +168,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         // THIS IS NOT THE KNOWN PATH
 
         if (pkt->uDst      != xtun->uSrc // TEM QUE SER NA PORTA EM QUE ESTE TUNEL ESTA ESCUTANDO
-         || pkt->xSrc      != xtun->xDst
-         || pkt->xDst      != xtun->xSrc
+         || pkt->xID       != xtun->ID
          || pkt->iProtocol != BE8(IPPROTO_UDP)
          || pkt->iVersion  != BE8(0x45)
          || pkt->eType     != BE16(ETH_P_IP)
@@ -325,8 +322,8 @@ static int __init xtun_init(void) {
             "\n",
             cfg->virt,
             cfg->phys,
-                  tid, cfg->eSrc[0], cfg->eSrc[1], cfg->eSrc[2], cfg->iSrc, cfg->uSrc,
-            cfg->xDst, cfg->eDst[0], cfg->eDst[1], cfg->eDst[2], cfg->iDst, cfg->uDst
+                 tid, cfg->eSrc[0], cfg->eSrc[1], cfg->eSrc[2], cfg->iSrc, cfg->uSrc,
+            cfg->xID, cfg->eDst[0], cfg->eDst[1], cfg->eDst[2], cfg->iDst, cfg->uDst
             );
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
@@ -357,6 +354,7 @@ static int __init xtun_init(void) {
 
                         xtun->phys       =  phys;
                         xtun->hash       =  0;
+                        xtun->ID         =  tid;
                         xtun->eDst[0]    =  BE16(cfg->eDst[0]);
                         xtun->eDst[1]    =  BE16(cfg->eDst[1]);
                         xtun->eDst[2]    =  BE16(cfg->eDst[2]);
@@ -367,8 +365,7 @@ static int __init xtun_init(void) {
                         xtun->iVersion   =  BE8(0x45);
                         xtun->iTOS       =  BE8(0);
                         xtun->iSize      =  BE16(0);
-                        xtun->xSrc       =  BE8(tid);
-                        xtun->xDst       =  BE8(cfg->xDst);
+                        xtun->xID        =  BE16(cfg->xID);
                         xtun->iFrag      =  BE16(0);
                         xtun->iTTL       =  BE8(64);
                         xtun->iProtocol  =  BE8(IPPROTO_UDP);
