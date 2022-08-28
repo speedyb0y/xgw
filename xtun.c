@@ -184,7 +184,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
              || xtun->uDst    != pkt->uSrc
              || xtun->phys    != skb->dev) {
 
-                printk("XTUN: VID ?? - UPDATING PATH\n");
+                printk("XTUN: TUNNEL %s - UPDATING PATH\n", virt->name);
 
                 //
                 xtun->eDst[0] = pkt->eSrc[0];
@@ -319,8 +319,7 @@ static int __init xtun_init(void) {
 
         xtun_cfg_s* const cfg = &cfgs[tid];
 
-        printk("XTUN: VID %u - INITIALIZING WITH VIRT %s PHYS %s\n", tid,
-            cfg->virt, cfg->phys);
+        printk("XTUN: TUNNEL %s - INITIALIZING WITH PHYS %s\n", cfg->virt, cfg->phys);
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
 
@@ -328,7 +327,7 @@ static int __init xtun_init(void) {
 
             if (phys->rx_handler != xtun_in) {
                 if (!netdev_rx_handler_register(phys, xtun_in, NULL)) {
-                    printk("XTUN: HOOKED ON INTERFACE %s\n", phys->name);
+                    printk("XTUN: INTERFACE %s: HOOKED\n", phys->name);
                     phys->hard_header_len += XTUN_ALIGNED_SIZE - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
                     phys->min_header_len  += XTUN_ALIGNED_SIZE - ETH_HLEN;
                 }
@@ -368,16 +367,22 @@ static int __init xtun_init(void) {
                         virts[tid] = virt;
 
                         continue;
+
                     }
 
+                    printk("XTUN: TUNNEL %s - CREATE FAILED - COULD NOT REGISTER\n", cfg->virt);
+
                     free_netdev(virt);
-                }
-            }
+
+                } else
+                    printk("XTUN: TUNNEL %s - CREATE FAILED - COULD NOT ALLOCATE\n", cfg->virt);
+            } else
+                printk("XTUN: TUNNEL %s - CREATE FAILED - COULD NOT HOOK PHYS\n", cfg->virt);
 
             dev_put(phys);
-        }
 
-        printk("XTUN: VID %u - FAILED TO CREATE\n", tid);
+        } else
+            printk("XTUN: TUNNEL %s - CREATE FAILED - COULD NOT FIND PHYS\n", cfg->virt);
 
         virts[tid] = NULL;
     }
