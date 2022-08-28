@@ -230,12 +230,10 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: skb->len <= xtun->phys->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: PTR(pkt) >= PTR(skb->head)
 
-    xtun_s* const xtun = netdev_priv(dev);
-
-    xtun_s* const pkt = PTR(skb_mac_header(skb)) - XTUN_ALIGNED_SIZE;
-
     // ENCAPSULATE
-    memcpy(pkt, xtun, XTUN_ALIGNED_SIZE);
+    xtun_s* const pkt = PTR(skb_mac_header(skb)) - sizeof(xtun_s);
+
+    memcpy(pkt, netdev_priv(dev), sizeof(xtun_s));
 
     pkt->uSize  = BE16(0);
     pkt->iSize  = BE16(0);
