@@ -88,8 +88,8 @@ typedef struct xtun_s {
 } xtun_s;
 
 typedef struct xtun_cfg_s {
-    const char* virt;
-    const char* phys;
+    const char virt[IFNAMSIZ];
+    const char phys[IFNAMSIZ];
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
     u8  iTOS;
@@ -310,7 +310,7 @@ static int __init xtun_init(void) {
 #define _A4(x) x[0], x[1], x[2], x[3]
         printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s TOS 0x%02X TTL %u"
             " SRC #%u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
-            " DST #%u %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
+            " DST #%u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
             "\n",
             cfg->virt,
             cfg->phys, cfg->iTOS, cfg->iTTL,
