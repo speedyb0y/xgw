@@ -104,19 +104,18 @@ typedef struct xtun_cfg_s {
 
 #define XTUN_AUTH_SIZE ((AUTH_REGISTERS_N*2 + AUTH_RANDOMS_N)*sizeof(u64))
 
+#define AUTH_REGISTERS_N 4
+#define AUTH_RANDOMS_N 128
+
 #define AUTH_REGISTER_0 0x0000000000000000ULL
 #define AUTH_REGISTER_1 0x0000000000000000ULL
 #define AUTH_REGISTER_2 0x0000000000000000ULL
 #define AUTH_REGISTER_3 0x0000000000000000ULL
 
-#define AUTH_X 4
-#define AUTH_Y 3
-
-#define AUTH_A 0x34234340ULL
-#define AUTH_B 0x32432432ULL
-
-#define AUTH_REGISTERS_N 4
-#define AUTH_RANDOMS_N 128
+#define AUTH_0_ADD_1_SHIFT 4
+#define AUTH_2_ADD_3_SHIFT 3
+#define AUTH_1_ADD 0x34234340ULL
+#define AUTH_3_ADD 0x32432432ULL
 
 #define AUTH_INIT_0 0
 #define AUTH_INIT_1 3
@@ -148,10 +147,10 @@ static inline u32 computa (xtun_auth_s* const auth) {
         register2 += auth->randoms[register1 % AUTH_RANDOMS_N];
         register3 += auth->randoms[register0 % AUTH_RANDOMS_N];
 
-        register0 += register2 >> AUTH_X;        
-        register3 += register1 >> AUTH_Y;
-        register1 += AUTH_A;
-        register2 += AUTH_B;        
+        register0 += register1 >> AUTH_0_ADD_1_SHIFT;        
+        register2 += register3 >> AUTH_2_ADD_3_SHIFT;
+        register1 += AUTH_1_ADD;
+        register3 += AUTH_3_ADD;        
     }
 
     const uint ok = (
