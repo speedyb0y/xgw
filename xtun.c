@@ -90,8 +90,8 @@ typedef struct xtun_s {
 typedef struct xtun_cfg_s {
     const char* virt;
     const char* phys;
-    u16 eDst[ETH_ALEN/sizeof(u16)];
-    u16 eSrc[ETH_ALEN/sizeof(u16)];
+    u8  eDst[ETH_ALEN];
+    u8  eSrc[ETH_ALEN];
     u8  iTOS;
     u8  iTTL;
     u16 iID;
@@ -111,9 +111,9 @@ typedef struct xtun_cfg_s {
 
 #define TUNS_N (sizeof(cfgs)/sizeof(cfgs[0]))
 
-#define __MAC(a,b,c,d) a ## b ## c ## d
-#define _MAC(a,b) __MAC(0x,a,b,U)
-#define MAC(a,b,c,d,e,f) { _MAC(a,b), _MAC(c,d), _MAC(e,f) }
+#define __MAC(a,b,c) a ## b ## c
+#define _MAC(x) __MAC(0x,x,U)
+#define MAC(a,b,c,d,e,f) { _MAC(a), _MAC(b), _MAC(c), _MAC(d), _MAC(e), _MAC(f) }
 
 static xtun_cfg_s cfgs[] = {
     { .virt = "xgw-0", .iID = 0, .phys = "isp-0", .iTOS = 0, .iTTL = 64,
@@ -306,15 +306,16 @@ static int __init xtun_init(void) {
 
         xtun_cfg_s* const cfg = &cfgs[tid];
 
-#define _IP(x) x[0], x[1], x[2], x[3]
+#define _A6(x) x[0], x[1], x[2], x[3], x[4], x[5]
+#define _A4(x) x[0], x[1], x[2], x[3]
         printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s TOS 0x%02X TTL %u"
-            " SRC #%u MAC %04X:%04X:%04X IP %u.%u.%u.%u PORT %u"
-            " DST #%u MAC %04X:%04X:%04X IP %u.%u.%u.%u PORT %u"
+            " SRC #%u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
+            " DST #%u %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
             "\n",
             cfg->virt,
             cfg->phys, cfg->iTOS, cfg->iTTL,
-                 tid, cfg->eSrc[0], cfg->eSrc[1], cfg->eSrc[2], _IP(cfg->iSrc), cfg->uSrc,
-            cfg->iID, cfg->eDst[0], cfg->eDst[1], cfg->eDst[2], _IP(cfg->iDst), cfg->uDst
+                 tid, _A6(cfg->eSrc), _A4(cfg->iSrc), cfg->uSrc,
+            cfg->iID, _A6(cfg->eDst), _A4(cfg->iDst), cfg->uDst
             );
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
@@ -346,12 +347,12 @@ static int __init xtun_init(void) {
                         xtun->phys       =  phys;
                         xtun->hash       =  0;
                         xtun->id         =  tid;
-                        xtun->eDst[0]    =  BE16(cfg->eDst[0]);
-                        xtun->eDst[1]    =  BE16(cfg->eDst[1]);
-                        xtun->eDst[2]    =  BE16(cfg->eDst[2]);
-                        xtun->eSrc[0]    =  BE16(cfg->eSrc[0]);
-                        xtun->eSrc[1]    =  BE16(cfg->eSrc[1]);
-                        xtun->eSrc[2]    =  BE16(cfg->eSrc[2]);
+                        xtun->eDst[0]    =  BE16(((u16*)cfg->eDst)[0]);
+                        xtun->eDst[1]    =  BE16(((u16*)cfg->eDst)[1]);
+                        xtun->eDst[2]    =  BE16(((u16*)cfg->eDst)[2]);
+                        xtun->eSrc[0]    =  BE16(((u16*)cfg->eSrc)[0]);
+                        xtun->eSrc[1]    =  BE16(((u16*)cfg->eSrc)[1]);
+                        xtun->eSrc[2]    =  BE16(((u16*)cfg->eSrc)[2]);
                         xtun->eType      =  BE16(ETH_P_IP);
                         xtun->iVersion   =  BE8(0x45);
                         xtun->iTOS       =  BE8(cfg->iTOS);
