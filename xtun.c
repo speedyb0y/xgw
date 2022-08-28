@@ -50,12 +50,6 @@ static inline u16 BE16(u16 x) { return __builtin_bswap16(x); }
 static inline u32 BE32(u32 x) { return __builtin_bswap32(x); }
 static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
-#ifdef NET_SKBUFF_DATA_USES_OFFSET
-#define SKB_LEN(skb) ((skb)->head + (skb)->tail - (skb)->data)
-#else
-#define SKB_LEN(skb) ((skb)->tail - (skb)->data)
-#endif
-
 #define CACHE_LINE_SIZE 64
 
 #define XTUN_ALIGNED_SIZE CACHE_LINE_SIZE
@@ -211,7 +205,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
             skb->network_header   =
             skb->transport_header =
                 skb->data - skb->head;
-            skb->len = SKB_LEN(skb);
+#ifdef NET_SKBUFF_DATA_USES_OFFSET
+            skb->len = skb->head + skb->tail - skb->data;
+#else
+            skb->len = skb->tail - skb->data;
+#endif
             skb->dev = virt;
             skb->protocol = pkt->eType;
 
@@ -227,22 +225,26 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: skb->len <= xtun->mtu
     // ASSERT: skb->len <= xtun->virt->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->phys->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
-    // ASSERT: PTR(pkt) >= PTR(skb->head)
 
     // ENCAPSULATE
-    xtun_s* const pkt = PTR(skb_mac_header(skb)) - sizeof(xtun_s);
+    xtun_s* const pkt = PTR(skb->data) - sizeof(xtun_s);
+
+    // ASSERT: PTR(skb_mac_header(skb)) == PTR(skb->data)
+    // ASSERT: PTR(pkt) >= PTR(skb->head)
 
     memcpy(pkt, netdev_priv(dev), sizeof(xtun_s));
 
-    pkt->uSize  = BE16(0);
-    pkt->iSize  = BE16(0);
-    pkt->iCksum = BE16(0);
+    const uint len = skb->len;
+
+    pkt->uSize  = BE16(len + 8);
+    pkt->iSize  = BE16(len + 28);
+    pkt->iCksum = ip_fast_csum((void*)pkt, 5);
 
     skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
     skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
     skb->mac_header       = PTR(pkt)            - PTR(skb->head);
     skb->data             = PTR(pkt);
-    skb->len              = SKB_LEN(skb);
+    skb->len              = len + XTUN_WIRE_SIZE;
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
