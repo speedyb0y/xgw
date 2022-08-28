@@ -228,32 +228,30 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: skb->len <= xtun->mtu
     // ASSERT: skb->len <= xtun->virt->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->phys->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
+    // ASSERT: PTR(pkt) >= PTR(skb->head)
 
     xtun_s* const xtun = netdev_priv(dev);
 
-    if (xtun->phys) {
+    xtun_s* const pkt = PTR(skb_mac_header(skb)) - XTUN_ALIGNED_SIZE;
 
-        xtun_s* const pkt = PTR(skb_mac_header(skb)) - XTUN_ALIGNED_SIZE;
+    // ENCAPSULATE
+    memcpy(pkt, xtun, XTUN_ALIGNED_SIZE);
 
-        BUG_ON(PTR(pkt) < PTR(skb->head));
+    pkt->uSize  = BE16(0);
+    pkt->iSize  = BE16(0);
+    pkt->iCksum = BE16(0);
 
-        // ENCAPSULATE
-        memcpy(pkt, xtun, XTUN_ALIGNED_SIZE);
+    skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
+    skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
+    skb->mac_header       = PTR(pkt)            - PTR(skb->head);
+    skb->data             = PTR(pkt);
+    skb->len              = SKB_LEN(skb);
+    skb->protocol         = BE16(ETH_P_IP);
+    skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
+    skb->mac_len          = ETH_HLEN;
 
-        pkt->uSize  = BE16(0);
-        pkt->iSize  = BE16(0);
-        pkt->iCksum = BE16(0);
-
-        skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
-        skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
-        skb->mac_header       = PTR(pkt)            - PTR(skb->head);
-        skb->data             = PTR(pkt);
-        skb->len              = SKB_LEN(skb);
-        skb->protocol         = BE16(ETH_P_IP);
-        skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
-        skb->mac_len          = ETH_HLEN;
-        skb->dev              = xtun->phys;
-
+    if (pkt->phys) {
+        skb->dev = pkt->phys;
         // THE FUNCTION CAN BE CALLED FROM AN INTERRUPT
         // WHEN CALLING THIS METHOD, INTERRUPTS MUST BE ENABLED
         dev_queue_xmit(skb);
