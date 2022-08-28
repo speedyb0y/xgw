@@ -319,11 +319,14 @@ static int __init xtun_init(void) {
 
         xtun_cfg_s* const cfg = &cfgs[tid];
 
-        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s SRC %u 0x%08X DST #%u 0x%08X\n",
+        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s"
+            " SRC #%u CODE 0x%08X IP 0x%08X PORT %u"
+            " DST #%u CODE 0x%08X IP 0x%08X PORT %u"
+            "\n",
             cfg->virt,
             cfg->phys,
-            cfg->xSrcID, cfg->xSrcCode,
-            cfg->xDstID, cfg->xDstCode
+            cfg->xSrcID, cfg->xSrcCode, cfg->iSrc, cfg->uSrc,
+            cfg->xDstID, cfg->xDstCode, cfg->iDst, cfg->uDst
             );
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
