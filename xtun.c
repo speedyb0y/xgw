@@ -64,7 +64,7 @@ typedef struct xtun_s {
     net_device_s* phys;
     u64 hash; // THE PATH HASH
     u32 _x;
-    u16 ID; // TODO: "ENVIA COM DESTINO AO TUNEL Y DO PEER; O PEER SABE QUE SEU TUNEL Y CORRESPONDE AO MEU TUNEL X"
+    u16 id; // TODO: "ENVIA COM DESTINO AO TUNEL Y DO PEER; O PEER SABE QUE SEU TUNEL Y CORRESPONDE AO MEU TUNEL X"
 #define ETH_HDR_SIZE 14
     u16 eDst[ETH_ALEN/sizeof(u16)];
     u16 eSrc[ETH_ALEN/sizeof(u16)];
@@ -73,7 +73,7 @@ typedef struct xtun_s {
     u8  iVersion;
     u8  iTOS;
     u16 iSize;
-    u16 xID; // YOUR TUNNEL ID
+    u16 iID; // YOUR TUNNEL ID
     u16 iFrag;
     u8  iTTL;
     u8  iProtocol;
@@ -90,15 +90,19 @@ typedef struct xtun_s {
 typedef struct xtun_cfg_s {
     const char* virt;
     const char* phys;
-    u16  eDst[ETH_ALEN/sizeof(u16)];
-    u16  eSrc[ETH_ALEN/sizeof(u16)];
-    //u32 _x;
-    //u16 _y;
+    u16 eDst[ETH_ALEN/sizeof(u16)];
+    u16 eSrc[ETH_ALEN/sizeof(u16)];
     u8  iTOS;
     u8  iTTL;
-    u16 xID;
-    u32 iSrc;
-    u32 iDst;
+    u16 iID;
+    union {
+        u32 iSrc32;
+        u8  iSrc[4];
+    };
+    union {
+        u32 iDst32;
+        u8  iDst[4];
+    };
     u16 uSrc;
     u16 uDst;
 } xtun_cfg_s;
@@ -111,20 +115,18 @@ typedef struct xtun_cfg_s {
 #define _MAC(a,b) __MAC(0x,a,b,U)
 #define MAC(a,b,c,d,e,f) { _MAC(a,b), _MAC(c,d), _MAC(e,f) }
 
-#define IP4(a,b,c,d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
-
 static xtun_cfg_s cfgs[] = {
-    { .virt = "xgw-0", .xID = 0, .phys = "isp-0", .iTOS = 0, .iTTL = 64,
-        .eSrc = MAC(d0,50,99,10,10,10), .iSrc = IP4(192,168,0,20),    .uSrc = 2000,
-        .eDst = MAC(54,9F,06,F4,C7,A0), .iDst = IP4(200,200,200,200), .uDst = 3000,
+    { .virt = "xgw-0", .iID = 0, .phys = "isp-0", .iTOS = 0, .iTTL = 64,
+        .eSrc = MAC(d0,50,99,10,10,10), .iSrc = {192,168,0,20},    .uSrc = 2000,
+        .eDst = MAC(54,9F,06,F4,C7,A0), .iDst = {200,200,200,200}, .uDst = 3000,
     },
-    { .virt = "xgw-1", .xID = 1, .phys = "isp-1", .iTOS = 0, .iTTL = 64,
-        .eSrc = MAC(d0,50,99,11,11,11), .iSrc = IP4(192,168,100,20),  .uSrc = 2111,
-        .eDst = MAC(CC,ED,21,96,99,C0), .iDst = IP4(200,200,200,200), .uDst = 3111,
+    { .virt = "xgw-1", .iID = 1, .phys = "isp-1", .iTOS = 0, .iTTL = 64,
+        .eSrc = MAC(d0,50,99,11,11,11), .iSrc = {192,168,100,20},  .uSrc = 2111,
+        .eDst = MAC(CC,ED,21,96,99,C0), .iDst = {200,200,200,200}, .uDst = 3111,
     },
-    { .virt = "xgw-2", .xID = 2, .phys = "isp-2", .iTOS = 0, .iTTL = 64,
-        .eSrc = MAC(d0,50,99,12,12,12), .iSrc = IP4(192,168,1,20),    .uSrc = 2222,
-        .eDst = MAC(90,55,DE,A1,CD,F0), .iDst = IP4(200,200,200,200), .uDst = 3222,
+    { .virt = "xgw-2", .iID = 2, .phys = "isp-2", .iTOS = 0, .iTTL = 64,
+        .eSrc = MAC(d0,50,99,12,12,12), .iSrc = {192,168,1,20},    .uSrc = 2222,
+        .eDst = MAC(90,55,DE,A1,CD,F0), .iDst = {200,200,200,200}, .uDst = 3222,
     },
 };
 
@@ -134,7 +136,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
     xtun_s* const pkt = PTR(skb_mac_header(skb));
-    net_device_s* const virt = virts[BE8(pkt->xID) % TUNS_N];
+    net_device_s* const virt = virts[BE8(pkt->iID) % TUNS_N];
     xtun_s* const xtun = netdev_priv(virt);
    
     const u64 hash = (u64)(uintptr_t)skb->dev
@@ -144,7 +146,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
       + ((u64)pkt->eSrc[0] << 12)
       + ((u64)pkt->eSrc[1] << 16)
       + ((u64)pkt->eSrc[2] << 20)
-      + ((u64)pkt->xID     << 24)
+      + ((u64)pkt->iID     << 24)
       + ((u64)pkt->iSrc    << 32)
       + ((u64)pkt->iDst    << 36)
       + ((u64)pkt->uSrc    << 40)
@@ -156,7 +158,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         // THIS IS NOT THE KNOWN PATH
 
         if (pkt->uDst      != xtun->uSrc // TEM QUE SER NA PORTA EM QUE ESTE TUNEL ESTA ESCUTANDO
-         || pkt->xID       != xtun->ID
+         || pkt->iID       != xtun->id
          || pkt->iProtocol != BE8(IPPROTO_UDP)
          || pkt->iVersion  != BE8(0x45)
          || pkt->eType     != BE16(ETH_P_IP)
@@ -304,14 +306,15 @@ static int __init xtun_init(void) {
 
         xtun_cfg_s* const cfg = &cfgs[tid];
 
+#define _IP(x) x[0], x[1], x[2], x[3]
         printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s TOS 0x%02X TTL %u"
-            " SRC #%u MAC %04X:%04X:%04X IP 0x%08X PORT %u"
-            " DST #%u MAC %04X:%04X:%04X IP 0x%08X PORT %u"
+            " SRC #%u MAC %04X:%04X:%04X IP %u.%u.%u.%u PORT %u"
+            " DST #%u MAC %04X:%04X:%04X IP %u.%u.%u.%u PORT %u"
             "\n",
             cfg->virt,
             cfg->phys, cfg->iTOS, cfg->iTTL,
-                 tid, cfg->eSrc[0], cfg->eSrc[1], cfg->eSrc[2], cfg->iSrc, cfg->uSrc,
-            cfg->xID, cfg->eDst[0], cfg->eDst[1], cfg->eDst[2], cfg->iDst, cfg->uDst
+                 tid, cfg->eSrc[0], cfg->eSrc[1], cfg->eSrc[2], _IP(cfg->iSrc), cfg->uSrc,
+            cfg->iID, cfg->eDst[0], cfg->eDst[1], cfg->eDst[2], _IP(cfg->iDst), cfg->uDst
             );
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
@@ -342,7 +345,7 @@ static int __init xtun_init(void) {
 
                         xtun->phys       =  phys;
                         xtun->hash       =  0;
-                        xtun->ID         =  tid;
+                        xtun->id         =  tid;
                         xtun->eDst[0]    =  BE16(cfg->eDst[0]);
                         xtun->eDst[1]    =  BE16(cfg->eDst[1]);
                         xtun->eDst[2]    =  BE16(cfg->eDst[2]);
@@ -353,13 +356,13 @@ static int __init xtun_init(void) {
                         xtun->iVersion   =  BE8(0x45);
                         xtun->iTOS       =  BE8(cfg->iTOS);
                         xtun->iSize      =  BE16(0);
-                        xtun->xID        =  BE16(cfg->xID);
+                        xtun->iID        =  BE16(cfg->iID);
                         xtun->iFrag      =  BE16(0);
                         xtun->iTTL       =  BE8(cfg->iTTL);
                         xtun->iProtocol  =  BE8(IPPROTO_UDP);
                         xtun->iCksum     =  BE16(0);
-                        xtun->iSrc       =  BE32(cfg->iSrc);
-                        xtun->iDst       =  BE32(cfg->iDst);
+                        xtun->iSrc       =  BE32(cfg->iSrc32);
+                        xtun->iDst       =  BE32(cfg->iDst32);
                         xtun->uSrc       =  BE16(cfg->uSrc);
                         xtun->uDst       =  BE16(cfg->uDst);
                         xtun->uSize      =  BE16(0);
