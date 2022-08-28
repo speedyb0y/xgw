@@ -114,8 +114,9 @@ typedef struct xtun_cfg_s {
 
 #define IP4(a,b,c,d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
 
-#define XTUN_CFG(v, p, seth, sip, sudp, deth, dip, dudp) { \
+#define XTUN_CFG(v, c, p, seth, sip, sudp, deth, dip, dudp) { \
     .virt = v, \
+    .xCode = c, \
     .phys = p, \
     .eSrc = seth, \
     .eDst = deth, \
@@ -126,15 +127,15 @@ typedef struct xtun_cfg_s {
     }
 
 static xtun_cfg_s cfgs[] = {
-    XTUN_CFG("xgw-0", "isp-0",
+    XTUN_CFG("xgw-0", 0x2562564650465ULL, "isp-0",
         MAC(d0,50,99,10,10,10), IP4(192,168,0,20),    2000,
         MAC(54,9F,06,F4,C7,A0), IP4(200,200,200,200), 3000
     ),
-    XTUN_CFG("xgw-1", "isp-1",
+    XTUN_CFG("xgw-1", 0x2562564650465ULL, "isp-1",
         MAC(d0,50,99,11,11,11), IP4(192,168,100,20),  2111,
         MAC(CC,ED,21,96,99,C0), IP4(200,200,200,200), 3111
     ),
-    XTUN_CFG("xgw-2", "isp-2",
+    XTUN_CFG("xgw-2", 0x2562564650465ULL, "isp-2",
         MAC(d0,50,99,12,12,12), IP4(192,168,1,20),    2222,
         MAC(90,55,DE,A1,CD,F0), IP4(200,200,200,200), 3222
     ),
