@@ -94,8 +94,8 @@ typedef struct xtun_cfg_s {
     u16  eSrc[ETH_ALEN/sizeof(u16)];
     //u32 _x;
     //u16 _y;
-    //u8  iTOS;
-    //u8  iTTL;
+    u8  iTOS;
+    u8  iTTL;
     u16 xID;
     u32 iSrc;
     u32 iDst;
@@ -113,31 +113,19 @@ typedef struct xtun_cfg_s {
 
 #define IP4(a,b,c,d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
 
-#define XTUN_CFG(v, c, x, p, seth, sip, sudp, deth, dip, dudp) { \
-    .virt = v, \
-    .phys = p, \
-    .xID = x, \
-    .eSrc = seth, \
-    .eDst = deth, \
-    .iSrc = sip, \
-    .iDst = dip, \
-    .uSrc = sudp, \
-    .uDst = dudp, \
-    }
-
 static xtun_cfg_s cfgs[] = {
-    XTUN_CFG("xgw-0", 0x4442562564650465ULL, 0, "isp-0",
-        MAC(d0,50,99,10,10,10), IP4(192,168,0,20),    2000,
-        MAC(54,9F,06,F4,C7,A0), IP4(200,200,200,200), 3000
-    ),
-    XTUN_CFG("xgw-1", 0x4442562564650465ULL, 1, "isp-1",
-        MAC(d0,50,99,11,11,11), IP4(192,168,100,20),  2111,
-        MAC(CC,ED,21,96,99,C0), IP4(200,200,200,200), 3111
-    ),
-    XTUN_CFG("xgw-2", 0x4442562564650465ULL, 2, "isp-2",
-        MAC(d0,50,99,12,12,12), IP4(192,168,1,20),    2222,
-        MAC(90,55,DE,A1,CD,F0), IP4(200,200,200,200), 3222
-    ),
+    { .virt = "xgw-0", .xID = 0, .phys = "isp-0", .iTOS = 0, .iTTL = 64,
+        .eSrc = MAC(d0,50,99,10,10,10), .iSrc = IP4(192,168,0,20),    .uSrc = 2000,
+        .eDst = MAC(54,9F,06,F4,C7,A0), .iDst = IP4(200,200,200,200), .uDst = 3000,
+    },
+    { .virt = "xgw-1", .xID = 1, .phys = "isp-1", .iTOS = 0, .iTTL = 64,
+        .eSrc = MAC(d0,50,99,11,11,11), .iSrc = IP4(192,168,100,20),  .uSrc = 2111,
+        .eDst = MAC(CC,ED,21,96,99,C0), .iDst = IP4(200,200,200,200), .uDst = 3111,
+    },
+    { .virt = "xgw-2", .xID = 2, .phys = "isp-2", .iTOS = 0, .iTTL = 64,
+        .eSrc = MAC(d0,50,99,12,12,12), .iSrc = IP4(192,168,1,20),    .uSrc = 2222,
+        .eDst = MAC(90,55,DE,A1,CD,F0), .iDst = IP4(200,200,200,200), .uDst = 3222,
+    },
 };
 
 static net_device_s* virts[TUNS_N];
@@ -316,12 +304,12 @@ static int __init xtun_init(void) {
 
         xtun_cfg_s* const cfg = &cfgs[tid];
 
-        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s"
+        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s TOS 0x%02X TTL %u"
             " SRC #%u MAC %04X:%04X:%04X IP 0x%08X PORT %u"
             " DST #%u MAC %04X:%04X:%04X IP 0x%08X PORT %u"
             "\n",
             cfg->virt,
-            cfg->phys,
+            cfg->phys, cfg->iTOS, cfg->iTTL,
                  tid, cfg->eSrc[0], cfg->eSrc[1], cfg->eSrc[2], cfg->iSrc, cfg->uSrc,
             cfg->xID, cfg->eDst[0], cfg->eDst[1], cfg->eDst[2], cfg->iDst, cfg->uDst
             );
@@ -363,11 +351,11 @@ static int __init xtun_init(void) {
                         xtun->eSrc[2]    =  BE16(cfg->eSrc[2]);
                         xtun->eType      =  BE16(ETH_P_IP);
                         xtun->iVersion   =  BE8(0x45);
-                        xtun->iTOS       =  BE8(0);
+                        xtun->iTOS       =  BE8(cfg->iTOS);
                         xtun->iSize      =  BE16(0);
                         xtun->xID        =  BE16(cfg->xID);
                         xtun->iFrag      =  BE16(0);
-                        xtun->iTTL       =  BE8(64);
+                        xtun->iTTL       =  BE8(cfg->iTTL);
                         xtun->iProtocol  =  BE8(IPPROTO_UDP);
                         xtun->iCksum     =  BE16(0);
                         xtun->iSrc       =  BE32(cfg->iSrc);
