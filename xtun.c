@@ -54,7 +54,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define XTUN_ALIGNED_SIZE CACHE_LINE_SIZE
 
-#define XTUN_WIRE_SIZE     (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE + XTUN_HDR_SIZE)
+#define XTUN_HDR_SIZE_ETH  (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE + XTUN_HDR_SIZE)
 #define XTUN_WIRE_SIZE_IP  (               IP4_HDR_SIZE + UDP_HDR_SIZE + XTUN_HDR_SIZE)
 #define XTUN_WIRE_SIZE_UDP (                              UDP_HDR_SIZE + XTUN_HDR_SIZE)
 
@@ -62,8 +62,8 @@ typedef struct xtun_s {
     //
     net_device_s* phys;
 #define ETH_HDR_SIZE 14
-    u16  eDst[ETH_ALEN/sizeof(u16)];
-    u16  eSrc[ETH_ALEN/sizeof(u16)];
+    u16 eDst[ETH_ALEN/sizeof(u16)];
+    u16 eSrc[ETH_ALEN/sizeof(u16)];
     u16 eType;
 #define IP4_HDR_SIZE 20
     u8  iVersion;
@@ -88,22 +88,17 @@ typedef struct xtun_s {
 } xtun_s;
 
 typedef struct xtun_cfg_s {
-    //
     const char* virt;
     const char* phys;
-    // ETHERNET
     u16  eDst[ETH_ALEN/sizeof(u16)];
     u16  eSrc[ETH_ALEN/sizeof(u16)];
-    // IP
     //u8  iTOS;
     //u16 iID;
     //u8  iTTL;
     u32 iSrc;
     u32 iDst;
-    // UDP
     u16 uSrc;
     u16 uDst;
-    // XTUN
     u8  xSrc; // SOURCE ID
     u8  xDst; // DESTINATION ID
     u64 xCode;
@@ -202,7 +197,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
             // DESENCAPSULA
             skb->mac_len          = 0;
-            skb->data             = PTR(pkt) + XTUN_WIRE_SIZE;
+            skb->data             = PTR(pkt) + XTUN_HDR_SIZE_ETH;
             skb->mac_header       =
             skb->network_header   =
             skb->transport_header =
@@ -237,17 +232,15 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
     memcpy(pkt, netdev_priv(dev), sizeof(xtun_s));
 
-    const uint len = skb->len;
-
-    pkt->uSize  = BE16(len + XTUN_WIRE_SIZE_UDP);
-    pkt->iSize  = BE16(len + XTUN_WIRE_SIZE_IP);
+    pkt->uSize  = BE16(skb->len + XTUN_WIRE_SIZE_UDP);
+    pkt->iSize  = BE16(skb->len + XTUN_WIRE_SIZE_IP);
     pkt->iCksum = ip_fast_csum((void*)pkt, 5);
 
     skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
     skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
     skb->mac_header       = PTR(pkt)            - PTR(skb->head);
     skb->data             = PTR(pkt);
-    skb->len              = len + XTUN_WIRE_SIZE;
+    skb->len             += XTUN_HDR_SIZE_ETH;
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
@@ -296,11 +289,11 @@ static void xtun_dev_setup (net_device_s* const dev) {
     dev->netdev_ops      = &xtunDevOps;
     dev->header_ops      = &xtunHeaderOps;
     dev->type            = ARPHRD_NONE;
-    dev->hard_header_len = XTUN_WIRE_SIZE; // ETH_HLEN
-    dev->min_header_len  = XTUN_WIRE_SIZE;
-    dev->mtu             = 1500 - 28 - XTUN_WIRE_SIZE; // ETH_DATA_LEN
-    dev->min_mtu         = 1500 - 28 - XTUN_WIRE_SIZE; // ETH_MIN_MTU
-    dev->max_mtu         = 1500 - 28 - XTUN_WIRE_SIZE; // ETH_MAX_MTU
+    dev->hard_header_len = XTUN_HDR_SIZE_ETH; // ETH_HLEN
+    dev->min_header_len  = XTUN_HDR_SIZE_ETH;
+    dev->mtu             = 1500 - 28 - XTUN_HDR_SIZE_ETH; // ETH_DATA_LEN
+    dev->min_mtu         = 1500 - 28 - XTUN_HDR_SIZE_ETH; // ETH_MIN_MTU
+    dev->max_mtu         = 1500 - 28 - XTUN_HDR_SIZE_ETH; // ETH_MAX_MTU
     dev->addr_len        = 0;
     dev->tx_queue_len    = 0; // EFAULT_TX_QUEUE_LEN
     dev->flags           = IFF_NOARP; // IFF_BROADCAST | IFF_MULTICAST
