@@ -41,12 +41,10 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define CACHE_LINE_SIZE 64
 
+#define XTUN_SIZE     CACHE_LINE_SIZE
 #define XTUN_SIZE_ETH (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE)
 #define XTUN_SIZE_IP  (               IP4_HDR_SIZE + UDP_HDR_SIZE)
 #define XTUN_SIZE_UDP (                              UDP_HDR_SIZE)
-
-// EXPECTED SIZE
-#define XTUN_SIZE CACHE_LINE_SIZE
 
 typedef struct xtun_s {
     net_device_s* phys;
@@ -90,7 +88,7 @@ typedef struct xtun_cfg_s {
     u32 key;
 } xtun_cfg_s;
 
-#define XTUN_AUTH_SIZE ((AUTH_REGISTERS_N*2 + AUTH_RANDOMS_N)*sizeof(u64))
+#define XTUN_AUTH_SIZE ((AUTH_REGISTERS_N + AUTH_RANDOMS_N)*sizeof(u64))
 
 #define AUTH_REGISTERS_N 4
 #define AUTH_RANDOMS_N 128
@@ -116,37 +114,43 @@ typedef struct xtun_cfg_s {
 #define AUTH_VERIFY_3 2
 
 typedef struct xtun_auth_s {
-    u64 registers[AUTH_REGISTERS_N]; // INICIA OS REGISTROS
     u64 verify   [AUTH_REGISTERS_N]; // COMO OS REGISTROS TERMINAM
     u64 randoms  [AUTH_RANDOMS_N];
 } xtun_auth_s;
 
 static inline u32 computa (xtun_auth_s* const auth) {
 
-    u64 register0 = AUTH_REGISTER_0 + auth->registers[AUTH_INIT_0];
-    u64 register1 = AUTH_REGISTER_1 + auth->registers[AUTH_INIT_1];
-    u64 register2 = AUTH_REGISTER_2 + auth->registers[AUTH_INIT_2];
-    u64 register3 = AUTH_REGISTER_3 + auth->registers[AUTH_INIT_3];
+    uint ok;
 
-    for (uint i = 0; i != AUTH_REGISTERS_N; i++) {
+    u64 register0 = AUTH_REGISTER_0 + auth->randoms[AUTH_INIT_0];
+    u64 register1 = AUTH_REGISTER_1 + auth->randoms[AUTH_INIT_1];
+    u64 register2 = AUTH_REGISTER_2 + auth->randoms[AUTH_INIT_2];
+    u64 register3 = AUTH_REGISTER_3 + auth->randoms[AUTH_INIT_3];
 
-        register0 += auth->randoms[register3 % AUTH_RANDOMS_N];
-        register1 += auth->randoms[register2 % AUTH_RANDOMS_N];
-        register2 += auth->randoms[register1 % AUTH_RANDOMS_N];
-        register3 += auth->randoms[register0 % AUTH_RANDOMS_N];
+    for (uint c = 8; c; c--) {
 
         register0 += register1 >> AUTH_0_ADD_1_SHIFT;
         register2 += register3 >> AUTH_2_ADD_3_SHIFT;
         register1 += AUTH_1_ADD;
         register3 += AUTH_3_ADD;
-    }
 
-    const uint ok = (
-        register0 == auth->verify[AUTH_VERIFY_0] &&
-        register1 == auth->verify[AUTH_VERIFY_1] &&
-        register2 == auth->verify[AUTH_VERIFY_2] &&
-        register3 == auth->verify[AUTH_VERIFY_3]
-    );
+        register0 += auth->randoms[register3 & (AUTH_RANDOMS_N - 1)];
+        register1 += auth->randoms[register2 & (AUTH_RANDOMS_N - 1)];
+        register2 += auth->randoms[register1 & (AUTH_RANDOMS_N - 1)];
+        register3 += auth->randoms[register0 & (AUTH_RANDOMS_N - 1)];
+
+        register0 += auth->randoms[register1 & (AUTH_RANDOMS_N - 1)];
+        register1 += auth->randoms[register2 & (AUTH_RANDOMS_N - 1)];
+        register2 += auth->randoms[register3 & (AUTH_RANDOMS_N - 1)];
+        register3 += auth->randoms[register0 & (AUTH_RANDOMS_N - 1)];
+
+        if (c == 3)
+            ok =
+                register0 == auth->verify[AUTH_VERIFY_0] &&
+                register1 == auth->verify[AUTH_VERIFY_1] &&
+                register2 == auth->verify[AUTH_VERIFY_2] &&
+                register3 == auth->verify[AUTH_VERIFY_3];
+    }
 
     // JUNTA TUDO E TRANSFORMA NA KEY
     register0 += register1;
