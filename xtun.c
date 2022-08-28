@@ -114,15 +114,15 @@ typedef struct xtun_cfg_s {
 
 #define IP4(a,b,c,d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
 
-#define XTUN_CFG(v, p, mmac, mip, mport, pmac, pip, pport) { \
+#define XTUN_CFG(v, p, seth, sip, sudp, deth, dip, dudp) { \
     .virt = v, \
     .phys = p, \
-    .eSrc = pmac, \
-    .eDst = mmac, \
-    .iSrc = pip, \
-    .iDst = mip, \
-    .uSrc = pport, \
-    .uDst = mport, \
+    .eSrc = seth, \
+    .eDst = deth, \
+    .iSrc = sip, \
+    .iDst = dip, \
+    .uSrc = sudp, \
+    .uDst = dudp, \
     }
 
 static xtun_cfg_s cfgs[] = {
