@@ -63,10 +63,11 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XTUN_WIRE_SIZE (ETH_HLEN + 20 + 8 + 10)
 
 typedef struct xtun_s {
+    //
     net_device_s* phys;
     // ETHERNET
-    u8  eDst[ETH_ALEN];
-    u8  eSrc[ETH_ALEN];
+    u16  eDst[ETH_ALEN/sizeof(u16)];
+    u16  eSrc[ETH_ALEN/sizeof(u16)];
     u16 eType;
     // IP
     u8  iVersion;
@@ -96,8 +97,8 @@ typedef struct xtun_cfg_s {
     const char* virt;
     const char* phys;
     // ETHERNET
-    u8  eDst[ETH_ALEN];
-    u8  eSrc[ETH_ALEN];
+    u16  eDst[ETH_ALEN/sizeof(u16)];
+    u16  eSrc[ETH_ALEN/sizeof(u16)];
     // IP
     u8  iTOS;
     u16 iID;
@@ -118,10 +119,10 @@ typedef struct xtun_cfg_s {
 
 #define TUNS_N (sizeof(cfgs)/sizeof(cfgs[0]))
 
-#define __HEX(a,b,c) a ## b ## c
-#define _HEX(x) __HEX(0x,x,U)
+#define __MAC(a,b,c,d) a ## b ## c ## d
+#define _MAC(a,b) __MAC(0x,a,b,U)
+#define MAC(a,b,c,d,e,f) { _MAC(a,b), _MAC(c,d), _MAC(e,f) }
 
-#define MAC(a,b,c,d,e,f) { _HEX(a), _HEX(b), _HEX(c), _HEX(d), _HEX(e), _HEX(f) }
 #define IP4(a,b,c,d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
 
 #define XTUN_CFG(v, p, mmac, mip, mport, pmac, pip, pport) { \
@@ -167,6 +168,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         xtun_s* const xtun = netdev_priv(virt);
 
         if (xtun->xDstID   == pkt->xSrcID
+         && xtun->xSrcID   == pkt->xDstID
          && xtun->xDstCode == pkt->xSrcCode
          && xtun->xSrcCode == pkt->xDstCode
             ) { // IT'S AUTHENTIC
@@ -249,7 +251,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     skb->mac_len          = ETH_HLEN;
 
     if (pkt->phys) {
-        skb->dev = pkt->phys;
+        skb->dev = pkt->phys; // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
         // THE FUNCTION CAN BE CALLED FROM AN INTERRUPT
         // WHEN CALLING THIS METHOD, INTERRUPTS MUST BE ENABLED
         dev_queue_xmit(skb);
@@ -317,7 +319,12 @@ static int __init xtun_init(void) {
 
         xtun_cfg_s* const cfg = &cfgs[tid];
 
-        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s\n", cfg->virt, cfg->phys);
+        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s SRC %u 0x%08X DST #%u 0x%08X\n",
+            cfg->virt,
+            cfg->phys,
+            cfg->xSrcID, cfg->xSrcCode,
+            cfg->xDstID, cfg->xDstCode
+            );
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
 
@@ -342,6 +349,12 @@ static int __init xtun_init(void) {
                         xtun_s* const xtun = netdev_priv(virt);
 
                         xtun->phys       =  phys;
+                        xtun->eDst[0]    =  BE16(cfg->eDst[0]);
+                        xtun->eDst[1]    =  BE16(cfg->eDst[1]);
+                        xtun->eDst[2]    =  BE16(cfg->eDst[2]);
+                        xtun->eSrc[0]    =  BE16(cfg->eSrc[0]);
+                        xtun->eSrc[1]    =  BE16(cfg->eSrc[1]);
+                        xtun->eSrc[2]    =  BE16(cfg->eSrc[2]);
                         xtun->eType      =  BE16(ETH_P_IP);
                         xtun->iVersion   =  BE8(0x45);
                         xtun->iTOS       =  BE8(0);
