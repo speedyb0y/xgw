@@ -12,14 +12,9 @@
 #include <linux/net.h>
 #include <linux/if_ether.h>
 #include <linux/in.h>
-#include <linux/ipv6.h>
-#include <linux/icmp.h>
-#include <linux/proc_fs.h>
 #include <net/ip.h>
 #include <net/inet_common.h>
-#include <net/if_inet6.h>
 #include <net/addrconf.h>
-#include <uapi/linux/in6.h>
 #include <linux/module.h>
 
 typedef __u8  u8;
@@ -27,18 +22,11 @@ typedef __u16 u16;
 typedef __u32 u32;
 typedef __u64 u64;
 
-typedef signed long long int intll;
-
-typedef struct ethhdr  eth_hdr_s;
-typedef struct iphdr   ip4_hdr_s;
-typedef struct udphdr  udp_hdr_s;
 typedef struct sk_buff sk_buff_s;
 typedef struct net_device net_device_s;
 typedef struct net net_s;
 typedef struct header_ops header_ops_s;
 typedef struct net_device_ops net_device_ops_s;
-typedef struct nlattr nlattr_s;
-typedef struct netlink_ext_ack netlink_ext_ack_s;
 
 #define PTR(p) ((void*)(p))
 
@@ -53,9 +41,9 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define CACHE_LINE_SIZE 64
 
-#define XTUN_WIRE_SIZE_ETH (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE)
-#define XTUN_WIRE_SIZE_IP  (               IP4_HDR_SIZE + UDP_HDR_SIZE)
-#define XTUN_WIRE_SIZE_UDP (                              UDP_HDR_SIZE)
+#define XTUN_SIZE_ETH (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE)
+#define XTUN_SIZE_IP  (               IP4_HDR_SIZE + UDP_HDR_SIZE)
+#define XTUN_SIZE_UDP (                              UDP_HDR_SIZE)
 
 // EXPECTED SIZE
 #define XTUN_SIZE CACHE_LINE_SIZE
@@ -247,7 +235,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
-    void* const payload = PTR(skb_mac_header(skb)) + XTUN_WIRE_SIZE_ETH;
+    void* const payload = PTR(skb_mac_header(skb)) + XTUN_SIZE_ETH;
 
     xtun_s* const pkt = PTR(payload) - sizeof(xtun_s);
 
@@ -284,7 +272,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
          || pkt->iProtocol != BE8(IPPROTO_UDP)
          || pkt->iVersion  != BE8(0x45)
          || pkt->eType     != BE16(ETH_P_IP)
-         || skb->len       != (XTUN_WIRE_SIZE_ETH + XTUN_AUTH_SIZE)
+         || skb->len       != (XTUN_SIZE_ETH + XTUN_AUTH_SIZE)
         ) // IT'S NOT OUR SERVICE / TUN ID MISMATCH / IT'S NOT AUTH
             return RX_HANDLER_PASS;
 
@@ -328,7 +316,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     skb->mac_header       =
     skb->network_header   =
     skb->transport_header = payload - PTR(skb->head);
-    skb->len             -= XTUN_WIRE_SIZE_ETH;
+    skb->len             -= XTUN_SIZE_ETH;
     skb->dev              = virt;
     skb->protocol         = pkt->eType;
 
@@ -350,15 +338,15 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
     memcpy(pkt, netdev_priv(dev), sizeof(xtun_s));
 
-    pkt->uSize  = BE16(skb->len + XTUN_WIRE_SIZE_UDP);
-    pkt->iSize  = BE16(skb->len + XTUN_WIRE_SIZE_IP);
+    pkt->uSize  = BE16(skb->len + XTUN_SIZE_UDP);
+    pkt->iSize  = BE16(skb->len + XTUN_SIZE_IP);
     pkt->iCksum = ip_fast_csum((void*)pkt, 5);
 
     skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
     skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
     skb->mac_header       = PTR(&pkt->eDst)     - PTR(skb->head);
     skb->data             = PTR(&pkt->eDst);
-    skb->len             += XTUN_WIRE_SIZE_ETH;
+    skb->len             += XTUN_SIZE_ETH;
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
@@ -407,11 +395,11 @@ static void xtun_dev_setup (net_device_s* const dev) {
     dev->netdev_ops      = &xtunDevOps;
     dev->header_ops      = &xtunHeaderOps;
     dev->type            = ARPHRD_NONE;
-    dev->hard_header_len = XTUN_WIRE_SIZE_ETH; // ETH_HLEN
-    dev->min_header_len  = XTUN_WIRE_SIZE_ETH;
-    dev->mtu             = 1500 - 28 - XTUN_WIRE_SIZE_ETH; // ETH_DATA_LEN
-    dev->min_mtu         = 1500 - 28 - XTUN_WIRE_SIZE_ETH; // ETH_MIN_MTU
-    dev->max_mtu         = 1500 - 28 - XTUN_WIRE_SIZE_ETH; // ETH_MAX_MTU
+    dev->hard_header_len = XTUN_SIZE_ETH; // ETH_HLEN
+    dev->min_header_len  = XTUN_SIZE_ETH;
+    dev->mtu             = 1500 - 28 - XTUN_SIZE_ETH; // ETH_DATA_LEN
+    dev->min_mtu         = 1500 - 28 - XTUN_SIZE_ETH; // ETH_MIN_MTU
+    dev->max_mtu         = 1500 - 28 - XTUN_SIZE_ETH; // ETH_MAX_MTU
     dev->addr_len        = 0;
     dev->tx_queue_len    = 0; // EFAULT_TX_QUEUE_LEN
     dev->flags           = IFF_NOARP; // IFF_BROADCAST | IFF_MULTICAST
