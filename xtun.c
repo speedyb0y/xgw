@@ -147,10 +147,10 @@ static inline u32 computa (xtun_auth_s* const auth) {
         register2 += auth->randoms[register1 % AUTH_RANDOMS_N];
         register3 += auth->randoms[register0 % AUTH_RANDOMS_N];
 
-        register0 += register1 >> AUTH_0_ADD_1_SHIFT;        
+        register0 += register1 >> AUTH_0_ADD_1_SHIFT;
         register2 += register3 >> AUTH_2_ADD_3_SHIFT;
         register1 += AUTH_1_ADD;
-        register3 += AUTH_3_ADD;        
+        register3 += AUTH_3_ADD;
     }
 
     const uint ok = (
@@ -176,6 +176,8 @@ static inline u32 computa (xtun_auth_s* const auth) {
 
 #define XTUN_ID(xtun) ((uint)(xtun - virts))
 
+#define SKB_TAIL_PTR(skb) PTR(skb_tail_pointer(skb))
+
 #define TUNS_N (sizeof(cfgs)/sizeof(cfgs[0]))
 
 #define __MAC(a,b,c) a ## b ## c
@@ -199,11 +201,59 @@ static xtun_cfg_s cfgs[] = {
 
 static net_device_s* virts[TUNS_N];
 
+#define BYTE_X 0x33
+
+static void encode (u64 key, u8* pos, u8* const end) {
+    
+    while (pos != end) {
+
+        const uint orig = *pos;
+
+        uint value = orig;
+
+        value ^= key;
+        value &= 0xFF;
+        value |= 0x100;
+        value -= BYTE_X;
+        value ^= (value & 0xF) << 4;
+        value &= 0xFF;
+
+        key <<= 1;
+        key += orig;
+
+        *pos++ = value;
+    }
+}
+
+static void decode (u64 key, u8* pos, u8* const end) {
+    
+    while (pos != end) {
+
+        uint value = *pos;
+
+        value ^= (value & 0xF) << 4;
+        value += BYTE_X;
+        value ^= key;
+        value &= 0xFF;
+
+        key <<= 1;
+        key += value;
+
+        *pos++ = value;
+    }
+}
+
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
-    xtun_s* const pkt = PTR(skb_mac_header(skb));
+    void* const payload = PTR(skb_mac_header(skb)) + XTUN_WIRE_SIZE_ETH;
+
+    xtun_s* const pkt = PTR(payload) - sizeof(xtun_s);
+
+    // ASSERT: PTR(pkt) >= PTR(skb->head)
+    // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
+    // ASSERT: skb->protocol == pkt->eType
 
     net_device_s* const virt = virts[BE16(pkt->iID) % TUNS_N];
 
@@ -219,11 +269,10 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
       + ((u64)pkt->eSrc[0] << 12)
       + ((u64)pkt->eSrc[1] << 16)
       + ((u64)pkt->eSrc[2] << 20)
-      + ((u64)pkt->iID     << 24)
-      + ((u64)pkt->iSrc    << 28)
-      + ((u64)pkt->iDst    << 32)
-      + ((u64)pkt->uSrc    << 40)
-      + ((u64)pkt->uDst    << 48)
+      + ((u64)pkt->iSrc    << 24)
+      + ((u64)pkt->iDst    << 28)
+      + ((u64)pkt->uSrc    << 32)
+      + ((u64)pkt->uDst    << 36)
     ;
 
     // VERIFY PATH
@@ -235,13 +284,20 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
          || pkt->iProtocol != BE8(IPPROTO_UDP)
          || pkt->iVersion  != BE8(0x45)
          || pkt->eType     != BE16(ETH_P_IP)
-        ) // IT'S NOT OUR SERVICE / TUN ID MISMATCH
+         || skb->len       != (XTUN_WIRE_SIZE_ETH + XTUN_AUTH_SIZE)
+        ) // IT'S NOT OUR SERVICE / TUN ID MISMATCH / IT'S NOT AUTH
+            return RX_HANDLER_PASS;
+
+        const u32 key = computa(payload);
+
+        if (!key) // INCORRECT AUTH / IT'S NOT AUTH
             return RX_HANDLER_PASS;
 
         printk("XTUN: TUNNEL %s: UPDATING PATH\n", virt->name);
 
         // COPIA
         xtun->hash    = hash;
+        xtun->key     = key;
         xtun->eDst[0] = pkt->eSrc[0];
         xtun->eDst[1] = pkt->eSrc[1];
         xtun->eDst[2] = pkt->eSrc[2];
@@ -264,20 +320,17 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         }
     }
 
+    decode(xtun->key, payload, SKB_TAIL_PTR(skb));
+
     // DESENCAPSULA
     skb->mac_len          = 0;
-    skb->data             = PTR(pkt) + XTUN_WIRE_SIZE_ETH;
+    skb->data             = payload;
     skb->mac_header       =
     skb->network_header   =
-    skb->transport_header =
-        skb->data - skb->head;
-#ifdef NET_SKBUFF_DATA_USES_OFFSET
-    skb->len = skb->head + skb->tail - skb->data;
-#else
-    skb->len = skb->tail - skb->data;
-#endif
-    skb->dev = virt;
-    skb->protocol = pkt->eType;
+    skb->transport_header = payload - PTR(skb->head);
+    skb->len             -= XTUN_WIRE_SIZE_ETH;
+    skb->dev              = virt;
+    skb->protocol         = pkt->eType;
 
     return RX_HANDLER_ANOTHER;
 }
@@ -399,7 +452,7 @@ static int __init xtun_init(void) {
             rtnl_lock();
 
             if (phys->rx_handler != xtun_in) {
-                if (!netdev_rx_handler_register(phys, xtun_in, NULL)) {
+                if (!netdev_rx_handler_register(phys, xtun_in, NULL)) { // TODO: FIXME: TEM QUE FAZER ISSO EM TODAS AS INTERFACES OU NAO VAI PODER CONSIDERAR O SKB COMO xtun_s
                     printk("XTUN: INTERFACE %s: HOOKED\n", phys->name);
                     phys->hard_header_len += sizeof(xtun_s) - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
                     phys->min_header_len  += sizeof(xtun_s) - ETH_HLEN;
