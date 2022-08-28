@@ -94,35 +94,13 @@ typedef struct xtun_s {
 typedef struct xtun_cfg_s {
     const char virt[IFNAMSIZ];
     const char phys[IFNAMSIZ];
-    union {
-        struct {
-            u16 eDstA;
-            u16 eDstB;
-            u16 eDstC;
-            u16 eDstPad;
-        };
-        u8 eDst[ETH_ALEN + 2];
-    };
-    union {
-        struct {
-            u16 eSrcA;
-            u16 eSrcB;
-            u16 eSrcC;
-            u16 eSrcPad;
-        };
-        u8 eSrc[ETH_ALEN + 2];
-    };
+    union { u8 eDst[8]; u16 eDst16[4]; };
+    union { u8 eSrc[8]; u16 eSrc16[4]; };
+    union { u8 iSrc[4]; u32 iSrc32; };
+    union { u8 iDst[4]; u32 iDst32; };
     u8  iTOS;
     u8  iTTL;
     u16 iID;
-    union {
-        u32 iSrc32;
-        u8  iSrc[4];
-    };
-    union {
-        u32 iDst32;
-        u8  iDst[4];
-    };
     u16 uSrc;
     u16 uDst;
 } xtun_cfg_s;
@@ -373,12 +351,12 @@ static int __init xtun_init(void) {
                         xtun->phys       =  phys;
                         xtun->hash       =  0;
                         xtun->id         =  BE16(tid);
-                        xtun->eDstA      =  BE16(cfg->eDstA);
-                        xtun->eDstB      =  BE16(cfg->eDstB);
-                        xtun->eDstC      =  BE16(cfg->eDstC);
-                        xtun->eSrcA      =  BE16(cfg->eSrcA);
-                        xtun->eSrcB      =  BE16(cfg->eSrcB);
-                        xtun->eSrcC      =  BE16(cfg->eSrcC);
+                        xtun->eDstA      =  BE16(cfg->eDst16[0]);
+                        xtun->eDstB      =  BE16(cfg->eDst16[1]);
+                        xtun->eDstC      =  BE16(cfg->eDst16[2]);
+                        xtun->eSrcA      =  BE16(cfg->eSrc16[0]);
+                        xtun->eSrcB      =  BE16(cfg->eSrc16[1]);
+                        xtun->eSrcC      =  BE16(cfg->eSrc16[2]);
                         xtun->eType      =  BE16(ETH_P_IP);
                         xtun->iVersion   =  BE8(0x45);
                         xtun->iTOS       =  BE8(cfg->iTOS);
