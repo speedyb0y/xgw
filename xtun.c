@@ -241,8 +241,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
     skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
     skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
-    skb->mac_header       = PTR(pkt)            - PTR(skb->head);
-    skb->data             = PTR(pkt);
+    skb->mac_header       = PTR(&pkt->eDst)     - PTR(skb->head);
+    skb->data             = PTR(&pkt->eDst);
     skb->len             += XTUN_WIRE_SIZE_ETH;
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
