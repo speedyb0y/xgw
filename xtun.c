@@ -184,7 +184,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
              || xtun->uDst    != pkt->uSrc
              || xtun->phys    != skb->dev) {
 
-                printk("XTUN: TUNNEL %s - UPDATING PATH\n", virt->name);
+                printk("XTUN: TUNNEL %s: UPDATING PATH\n", virt->name);
 
                 //
                 xtun->eDst[0] = pkt->eSrc[0];
@@ -244,13 +244,15 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
         pkt->iSize  = BE16(0);
         pkt->iCksum = BE16(0);
 
-        skb->mac_len         = ETH_HLEN;
-        skb->mac_header      = PTR(pkt) - PTR(skb->head);
-        skb->data            = PTR(pkt);
-        skb->len             = SKB_LEN(skb);
-        skb->protocol        = BE16(ETH_P_IP);
-        skb->ip_summed       = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
-        skb->dev             = xtun->phys;
+        skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
+        skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
+        skb->mac_header       = PTR(pkt)            - PTR(skb->head);
+        skb->data             = PTR(pkt);
+        skb->len              = SKB_LEN(skb);
+        skb->protocol         = BE16(ETH_P_IP);
+        skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
+        skb->mac_len          = ETH_HLEN;
+        skb->dev              = xtun->phys;
 
         // THE FUNCTION CAN BE CALLED FROM AN INTERRUPT
         // WHEN CALLING THIS METHOD, INTERRUPTS MUST BE ENABLED
@@ -294,11 +296,11 @@ static void xtun_dev_setup (net_device_s* const dev) {
     dev->netdev_ops      = &xtunDevOps;
     dev->header_ops      = &xtunHeaderOps;
     dev->type            = ARPHRD_NONE;
-    dev->hard_header_len = ETH_HLEN + 20 + 8;
-    dev->min_header_len  = ETH_HLEN + 20 + 8;
-    dev->mtu             = 1500 - 28 - 20 - 8; // ETH_DATA_LEN
-    dev->min_mtu         = 1500 - 28 - 20 - 8; // ETH_MIN_MTU
-    dev->max_mtu         = 1500 - 28 - 20 - 8; // ETH_MAX_MTU
+    dev->hard_header_len = XTUN_WIRE_SIZE; // ETH_HLEN
+    dev->min_header_len  = XTUN_WIRE_SIZE;
+    dev->mtu             = 1500 - 28 - XTUN_WIRE_SIZE; // ETH_DATA_LEN
+    dev->min_mtu         = 1500 - 28 - XTUN_WIRE_SIZE; // ETH_MIN_MTU
+    dev->max_mtu         = 1500 - 28 - XTUN_WIRE_SIZE; // ETH_MAX_MTU
     dev->addr_len        = 0;
     dev->tx_queue_len    = 0; // EFAULT_TX_QUEUE_LEN
     dev->flags           = IFF_NOARP; // IFF_BROADCAST | IFF_MULTICAST
@@ -319,7 +321,7 @@ static int __init xtun_init(void) {
 
         xtun_cfg_s* const cfg = &cfgs[tid];
 
-        printk("XTUN: TUNNEL %s - INITIALIZING WITH PHYS %s\n", cfg->virt, cfg->phys);
+        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s\n", cfg->virt, cfg->phys);
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
 
@@ -367,22 +369,21 @@ static int __init xtun_init(void) {
                         virts[tid] = virt;
 
                         continue;
-
                     }
 
-                    printk("XTUN: TUNNEL %s - CREATE FAILED - COULD NOT REGISTER\n", cfg->virt);
+                    printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->virt);
 
                     free_netdev(virt);
 
                 } else
-                    printk("XTUN: TUNNEL %s - CREATE FAILED - COULD NOT ALLOCATE\n", cfg->virt);
+                    printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT ALLOCATE\n", cfg->virt);
             } else
-                printk("XTUN: TUNNEL %s - CREATE FAILED - COULD NOT HOOK PHYS\n", cfg->virt);
+                printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT HOOK PHYS\n", cfg->virt);
 
             dev_put(phys);
 
         } else
-            printk("XTUN: TUNNEL %s - CREATE FAILED - COULD NOT FIND PHYS\n", cfg->virt);
+            printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT FIND PHYS\n", cfg->virt);
 
         virts[tid] = NULL;
     }
