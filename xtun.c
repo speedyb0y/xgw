@@ -66,12 +66,8 @@ typedef struct xtun_s {
     u32 _x;
     u16 id; // TODO: "ENVIA COM DESTINO AO TUNEL Y DO PEER; O PEER SABE QUE SEU TUNEL Y CORRESPONDE AO MEU TUNEL X"
 #define ETH_HDR_SIZE 14
-    u16 eDstA;
-    u16 eDstB;
-    u16 eDstC;
-    u16 eSrcA;
-    u16 eSrcB;
-    u16 eSrcC;
+    u16 eDst[3];
+    u16 eSrc[3];
     u16 eType;
 #define IP4_HDR_SIZE 20
     u8  iVersion;
@@ -144,12 +140,12 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     xtun_s* const xtun = netdev_priv(virt);
 
     const u64 hash = (u64)(uintptr_t)skb->dev
-      + ((u64)pkt->eDstA   <<  0)
-      + ((u64)pkt->eDstB   <<  4)
-      + ((u64)pkt->eDstC   <<  8)
-      + ((u64)pkt->eSrcA   << 12)
-      + ((u64)pkt->eSrcB   << 16)
-      + ((u64)pkt->eSrcC   << 20)
+      + ((u64)pkt->eDst[0] <<  0)
+      + ((u64)pkt->eDst[1] <<  4)
+      + ((u64)pkt->eDst[2] <<  8)
+      + ((u64)pkt->eSrc[0] << 12)
+      + ((u64)pkt->eSrc[1] << 16)
+      + ((u64)pkt->eSrc[2] << 20)
       + ((u64)pkt->iID     << 24)
       + ((u64)pkt->iSrc    << 32)
       + ((u64)pkt->iDst    << 36)
@@ -173,12 +169,12 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
         // COPIA
         xtun->hash    = hash;
-        xtun->eDstA   = pkt->eSrcA;
-        xtun->eDstB   = pkt->eSrcB;
-        xtun->eDstC   = pkt->eSrcC;
-        xtun->eSrcA   = pkt->eDstA;
-        xtun->eSrcB   = pkt->eDstB;
-        xtun->eSrcC   = pkt->eDstC;
+        xtun->eDst[0] = pkt->eSrc[0];
+        xtun->eDst[1] = pkt->eSrc[1];
+        xtun->eDst[2] = pkt->eSrc[2];
+        xtun->eSrc[0] = pkt->eDst[0];
+        xtun->eSrc[1] = pkt->eDst[1];
+        xtun->eSrc[2] = pkt->eDst[2];
         xtun->iSrc    = pkt->iDst;
         xtun->iDst    = pkt->iSrc;
         // NOTE: NOSSA PORTA NÃO É ATUALIZADA AQUI:
@@ -234,8 +230,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
     skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
     skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
-    skb->mac_header       = PTR(&pkt->eDstA)    - PTR(skb->head);
-    skb->data             = PTR(&pkt->eDstA);
+    skb->mac_header       = PTR(&pkt->eDst)     - PTR(skb->head);
+    skb->data             = PTR(&pkt->eDst);
     skb->len             += XTUN_WIRE_SIZE_ETH;
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
@@ -351,12 +347,12 @@ static int __init xtun_init(void) {
                         xtun->phys       =  phys;
                         xtun->hash       =  0;
                         xtun->id         =  BE16(tid);
-                        xtun->eDstA      =  BE16(cfg->eDst16[0]);
-                        xtun->eDstB      =  BE16(cfg->eDst16[1]);
-                        xtun->eDstC      =  BE16(cfg->eDst16[2]);
-                        xtun->eSrcA      =  BE16(cfg->eSrc16[0]);
-                        xtun->eSrcB      =  BE16(cfg->eSrc16[1]);
-                        xtun->eSrcC      =  BE16(cfg->eSrc16[2]);
+                        xtun->eDst[0]    =  BE16(cfg->eDst16[0]);
+                        xtun->eDst[1]    =  BE16(cfg->eDst16[1]);
+                        xtun->eDst[2]    =  BE16(cfg->eDst16[2]);
+                        xtun->eSrc[0]    =  BE16(cfg->eSrc16[0]);
+                        xtun->eSrc[1]    =  BE16(cfg->eSrc16[1]);
+                        xtun->eSrc[2]    =  BE16(cfg->eSrc16[2]);
                         xtun->eType      =  BE16(ETH_P_IP);
                         xtun->iVersion   =  BE8(0x45);
                         xtun->iTOS       =  BE8(cfg->iTOS);
