@@ -63,7 +63,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 typedef struct xtun_s {
     net_device_s* phys;
     u64 hash; // THE PATH HASH
-    u32 _x;
+    u32 key;
     u16 id; // TODO: "ENVIA COM DESTINO AO TUNEL Y DO PEER; O PEER SABE QUE SEU TUNEL Y CORRESPONDE AO MEU TUNEL X"
 #define ETH_HDR_SIZE 14
     u16 eDst[3];
@@ -99,7 +99,81 @@ typedef struct xtun_cfg_s {
     u16 iID;
     u16 uSrc;
     u16 uDst;
+    u32 key;
 } xtun_cfg_s;
+
+#define XTUN_AUTH_SIZE ((AUTH_REGISTERS_N*2 + AUTH_RANDOMS_N)*sizeof(u64))
+
+#define AUTH_REGISTER_0 0x0000000000000000ULL
+#define AUTH_REGISTER_1 0x0000000000000000ULL
+#define AUTH_REGISTER_2 0x0000000000000000ULL
+#define AUTH_REGISTER_3 0x0000000000000000ULL
+
+#define AUTH_X 4
+#define AUTH_Y 3
+
+#define AUTH_A 0x34234340ULL
+#define AUTH_B 0x32432432ULL
+
+#define AUTH_REGISTERS_N 4
+#define AUTH_RANDOMS_N 128
+
+#define AUTH_INIT_0 0
+#define AUTH_INIT_1 3
+#define AUTH_INIT_2 1
+#define AUTH_INIT_3 2
+
+#define AUTH_VERIFY_0 0
+#define AUTH_VERIFY_1 3
+#define AUTH_VERIFY_2 1
+#define AUTH_VERIFY_3 2
+
+typedef struct xtun_auth_s {
+    u64 registers[AUTH_REGISTERS_N]; // INICIA OS REGISTROS
+    u64 verify   [AUTH_REGISTERS_N]; // COMO OS REGISTROS TERMINAM
+    u64 randoms  [AUTH_RANDOMS_N];
+} xtun_auth_s;
+
+static inline u32 computa (xtun_auth_s* const auth) {
+
+    u64 register0 = AUTH_REGISTER_0 + auth->registers[AUTH_INIT_0];
+    u64 register1 = AUTH_REGISTER_1 + auth->registers[AUTH_INIT_1];
+    u64 register2 = AUTH_REGISTER_2 + auth->registers[AUTH_INIT_2];
+    u64 register3 = AUTH_REGISTER_3 + auth->registers[AUTH_INIT_3];
+
+    for (uint i = 0; i != AUTH_REGISTERS_N; i++) {
+
+        register0 += auth->randoms[register3 % AUTH_RANDOMS_N];
+        register1 += auth->randoms[register2 % AUTH_RANDOMS_N];
+        register2 += auth->randoms[register1 % AUTH_RANDOMS_N];
+        register3 += auth->randoms[register0 % AUTH_RANDOMS_N];
+
+        register0 += register2 >> AUTH_X;        
+        register3 += register1 >> AUTH_Y;
+        register1 += AUTH_A;
+        register2 += AUTH_B;        
+    }
+
+    const uint ok = (
+        register0 == auth->verify[AUTH_VERIFY_0] &&
+        register1 == auth->verify[AUTH_VERIFY_1] &&
+        register2 == auth->verify[AUTH_VERIFY_2] &&
+        register3 == auth->verify[AUTH_VERIFY_3]
+    );
+
+    // JUNTA TUDO E TRANSFORMA NA KEY
+    register0 += register1;
+    register0 += register2;
+    register0 += register3;
+    register0 += register0 >> 32;
+    register0 &= 0xFFFFFFFFULL;
+    // SE FOR 0, TRANSFORMA EM 1
+    register0 += !register0;
+    // RETORNA 0 SE FALHOU, OU UMA KEY SE SUCESSO
+    register0 *= ok;
+
+    return register0;
+}
 
 #define XTUN_ID(xtun) ((uint)(xtun - virts))
 
@@ -110,15 +184,15 @@ typedef struct xtun_cfg_s {
 #define MAC(a,b,c,d,e,f) { _MAC(a), _MAC(b), _MAC(c), _MAC(d), _MAC(e), _MAC(f) }
 
 static xtun_cfg_s cfgs[] = {
-    { .virt = "xgw-0", .iID = 0, .phys = "isp-0", .iTOS = 0, .iTTL = 64,
+    { .key = 0, .virt = "xgw-0", .iID = 0, .phys = "isp-0", .iTOS = 0, .iTTL = 64,
         .eSrc = MAC(d0,50,99,10,10,10), .iSrc = {192,168,0,20},    .uSrc = 2000,
         .eDst = MAC(54,9F,06,F4,C7,A0), .iDst = {200,200,200,200}, .uDst = 3000,
     },
-    { .virt = "xgw-1", .iID = 1, .phys = "isp-1", .iTOS = 0, .iTTL = 64,
+    { .key = 0, .virt = "xgw-1", .iID = 1, .phys = "isp-1", .iTOS = 0, .iTTL = 64,
         .eSrc = MAC(d0,50,99,11,11,11), .iSrc = {192,168,100,20},  .uSrc = 2111,
         .eDst = MAC(CC,ED,21,96,99,C0), .iDst = {200,200,200,200}, .uDst = 3111,
     },
-    { .virt = "xgw-2", .iID = 2, .phys = "isp-2", .iTOS = 0, .iTTL = 64,
+    { .key = 0, .virt = "xgw-2", .iID = 2, .phys = "isp-2", .iTOS = 0, .iTTL = 64,
         .eSrc = MAC(d0,50,99,12,12,12), .iSrc = {192,168,1,20},    .uSrc = 2222,
         .eDst = MAC(90,55,DE,A1,CD,F0), .iDst = {200,200,200,200}, .uDst = 3222,
     },
@@ -147,14 +221,14 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
       + ((u64)pkt->eSrc[1] << 16)
       + ((u64)pkt->eSrc[2] << 20)
       + ((u64)pkt->iID     << 24)
-      + ((u64)pkt->iSrc    << 32)
-      + ((u64)pkt->iDst    << 36)
+      + ((u64)pkt->iSrc    << 28)
+      + ((u64)pkt->iDst    << 32)
       + ((u64)pkt->uSrc    << 40)
-      + ((u64)pkt->uDst    << 44)
+      + ((u64)pkt->uDst    << 48)
     ;
 
     // VERIFY PATH
-    if (unlikely(xtun->hash != hash)) {
+    if (xtun->hash != hash) {
         // THIS IS NOT THE KNOWN PATH
 
         if (pkt->uDst      != xtun->uSrc // TEM QUE SER NA PORTA EM QUE ESTE TUNEL ESTA ESCUTANDO
@@ -301,6 +375,7 @@ static int __init xtun_init(void) {
     printk("XTUN: INIT\n");
 
     BUILD_BUG_ON(sizeof(xtun_s) != XTUN_SIZE);
+    BUILD_BUG_ON(sizeof(xtun_auth_s) != XTUN_AUTH_SIZE);
 
     for (uint tid = 0; tid != TUNS_N; tid++) {
 
@@ -308,11 +383,11 @@ static int __init xtun_init(void) {
 
 #define _A6(x) x[0], x[1], x[2], x[3], x[4], x[5]
 #define _A4(x) x[0], x[1], x[2], x[3]
-        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s TOS 0x%02X TTL %u"
+        printk("XTUN: TUNNEL %s: INITIALIZING WITH KEY 0x%08X PHYS %s TOS 0x%02X TTL %u"
             " SRC #%u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
             " DST #%u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
             "\n",
-            cfg->virt,
+            cfg->virt, cfg->key,
             cfg->phys, cfg->iTOS, cfg->iTTL,
                  tid, _A6(cfg->eSrc), _A4(cfg->iSrc), cfg->uSrc,
             cfg->iID, _A6(cfg->eDst), _A4(cfg->iDst), cfg->uDst
@@ -346,6 +421,7 @@ static int __init xtun_init(void) {
 
                         xtun->phys       =  phys;
                         xtun->hash       =  0;
+                        xtun->key        =  cfg->key;
                         xtun->id         =  BE16(tid);
                         xtun->eDst[0]    =  BE16(cfg->eDst16[0]);
                         xtun->eDst[1]    =  BE16(cfg->eDst16[1]);
