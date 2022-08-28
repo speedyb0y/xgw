@@ -86,10 +86,9 @@ typedef struct xtun_s {
     u16 uSize;
     u16 uCksum;
     // XTUN
-    u8  xSrcID; // SOURCE ID
-    u8  xDstID; // DESTINATION ID
-    u32 xSrcCode;
-    u32 xDstCode;
+    u8  xSrc; // SOURCE ID
+    u8  xDst; // DESTINATION ID
+    u64 xCode;
 } xtun_s;
 
 typedef struct xtun_cfg_s {
@@ -100,19 +99,18 @@ typedef struct xtun_cfg_s {
     u16  eDst[ETH_ALEN/sizeof(u16)];
     u16  eSrc[ETH_ALEN/sizeof(u16)];
     // IP
-    u8  iTOS;
-    u16 iID;
-    u8  iTTL;
+    //u8  iTOS;
+    //u16 iID;
+    //u8  iTTL;
     u32 iSrc;
     u32 iDst;
     // UDP
     u16 uSrc;
     u16 uDst;
     // XTUN
-    u8  xSrcID; // SOURCE ID
-    u8  xDstID; // DESTINATION ID
-    u32 xSrcCode;
-    u32 xDstCode;
+    u8  xSrc; // SOURCE ID
+    u8  xDst; // DESTINATION ID
+    u64 xCode;
 } xtun_cfg_s;
 
 #define XTUN_ID(xtun) ((uint)(xtun - virts))
@@ -159,7 +157,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     xtun_s* const pkt = PTR(skb_mac_header(skb));
 
-    const uint tid = BE8(pkt->xDstID);
+    const uint tid = BE8(pkt->xDst);
 
     if (tid < TUNS_N) {
 
@@ -167,11 +165,10 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
         xtun_s* const xtun = netdev_priv(virt);
 
-        if (xtun->xDstID   == pkt->xSrcID
-         && xtun->xSrcID   == pkt->xDstID
-         && xtun->xDstCode == pkt->xSrcCode
-         && xtun->xSrcCode == pkt->xDstCode
-            ) { // IT'S AUTHENTIC
+        if (xtun->xCode == pkt->xCode
+         && xtun->xSrc  == pkt->xDst
+         && xtun->xDst  == pkt->xSrc
+        ) { // IT'S AUTHENTIC
 
             // UPDATE PATH
             if (xtun->eDst[0] != pkt->eSrc[0]
@@ -319,14 +316,15 @@ static int __init xtun_init(void) {
 
         xtun_cfg_s* const cfg = &cfgs[tid];
 
-        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s"
-            " SRC #%u CODE 0x%08X IP 0x%08X PORT %u"
-            " DST #%u CODE 0x%08X IP 0x%08X PORT %u"
+        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s CODE 0x%16llX"
+            " SRC #%u IP 0x%08X PORT %u"
+            " DST #%u IP 0x%08X PORT %u"
             "\n",
             cfg->virt,
             cfg->phys,
-            cfg->xSrcID, cfg->xSrcCode, cfg->iSrc, cfg->uSrc,
-            cfg->xDstID, cfg->xDstCode, cfg->iDst, cfg->uDst
+            cfg->xCode,
+            cfg->xSrc, cfg->iSrc, cfg->uSrc,
+            cfg->xDst, cfg->iDst, cfg->uDst
             );
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
@@ -365,18 +363,17 @@ static int __init xtun_init(void) {
                         xtun->iID        =  BE16(0x2562);
                         xtun->iFrag      =  BE16(0);
                         xtun->iTTL       =  BE8(64);
-                        xtun->iProtocol  =  IPPROTO_UDP;
-                        xtun->iCksum     =  0;
+                        xtun->iProtocol  =  BE16(IPPROTO_UDP);
+                        xtun->iCksum     =  BE16(0);
                         xtun->iSrc       =  BE32(cfg->iSrc);
                         xtun->iDst       =  BE32(cfg->iDst);
                         xtun->uSrc       =  BE16(cfg->uSrc);
                         xtun->uDst       =  BE16(cfg->uDst);
-                        xtun->uSize      =  0;
-                        xtun->uCksum     =  0;
-                        xtun->xSrcID     =  BE8(cfg->xSrcID);
-                        xtun->xDstID     =  BE8(cfg->xDstID);
-                        xtun->xSrcCode   =  BE64(cfg->xSrcCode);
-                        xtun->xDstCode   =  BE64(cfg->xDstCode);
+                        xtun->uSize      =  BE16(0);
+                        xtun->uCksum     =  BE16(0);
+                        xtun->xSrc       =  BE8(cfg->xSrc);
+                        xtun->xDst       =  BE8(cfg->xDst);
+                        xtun->xCode      =  BE64(cfg->xCode);
 
                         virts[tid] = virt;
 
