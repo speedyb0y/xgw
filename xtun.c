@@ -58,13 +58,18 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define CACHE_LINE_SIZE 64
 
-#define XTUN_HDR_ALIGNED_SIZE CACHE_LINE_SIZE
-#define XTUN_HDR_WIRE_SIZE (ETH_HLEN + sizeof(ip4_hdr_s) + udp_hdr_s)
+#define XTUN_ALIGNED_SIZE CACHE_LINE_SIZE
+
+#define XTUN_WIRE_SIZE (ETH_HLEN + 20 + 8 + 10)
 
 typedef struct xtun_hdr_s {
+    union { net_device_s* virt; const char* virtName; };
+    union { net_device_s* phys; const char* physName; };
+    // ETHERNET
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
     u16 eType;
+    // IP
     u8  iVersion;
     u8  iTOS;
     u16 iSize;
@@ -75,34 +80,26 @@ typedef struct xtun_hdr_s {
     u16 iCksum;
     u32 iSrc;
     u32 iDst;
+    // UDP
     u16 uSrc;
     u16 uDst;
     u16 uSize;
     u16 uCksum;
+    // XTUN
     u8  xSrcID; // SOURCE ID
     u8  xDstID; // DESTINATION ID
-    u32 xVersion; // RANDOM
-    u64 xSrcCode;
-    u64 xDstCode;
+    u32 xSrcCode;
+    u32 xDstCode;
 } xtun_hdr_s;
-
-#define XTUN_SIZE 32
-
-typedef struct xtun_itfc_s {
-    union { net_device_s* virt; const char* virtName; };
-    union { net_device_s* phys; const char* physName; };
-    xtun_hdr_s i;
-    xtun_hdr_s o;
-} xtun_itfc_s;
 
 #define XTUN_ID(xtun) ((uint)(xtun - xtuns))
 
 #define TUNS_N (sizeof(xtuns)/sizeof(xtuns[0]))
 
-#define __HEX(a,b) a ## b
-#define _HEX(a) __HEX(0x,a)
-#define MAC(a,b,c,d,e,f) { _HEX(a), _HEX(b), _HEX(c), _HEX(d), _HEX(e), _HEX(f) }
+#define __HEX(a,b,c) a ## b ## c
+#define _HEX(x) __HEX(0x,x,U)
 
+#define MAC(a,b,c,d,e,f) { _HEX(a), _HEX(b), _HEX(c), _HEX(d), _HEX(e), _HEX(f) }
 #define IP4(a,b,c,d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
 
 #define XTUN_CFG(v, p, mmac, mip, mport, pmac, pip, pport) { \
@@ -117,7 +114,7 @@ typedef struct xtun_itfc_s {
         .uDst = mport, \
     }}
 
-static xtun_itfc_s xtuns[] = {
+static xtun_s xtuns[] = {
     XTUN_CFG("xgw-0", "isp-0",
         MAC(d0,50,99,10,10,10), IP4(192,168,0,20),    2000,
         MAC(54,9F,06,F4,C7,A0), IP4(200,200,200,200), 3000
@@ -138,33 +135,36 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     xtun_hdr_s* const pkt = PTR(skb_mac_header(skb));
 
-    const uint vid = pkt->i.eDst;
+    const uint tid = BE8(pkt->xDstID);
 
-    xtun_itfc_s* const xtun = &xtuns[vid];
+    if (tid > TUNS_N) {
 
-    if (xtun->keyA == pkt->keyA &&
-        xtun->keyB == pkt->keyB) {
+        xtun_s* const xtun = &xtuns[tid];
 
-        if (xtun->me[0] == pkt->eDst[0] &&
-            xtun->me[1] == pkt->eDst[1] &&
-            xtun->me[2] == pkt->eDst[2] &&
-            xtun->gw[0] == pkt->eSrc[0] &&
-            xtun->gw[1] == pkt->eSrc[1] &&
-            xtun->gw[2] == pkt->eSrc[2] &&
-            xtun->phys == skb->dev &&
-            xtun->virt) {
-            // DESENCAPSULA
-            skb->mac_len          = 0;
-            skb->data             = PTR(pkt) + XTUN_HDR_WIRE_SIZE;
-            skb->mac_header       =
-            skb->network_header   =
-            skb->transport_header =
-                skb->data - skb->head;
-            skb->len = SKB_LEN(skb);
-            skb->dev = xtun->virt;
-            skb->protocol = pkt->eType;
+        if (xtun->xSrcCode == pkt->xDstCode &&
+            xtun->keyB == pkt->keyB) {
 
-            return RX_HANDLER_ANOTHER;
+            if (xtun->me[0] == pkt->eDst[0] &&
+                xtun->me[1] == pkt->eDst[1] &&
+                xtun->me[2] == pkt->eDst[2] &&
+                xtun->gw[0] == pkt->eSrc[0] &&
+                xtun->gw[1] == pkt->eSrc[1] &&
+                xtun->gw[2] == pkt->eSrc[2] &&
+                xtun->phys == skb->dev &&
+                xtun->virt) {
+                // DESENCAPSULA
+                skb->mac_len          = 0;
+                skb->data             = PTR(pkt) + XTUN_WIRE_SIZE;
+                skb->mac_header       =
+                skb->network_header   =
+                skb->transport_header =
+                    skb->data - skb->head;
+                skb->len = SKB_LEN(skb);
+                skb->dev = xtun->virt;
+                skb->protocol = pkt->eType;
+
+                return RX_HANDLER_ANOTHER;
+            }
         }
     }
 
@@ -177,7 +177,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: skb->len <= xtun->virt->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->phys->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
 
-    xtun_itfc_s* const xtun = *(xtun_itfc_s**)netdev_priv(dev);
+    xtun_s* const xtun = *(xtun_s**)netdev_priv(dev);
 
     if (xtun->phys) {
 
@@ -187,6 +187,10 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
         // ENCAPSULATE
         copy(pkt, path, XTUN_HDR_SIZE);
+
+        pkt->uSize  = BE16(0);
+        pkt->iSize  = BE16(0);
+        pkt->iCksum = BE16(0);
 
         skb->mac_len         = ETH_HLEN;
         skb->mac_header      = PTR(pkt) - PTR(skb->head);
@@ -207,7 +211,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
 static int xtun_dev_up (net_device_s* const dev) {
 
-    xtun_itfc_s* const xtun = *(xtun_itfc_s**)netdev_priv(dev);
+    xtun_s* const xtun = *(xtun_s**)netdev_priv(dev);
 
     printk("XTUN: VID %u UP\n", XTUN_ID(xtun));
 
@@ -216,7 +220,7 @@ static int xtun_dev_up (net_device_s* const dev) {
 
 static int xtun_dev_down (net_device_s* const dev) {
 
-    xtun_itfc_s* const xtun = *(xtun_itfc_s**)netdev_priv(dev);
+    xtun_s* const xtun = *(xtun_s**)netdev_priv(dev);
 
     printk("XTUN: VID %u DOWN\n", XTUN_ID(xtun));
 
@@ -265,14 +269,13 @@ static int __init xtun_init(void) {
 
     printk("XTUN: INIT\n");
 
-    BUILD_BUG_ON(sizeof(xtun_hdr_s)  != XTUN_HDR_ALIGNED_SIZE);
-    BUILD_BUG_ON(sizeof(xtun_itfc_s) != XTUN_SIZE);
+    BUILD_BUG_ON(sizeof(xtun_s) != XTUN_ALIGNED_SIZE);
 
-    for (uint vid = 0; vid != TUNS_N; vid++) {
+    for (uint tid = 0; tid != TUNS_N; tid++) {
 
-        xtun_itfc_s* const xtun = &xtuns[vid];
+        xtun_s* const xtun = &xtuns[tid];
 
-        printk("XTUN: VID %u - INITIALIZING WITH VIRT %s PHYS %s\n", vid,
+        printk("XTUN: VID %u - INITIALIZING WITH VIRT %s PHYS %s\n", tid,
             xtun->virtName,
             xtun->physName
             );
@@ -290,58 +293,35 @@ static int __init xtun_init(void) {
 
             if (phys->rx_handler == xtun_in) {
 
-                net_device_s* const virt = alloc_netdev(sizeof(xtun_itfc_s**), xtun->virtName, NET_NAME_USER, xtun_dev_setup);
+                net_device_s* const virt = alloc_netdev(sizeof(xtun_s**), xtun->virtName, NET_NAME_USER, xtun_dev_setup);
 
                 if (virt) {
 
                     if (!register_netdev(virt)) {
 
-                        *(xtun_itfc_s**)netdev_priv(virt) = xtun;
+                        *(xtun_s**)netdev_priv(virt) = xtun;
 
-                        xtun->virt =  virt;
-                        xtun->phys =  phys;
-
-                        xtun->i.eType      =  BE16(ETH_P_IP);
-                        xtun->i.iVersion   =  BE8(0x45);
-                        xtun->i.iTOS       =  BE8(0);
-                        xtun->i.iSize      =  BE16(0);
-                        xtun->i.iID        =  BE16(0x2562);
-                        xtun->i.iFrag      =  BE16(0);
-                        xtun->i.iTTL       =  BE8(64);
-                        xtun->i.iProtocol  =  IPPROTO_UDP;
-                        xtun->i.iCksum     =  0;
-                        xtun->i.iSrc       =  BE32(xtun->i.iSrc);
-                        xtun->i.iDst       =  BE32(xtun->i.iDst);
-                        xtun->i.uSrc       =  BE16(xtun->i.uSrc);
-                        xtun->i.uDst       =  BE16(xtun->i.uDst);
-                        xtun->i.uSize      =  0;
-                        xtun->i.uCksum     =  0;
-                        xtun->i.xSrcID     =  BE8(xtun->i.xSrcID);
-                        xtun->i.xDstID     =  BE8(xtun->i.xDstID);
-                        xtun->i.xVersion   =  BE32(xtun->i.xVersion);
-                        xtun->i.xSrcCode   =  BE64(xtun->i.xSrcCode);
-                        xtun->i.xDstCode   =  BE64(xtun->i.xDstCode);
-
-                        xtun->o.eType      =  BE16(ETH_P_IP);
-                        xtun->o.iVersion   =  BE8(0x45);
-                        xtun->o.iTOS       =  BE8(0);
-                        xtun->o.iSize      =  BE16(0);
-                        xtun->o.iID        =  BE16(0x2562);
-                        xtun->o.iFrag      =  BE16(0);
-                        xtun->o.iTTL       =  BE8(64);
-                        xtun->o.iProtocol  =  IPPROTO_UDP;
-                        xtun->o.iCksum     =  0;
-                        xtun->o.iSrc       =  xtun->i.iSrc;
-                        xtun->o.iDst       =  xtun->i.iDst;
-                        xtun->o.uSrc       =  xtun->o.uDst;
-                        xtun->o.uDst       =  xtun->i.uSrc;
-                        xtun->o.uSize      =  0;
-                        xtun->o.uCksum     =  0;
-                        xtun->o.xSrcID     =  xtun->i.xDstID;
-                        xtun->o.xDstID     =  xtun->i.xSrcID;
-                        xtun->o.xVersion   =  xtun->i.xVersion;
-                        xtun->o.xSrcCode   =  xtun->i.xDstCode;
-                        xtun->o.xDstCode   =  xtun->i.xSrcCode;
+                        xtun->virt       =  virt;
+                        xtun->phys       =  phys;
+                        xtun->eType      =  BE16(ETH_P_IP);
+                        xtun->iVersion   =  BE8(0x45);
+                        xtun->iTOS       =  BE8(0);
+                        xtun->iSize      =  BE16(0);
+                        xtun->iID        =  BE16(0x2562);
+                        xtun->iFrag      =  BE16(0);
+                        xtun->iTTL       =  BE8(64);
+                        xtun->iProtocol  =  IPPROTO_UDP;
+                        xtun->iCksum     =  0;
+                        xtun->iSrc       =  BE32(xtun->iSrc);
+                        xtun->iDst       =  BE32(xtun->iDst);
+                        xtun->uSrc       =  BE16(xtun->uSrc);
+                        xtun->uDst       =  BE16(xtun->uDst);
+                        xtun->uSize      =  0;
+                        xtun->uCksum     =  0;
+                        xtun->xSrcID     =  BE8(xtun->xSrcID);
+                        xtun->xDstID     =  BE8(xtun->xDstID);
+                        xtun->xSrcCode   =  BE64(xtun->xSrcCode);
+                        xtun->xDstCode   =  BE64(xtun->xDstCode);
 
                         continue;
                     }
@@ -353,7 +333,7 @@ static int __init xtun_init(void) {
             dev_put(phys);
         }
 
-        printk("XTUN: VID %u - FAILED TO CREATE\n", vid);
+        printk("XTUN: VID %u - FAILED TO CREATE\n", tid);
 
         xtun->virt = NULL;
         xtun->phys = NULL;
