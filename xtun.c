@@ -1,5 +1,6 @@
 /*
 
+    TODO: NO CLIENTE, VAI TER QUE ALTERAR A PORTA DE TEMPOS EM TEMPOS SE NAO ESTIVER FUNCIONANDO
 */
 
 #include <linux/init.h>
@@ -150,31 +151,31 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     xtun_s* const xtun = netdev_priv(virt);
    
     const u64 hash = (u64)(uintptr_t)skb->dev
-      + ((u64)pkt->eDst[0] <<  1)
+      + ((u64)pkt->eDst[0] <<  0)
       + ((u64)pkt->eDst[1] <<  4)
       + ((u64)pkt->eDst[2] <<  8)
       + ((u64)pkt->eSrc[0] << 12)
       + ((u64)pkt->eSrc[1] << 16)
       + ((u64)pkt->eSrc[2] << 20)
-      + ((u64)pkt->xSrc    << 40)
-      + ((u64)pkt->xDst    << 40)
-      + ((u64)pkt->iSrc    << 24)
-      + ((u64)pkt->iDst    << 28)
-      + ((u64)pkt->uSrc    << 32)
-      + ((u64)pkt->uDst    << 36)
+      + ((u64)pkt->xSrc    << 24)
+      + ((u64)pkt->xDst    << 28)
+      + ((u64)pkt->iSrc    << 32)
+      + ((u64)pkt->iDst    << 36)
+      + ((u64)pkt->uSrc    << 40)
+      + ((u64)pkt->uDst    << 44)
     ;
 
     // VERIFY PATH
     if (unlikely(xtun->hash != hash)) {
         // THIS IS NOT THE KNOWN PATH
 
-        if (!(pkt->eType     == BE16(ETH_P_IP)
-           && pkt->iVersion  == BE8(0x45)
-           && pkt->iProtocol == BE8(IPPROTO_UDP)
-           && pkt->uDst      == BE16(0x2562)
-           && pkt->xSrc      == xtun->xDst
-           && pkt->xDst      == xtun->xSrc
-        )) // IT'S NOT OUR SERVICE / BAD tunID -> tunID
+        if (pkt->uDst      != xtun->uSrc // TEM QUE SER NA PORTA EM QUE ESTE TUNEL ESTA ESCUTANDO
+         || pkt->xSrc      != xtun->xDst
+         || pkt->xDst      != xtun->xSrc
+         || pkt->iProtocol != BE8(IPPROTO_UDP)
+         || pkt->iVersion  != BE8(0x45)
+         || pkt->eType     != BE16(ETH_P_IP)
+        ) // IT'S NOT OUR SERVICE / BAD tunID -> tunID
             return RX_HANDLER_PASS;
 
         printk("XTUN: TUNNEL %s: UPDATING PATH\n", virt->name);
@@ -189,7 +190,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         xtun->eSrc[2] = pkt->eDst[2];
         xtun->iSrc    = pkt->iDst;
         xtun->iDst    = pkt->iSrc;
-        xtun->uSrc    = pkt->uDst;
+        // NOTE: NOSSA PORTA NÃO É ATUALIZADA AQUI:
+        //      A PORTA DO SERVIDOR É ESTÁVEL
+        //      A PORTA DO CLIENTE É ELE QUE MUDA
+        // TANTO QUE NEM VAI CHEGAR ATÉ AQUI SE NÃO FOR PARA A PORTA ATUAL
+      //xtun->uSrc    = pkt->uDst;
         xtun->uDst    = pkt->uSrc;
 
         if (xtun->phys != skb->dev) {
