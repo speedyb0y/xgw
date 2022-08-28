@@ -162,7 +162,8 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         ) { // IT'S AUTHENTIC
 
             // UPDATE PATH
-            if (xtun->eDst[0] != pkt->eSrc[0]
+            if (unlikely(
+                xtun->eDst[0] != pkt->eSrc[0]
              || xtun->eDst[1] != pkt->eSrc[1]
              || xtun->eDst[2] != pkt->eSrc[2]
              || xtun->eSrc[0] != pkt->eDst[0]
@@ -172,7 +173,8 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
              || xtun->iDst    != pkt->iSrc
              || xtun->uSrc    != pkt->uDst
              || xtun->uDst    != pkt->uSrc
-             || xtun->phys    != skb->dev) {
+             || xtun->phys    != skb->dev
+            )) {
 
                 printk("XTUN: TUNNEL %s: UPDATING PATH\n", virt->name);
 
@@ -315,14 +317,14 @@ static int __init xtun_init(void) {
         xtun_cfg_s* const cfg = &cfgs[tid];
 
         printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s CODE 0x%16llX"
-            " SRC #%u IP 0x%08X PORT %u"
-            " DST #%u IP 0x%08X PORT %u"
+            " SRC #%u MAC %02X%02X%02X IP 0x%08X PORT %u"
+            " DST #%u MAC %02X%02X%02X IP 0x%08X PORT %u"
             "\n",
             cfg->virt,
             cfg->phys,
             cfg->xCode,
-            cfg->xSrc, cfg->iSrc, cfg->uSrc,
-            cfg->xDst, cfg->iDst, cfg->uDst
+            cfg->xSrc, cfg->eSrc[0], cfg->eSrc[1], cfg->eSrc[2], cfg->iSrc, cfg->uSrc,
+            cfg->xDst, cfg->eDst[0], cfg->eDst[1], cfg->eDst[2], cfg->iDst, cfg->uDst
             );
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
