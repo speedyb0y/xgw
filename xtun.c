@@ -62,9 +62,8 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define XTUN_WIRE_SIZE (ETH_HLEN + 20 + 8 + 10)
 
-typedef struct xtun_hdr_s {
-    union { net_device_s* virt; const char* virtName; };
-    union { net_device_s* phys; const char* physName; };
+typedef struct xtun_s {
+    net_device_s* phys;
     // ETHERNET
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
@@ -90,11 +89,34 @@ typedef struct xtun_hdr_s {
     u8  xDstID; // DESTINATION ID
     u32 xSrcCode;
     u32 xDstCode;
-} xtun_hdr_s;
+} xtun_s;
 
-#define XTUN_ID(xtun) ((uint)(xtun - xtuns))
+typedef struct xtun_cfg_s {
+    //
+    const char* virt;
+    const char* phys;
+    // ETHERNET
+    u8  eDst[ETH_ALEN];
+    u8  eSrc[ETH_ALEN];
+    // IP
+    u8  iTOS;
+    u16 iID;
+    u8  iTTL;
+    u32 iSrc;
+    u32 iDst;
+    // UDP
+    u16 uSrc;
+    u16 uDst;
+    // XTUN
+    u8  xSrcID; // SOURCE ID
+    u8  xDstID; // DESTINATION ID
+    u32 xSrcCode;
+    u32 xDstCode;
+} xtun_cfg_s;
 
-#define TUNS_N (sizeof(xtuns)/sizeof(xtuns[0]))
+#define XTUN_ID(xtun) ((uint)(xtun - virts))
+
+#define TUNS_N (sizeof(cfgs)/sizeof(cfgs[0]))
 
 #define __HEX(a,b,c) a ## b ## c
 #define _HEX(x) __HEX(0x,x,U)
@@ -103,18 +125,17 @@ typedef struct xtun_hdr_s {
 #define IP4(a,b,c,d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
 
 #define XTUN_CFG(v, p, mmac, mip, mport, pmac, pip, pport) { \
-    .virtName = v, \
-    .physName = p, \
-    .i = { \
-        .eSrc = pmac, \
-        .eDst = mmac, \
-        .iSrc = pip, \
-        .iDst = mip, \
-        .uSrc = pport, \
-        .uDst = mport, \
-    }}
+    .virt = v, \
+    .phys = p, \
+    .eSrc = pmac, \
+    .eDst = mmac, \
+    .iSrc = pip, \
+    .iDst = mip, \
+    .uSrc = pport, \
+    .uDst = mport, \
+    }
 
-static xtun_s xtuns[] = {
+static xtun_cfg_s cfgs[] = {
     XTUN_CFG("xgw-0", "isp-0",
         MAC(d0,50,99,10,10,10), IP4(192,168,0,20),    2000,
         MAC(54,9F,06,F4,C7,A0), IP4(200,200,200,200), 3000
@@ -129,42 +150,73 @@ static xtun_s xtuns[] = {
     ),
 };
 
+static net_device_s* virts[TUNS_N];
+
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
-    xtun_hdr_s* const pkt = PTR(skb_mac_header(skb));
+    xtun_s* const pkt = PTR(skb_mac_header(skb));
 
     const uint tid = BE8(pkt->xDstID);
 
-    if (tid > TUNS_N) {
+    if (tid < TUNS_N) {
 
-        xtun_s* const xtun = &xtuns[tid];
+        net_device_s* const virt = virts[tid];
 
-        if (xtun->xSrcCode == pkt->xDstCode &&
-            xtun->keyB == pkt->keyB) {
+        xtun_s* const xtun = netdev_priv(virt);
 
-            if (xtun->me[0] == pkt->eDst[0] &&
-                xtun->me[1] == pkt->eDst[1] &&
-                xtun->me[2] == pkt->eDst[2] &&
-                xtun->gw[0] == pkt->eSrc[0] &&
-                xtun->gw[1] == pkt->eSrc[1] &&
-                xtun->gw[2] == pkt->eSrc[2] &&
-                xtun->phys == skb->dev &&
-                xtun->virt) {
-                // DESENCAPSULA
-                skb->mac_len          = 0;
-                skb->data             = PTR(pkt) + XTUN_WIRE_SIZE;
-                skb->mac_header       =
-                skb->network_header   =
-                skb->transport_header =
-                    skb->data - skb->head;
-                skb->len = SKB_LEN(skb);
-                skb->dev = xtun->virt;
-                skb->protocol = pkt->eType;
+        if (xtun->xDstID   == pkt->xSrcID
+         && xtun->xDstCode == pkt->xSrcCode
+         && xtun->xSrcCode == pkt->xDstCode
+            ) { // IT'S AUTHENTIC
 
-                return RX_HANDLER_ANOTHER;
+            // UPDATE PATH
+            if (xtun->eDst[0] != pkt->eSrc[0]
+             || xtun->eDst[1] != pkt->eSrc[1]
+             || xtun->eDst[2] != pkt->eSrc[2]
+             || xtun->eSrc[0] != pkt->eDst[0]
+             || xtun->eSrc[1] != pkt->eDst[1]
+             || xtun->eSrc[2] != pkt->eDst[2]
+             || xtun->iSrc    != pkt->iDst
+             || xtun->iDst    != pkt->iSrc
+             || xtun->uSrc    != pkt->uDst
+             || xtun->uDst    != pkt->uSrc
+             || xtun->phys    != skb->dev) {
+
+                printk("XTUN: VID ?? - UPDATING PATH\n");
+
+                //
+                xtun->eDst[0] = pkt->eSrc[0];
+                xtun->eDst[1] = pkt->eSrc[1];
+                xtun->eDst[2] = pkt->eSrc[2];
+                xtun->eSrc[0] = pkt->eDst[0];
+                xtun->eSrc[1] = pkt->eDst[1];
+                xtun->eSrc[2] = pkt->eDst[2];
+                xtun->iSrc    = pkt->iDst;
+                xtun->iDst    = pkt->iSrc;
+                xtun->uSrc    = pkt->uDst;
+                xtun->uDst    = pkt->uSrc;
+
+                if (xtun->phys != skb->dev) {
+                    if (xtun->phys)
+                        dev_put(xtun->phys);
+                    dev_hold((xtun->phys = skb->dev));
+                }
             }
+
+            // DESENCAPSULA
+            skb->mac_len          = 0;
+            skb->data             = PTR(pkt) + XTUN_WIRE_SIZE;
+            skb->mac_header       =
+            skb->network_header   =
+            skb->transport_header =
+                skb->data - skb->head;
+            skb->len = SKB_LEN(skb);
+            skb->dev = virt;
+            skb->protocol = pkt->eType;
+
+            return RX_HANDLER_ANOTHER;
         }
     }
 
@@ -177,16 +229,16 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: skb->len <= xtun->virt->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->phys->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
 
-    xtun_s* const xtun = *(xtun_s**)netdev_priv(dev);
+    xtun_s* const xtun = netdev_priv(dev);
 
     if (xtun->phys) {
 
-        xtun_hdr_s* const pkt = PTR(skb_mac_header(skb)) - ETH_HLEN;
+        xtun_s* const pkt = PTR(skb_mac_header(skb)) - XTUN_ALIGNED_SIZE;
 
         BUG_ON(PTR(pkt) < PTR(skb->head));
 
         // ENCAPSULATE
-        copy(pkt, path, XTUN_HDR_SIZE);
+        memcpy(pkt, xtun, XTUN_ALIGNED_SIZE);
 
         pkt->uSize  = BE16(0);
         pkt->iSize  = BE16(0);
@@ -211,18 +263,10 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
 static int xtun_dev_up (net_device_s* const dev) {
 
-    xtun_s* const xtun = *(xtun_s**)netdev_priv(dev);
-
-    printk("XTUN: VID %u UP\n", XTUN_ID(xtun));
-
     return 0;
 }
 
 static int xtun_dev_down (net_device_s* const dev) {
-
-    xtun_s* const xtun = *(xtun_s**)netdev_priv(dev);
-
-    printk("XTUN: VID %u DOWN\n", XTUN_ID(xtun));
 
     return 0;
 }
@@ -273,35 +317,33 @@ static int __init xtun_init(void) {
 
     for (uint tid = 0; tid != TUNS_N; tid++) {
 
-        xtun_s* const xtun = &xtuns[tid];
+        xtun_cfg_s* const cfg = &cfgs[tid];
 
         printk("XTUN: VID %u - INITIALIZING WITH VIRT %s PHYS %s\n", tid,
-            xtun->virtName,
-            xtun->physName
-            );
+            cfg->virt, cfg->phys);
 
-        net_device_s* const phys = dev_get_by_name(xtun->physName);
+        net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
 
         if (phys) {
 
             if (phys->rx_handler != xtun_in) {
                 if (!netdev_rx_handler_register(phys, xtun_in, NULL)) {
-                    dev->hard_header_len += 20 + 8;
-                    dev->min_header_len  += 20 + 8;
+                    printk("XTUN: HOOKED ON INTERFACE %s\n", phys->name);
+                    phys->hard_header_len += XTUN_ALIGNED_SIZE - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
+                    phys->min_header_len  += XTUN_ALIGNED_SIZE - ETH_HLEN;
                 }
             }
 
             if (phys->rx_handler == xtun_in) {
 
-                net_device_s* const virt = alloc_netdev(sizeof(xtun_s**), xtun->virtName, NET_NAME_USER, xtun_dev_setup);
+                net_device_s* const virt = alloc_netdev(sizeof(xtun_s), cfg->virt, NET_NAME_USER, xtun_dev_setup);
 
                 if (virt) {
 
                     if (!register_netdev(virt)) {
 
-                        *(xtun_s**)netdev_priv(virt) = xtun;
+                        xtun_s* const xtun = netdev_priv(virt);
 
-                        xtun->virt       =  virt;
                         xtun->phys       =  phys;
                         xtun->eType      =  BE16(ETH_P_IP);
                         xtun->iVersion   =  BE8(0x45);
@@ -312,16 +354,18 @@ static int __init xtun_init(void) {
                         xtun->iTTL       =  BE8(64);
                         xtun->iProtocol  =  IPPROTO_UDP;
                         xtun->iCksum     =  0;
-                        xtun->iSrc       =  BE32(xtun->iSrc);
-                        xtun->iDst       =  BE32(xtun->iDst);
-                        xtun->uSrc       =  BE16(xtun->uSrc);
-                        xtun->uDst       =  BE16(xtun->uDst);
+                        xtun->iSrc       =  BE32(cfg->iSrc);
+                        xtun->iDst       =  BE32(cfg->iDst);
+                        xtun->uSrc       =  BE16(cfg->uSrc);
+                        xtun->uDst       =  BE16(cfg->uDst);
                         xtun->uSize      =  0;
                         xtun->uCksum     =  0;
-                        xtun->xSrcID     =  BE8(xtun->xSrcID);
-                        xtun->xDstID     =  BE8(xtun->xDstID);
-                        xtun->xSrcCode   =  BE64(xtun->xSrcCode);
-                        xtun->xDstCode   =  BE64(xtun->xDstCode);
+                        xtun->xSrcID     =  BE8(cfg->xSrcID);
+                        xtun->xDstID     =  BE8(cfg->xDstID);
+                        xtun->xSrcCode   =  BE64(cfg->xSrcCode);
+                        xtun->xDstCode   =  BE64(cfg->xDstCode);
+
+                        virts[tid] = virt;
 
                         continue;
                     }
@@ -335,8 +379,7 @@ static int __init xtun_init(void) {
 
         printk("XTUN: VID %u - FAILED TO CREATE\n", tid);
 
-        xtun->virt = NULL;
-        xtun->phys = NULL;
+        virts[tid] = NULL;
     }
 
     return 0;
