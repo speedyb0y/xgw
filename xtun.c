@@ -99,8 +99,7 @@ typedef struct xtun_cfg_s {
     u32 iDst;
     u16 uSrc;
     u16 uDst;
-    u8  xSrc; // SOURCE ID
-    u8  xDst; // DESTINATION ID
+    u16 xDst;
     u64 xCode;
 } xtun_cfg_s;
 
@@ -114,10 +113,11 @@ typedef struct xtun_cfg_s {
 
 #define IP4(a,b,c,d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
 
-#define XTUN_CFG(v, c, p, seth, sip, sudp, deth, dip, dudp) { \
+#define XTUN_CFG(v, c, x, p, seth, sip, sudp, deth, dip, dudp) { \
     .virt = v, \
     .xCode = c, \
     .phys = p, \
+    .xDst = x, \
     .eSrc = seth, \
     .eDst = deth, \
     .iSrc = sip, \
@@ -127,15 +127,15 @@ typedef struct xtun_cfg_s {
     }
 
 static xtun_cfg_s cfgs[] = {
-    XTUN_CFG("xgw-0", 0x2562564650465ULL, "isp-0",
+    XTUN_CFG("xgw-0", 0x2562564650465ULL, 0, "isp-0",
         MAC(d0,50,99,10,10,10), IP4(192,168,0,20),    2000,
         MAC(54,9F,06,F4,C7,A0), IP4(200,200,200,200), 3000
     ),
-    XTUN_CFG("xgw-1", 0x2562564650465ULL, "isp-1",
+    XTUN_CFG("xgw-1", 0x2562564650465ULL, 1, "isp-1",
         MAC(d0,50,99,11,11,11), IP4(192,168,100,20),  2111,
         MAC(CC,ED,21,96,99,C0), IP4(200,200,200,200), 3111
     ),
-    XTUN_CFG("xgw-2", 0x2562564650465ULL, "isp-2",
+    XTUN_CFG("xgw-2", 0x2562564650465ULL, 2, "isp-2",
         MAC(d0,50,99,12,12,12), IP4(192,168,1,20),    2222,
         MAC(90,55,DE,A1,CD,F0), IP4(200,200,200,200), 3222
     ),
@@ -317,14 +317,14 @@ static int __init xtun_init(void) {
 
         xtun_cfg_s* const cfg = &cfgs[tid];
 
-        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s CODE 0x%16llX"
-            " SRC #%u MAC %02X%02X%02X IP 0x%08X PORT %u"
-            " DST #%u MAC %02X%02X%02X IP 0x%08X PORT %u"
+        printk("XTUN: TUNNEL %s: INITIALIZING WITH PHYS %s CODE 0x%016llX"
+            " SRC #%u MAC %04X:%04X:%04X IP 0x%08X PORT %u"
+            " DST #%u MAC %04X:%04X:%04X IP 0x%08X PORT %u"
             "\n",
             cfg->virt,
             cfg->phys,
             cfg->xCode,
-            cfg->xSrc, cfg->eSrc[0], cfg->eSrc[1], cfg->eSrc[2], cfg->iSrc, cfg->uSrc,
+                  tid, cfg->eSrc[0], cfg->eSrc[1], cfg->eSrc[2], cfg->iSrc, cfg->uSrc,
             cfg->xDst, cfg->eDst[0], cfg->eDst[1], cfg->eDst[2], cfg->iDst, cfg->uDst
             );
 
@@ -332,6 +332,8 @@ static int __init xtun_init(void) {
 
         if (phys) {
 
+            rtnl_lock();
+            
             if (phys->rx_handler != xtun_in) {
                 if (!netdev_rx_handler_register(phys, xtun_in, NULL)) {
                     printk("XTUN: INTERFACE %s: HOOKED\n", phys->name);
@@ -339,6 +341,8 @@ static int __init xtun_init(void) {
                     phys->min_header_len  += sizeof(xtun_s) - ETH_HLEN;
                 }
             }
+
+            rtnl_unlock();
 
             if (phys->rx_handler == xtun_in) {
 
@@ -372,7 +376,7 @@ static int __init xtun_init(void) {
                         xtun->uDst       =  BE16(cfg->uDst);
                         xtun->uSize      =  BE16(0);
                         xtun->uCksum     =  BE16(0);
-                        xtun->xSrc       =  BE8(cfg->xSrc);
+                        xtun->xSrc       =  BE8(tid);
                         xtun->xDst       =  BE8(cfg->xDst);
                         xtun->xCode      =  BE64(cfg->xCode);
 
