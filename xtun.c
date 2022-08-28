@@ -54,16 +54,18 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define XTUN_ALIGNED_SIZE CACHE_LINE_SIZE
 
-#define XTUN_WIRE_SIZE (ETH_HLEN + 20 + 8 + 10)
+#define XTUN_WIRE_SIZE     (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE + XTUN_HDR_SIZE)
+#define XTUN_WIRE_SIZE_IP  (               IP4_HDR_SIZE + UDP_HDR_SIZE + XTUN_HDR_SIZE)
+#define XTUN_WIRE_SIZE_UDP (                              UDP_HDR_SIZE + XTUN_HDR_SIZE)
 
 typedef struct xtun_s {
     //
     net_device_s* phys;
-    // ETHERNET
+#define ETH_HDR_SIZE 14
     u16  eDst[ETH_ALEN/sizeof(u16)];
     u16  eSrc[ETH_ALEN/sizeof(u16)];
     u16 eType;
-    // IP
+#define IP4_HDR_SIZE 20
     u8  iVersion;
     u8  iTOS;
     u16 iSize;
@@ -74,12 +76,12 @@ typedef struct xtun_s {
     u16 iCksum;
     u32 iSrc;
     u32 iDst;
-    // UDP
+#define UDP_HDR_SIZE 8
     u16 uSrc;
     u16 uDst;
     u16 uSize;
     u16 uCksum;
-    // XTUN
+#define XTUN_HDR_SIZE 10
     u8  xSrc; // SOURCE ID
     u8  xDst; // DESTINATION ID
     u64 xCode;
@@ -230,14 +232,15 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     xtun_s* const pkt = PTR(skb->data) - sizeof(xtun_s);
 
     // ASSERT: PTR(skb_mac_header(skb)) == PTR(skb->data)
+    // ASSERT: PTR(skb_network_header(skb)) == PTR(skb->data)
     // ASSERT: PTR(pkt) >= PTR(skb->head)
 
     memcpy(pkt, netdev_priv(dev), sizeof(xtun_s));
 
     const uint len = skb->len;
 
-    pkt->uSize  = BE16(len + 8);
-    pkt->iSize  = BE16(len + 28);
+    pkt->uSize  = BE16(len + XTUN_WIRE_SIZE_UDP);
+    pkt->iSize  = BE16(len + XTUN_WIRE_SIZE_IP);
     pkt->iCksum = ip_fast_csum((void*)pkt, 5);
 
     skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
