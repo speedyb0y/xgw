@@ -168,7 +168,7 @@ static u64 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
         *(u8*)pos = BE8(orig);
 
         sec <<= 1;
-        sec += orig;
+        key += orig;
 
         pos  += sizeof(u8);
         size -= sizeof(u8);
