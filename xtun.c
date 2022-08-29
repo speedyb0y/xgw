@@ -268,9 +268,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     xtun_s* const xtun = netdev_priv(virt);
 
+#define XTUN_HASH_PREPARE hash64_16_01
+
     if (hdr->iHash) {
         // NOT AUTH
-        if (decode(xtun->secret, xtun->key, payload, SKB_TAIL_PTR(skb)) != hdr->iHash)
+        if (XTUN_HASH_PREPARE(xtun_decode(xtun->secret, xtun->key, payload, SKB_TAIL_PTR(skb))) != hdr->iHash)
             // HASH MISMATCH
             goto drop;
     } else {
