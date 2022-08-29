@@ -88,7 +88,9 @@ typedef struct xtun_cfg_s {
     u32 key;
 } xtun_cfg_s;
 
-#define XTUN_AUTH_SIZE ((AUTH_REGISTERS_N + AUTH_RANDOMS_N)*sizeof(u64))
+#define AUTH_LOOP_COUNT 8
+// NAO PODE SER NEM O PRIMEIRO, E NEM O ULTIMO
+#define AUTH_LOOP_VERIFY 3
 
 #define AUTH_REGISTERS_N 4
 #define AUTH_RANDOMS_N 128
@@ -113,26 +115,21 @@ typedef struct xtun_cfg_s {
 #define AUTH_VERIFY_2 1
 #define AUTH_VERIFY_3 2
 
+#define XTUN_AUTH_SIZE ((AUTH_REGISTERS_N + AUTH_RANDOMS_N)*sizeof(u64))
+
 typedef struct xtun_auth_s {
     u64 verify   [AUTH_REGISTERS_N]; // COMO OS REGISTROS TERMINAM
     u64 randoms  [AUTH_RANDOMS_N];
 } xtun_auth_s;
 
-static inline u32 computa (xtun_auth_s* const auth) {
-
-    uint ok;
+static u32 xtun_auth_key_ (uint save, xtun_auth_s* const auth) {
 
     u64 register0 = AUTH_REGISTER_0 + auth->randoms[AUTH_INIT_0];
     u64 register1 = AUTH_REGISTER_1 + auth->randoms[AUTH_INIT_1];
     u64 register2 = AUTH_REGISTER_2 + auth->randoms[AUTH_INIT_2];
     u64 register3 = AUTH_REGISTER_3 + auth->randoms[AUTH_INIT_3];
 
-    for (uint c = 8; c; c--) {
-
-        register0 += register1 >> AUTH_0_ADD_1_SHIFT;
-        register2 += register3 >> AUTH_2_ADD_3_SHIFT;
-        register1 += AUTH_1_ADD;
-        register3 += AUTH_3_ADD;
+    for (uint c = AUTH_LOOP_COUNT; c; c--) {
 
         register0 += auth->randoms[register3 & (AUTH_RANDOMS_N - 1)];
         register1 += auth->randoms[register2 & (AUTH_RANDOMS_N - 1)];
@@ -144,12 +141,24 @@ static inline u32 computa (xtun_auth_s* const auth) {
         register2 += auth->randoms[register3 & (AUTH_RANDOMS_N - 1)];
         register3 += auth->randoms[register0 & (AUTH_RANDOMS_N - 1)];
 
-        if (c == 3)
-            ok =
-                register0 == auth->verify[AUTH_VERIFY_0] &&
-                register1 == auth->verify[AUTH_VERIFY_1] &&
-                register2 == auth->verify[AUTH_VERIFY_2] &&
-                register3 == auth->verify[AUTH_VERIFY_3];
+        if (c == AUTH_LOOP_VERIFY) {
+            if (save) {
+                auth->verify[AUTH_VERIFY_0] = register0;
+                auth->verify[AUTH_VERIFY_1] = register1;
+                auth->verify[AUTH_VERIFY_2] = register2;
+                auth->verify[AUTH_VERIFY_3] = register3;
+            } else
+                save =
+                    register0 == auth->verify[AUTH_VERIFY_0] &&
+                    register1 == auth->verify[AUTH_VERIFY_1] &&
+                    register2 == auth->verify[AUTH_VERIFY_2] &&
+                    register3 == auth->verify[AUTH_VERIFY_3];
+        }
+
+        register0 += register1 >> AUTH_0_ADD_1_SHIFT;
+        register2 += register3 >> AUTH_2_ADD_3_SHIFT;
+        register1 += AUTH_1_ADD;
+        register3 += AUTH_3_ADD;
     }
 
     // JUNTA TUDO E TRANSFORMA NA KEY
@@ -161,9 +170,19 @@ static inline u32 computa (xtun_auth_s* const auth) {
     // SE FOR 0, TRANSFORMA EM 1
     register0 += !register0;
     // RETORNA 0 SE FALHOU, OU UMA KEY SE SUCESSO
-    register0 *= ok;
+    register0 *= save;
 
-    return register0;
+    return (u32)register0;
+}
+
+static inline u32 xtun_auth_key_gen (xtun_auth_s* const auth) {
+
+    return xtun_auth_key_(true, auth);
+}
+
+static inline u32 xtun_auth_key_check (xtun_auth_s* const auth) {
+
+    return xtun_auth_key_(false, auth);
 }
 
 #define XTUN_ID(xtun) ((uint)(xtun - virts))
@@ -280,7 +299,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         ) // IT'S NOT OUR SERVICE / TUN ID MISMATCH / IT'S NOT AUTH
             return RX_HANDLER_PASS;
 
-        const u32 key = computa(payload);
+        const u32 key = xtun_auth_key_check(payload);
 
         if (!key) // INCORRECT AUTH / IT'S NOT AUTH
             return RX_HANDLER_PASS;
