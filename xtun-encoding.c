@@ -32,6 +32,7 @@
 #error "BAD ENCODING_ROUND_KEY_ADD"
 #endif
 
+#define BE8(x) (x)
 #define BE64(x)(x) // TODO: FIXME:
 
 // PEGA UM MENOR E TRANSFORMA EM UM MAIOR
@@ -105,8 +106,21 @@ static u64 xtun_encode (u64 sec, u64 key, void* pos, uint size) {
         size -= sizeof(u64);
     }
 
-    while (size--) {
+    while (size) {
 
+        const u8 orig = BE8(*(u8*)pos);
+
+        u8 value = orig;
+
+        value += sec;
+
+        *(u8*)pos = BE8(value);
+
+        sec <<= 1;
+        sec += orig;
+
+        pos  += sizeof(u8);
+        size -= sizeof(u8);
     }
 
     sec += key;
@@ -143,8 +157,21 @@ static u64 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
         size -= sizeof(u64);
     }
 
-    while (size--) {
+    while (size) {
 
+        const u8 value = BE8(*(u8*)pos);
+
+        u8 orig = value;
+
+        orig -= sec;
+
+        *(u8*)pos = BE8(orig);
+
+        sec <<= 1;
+        sec += orig;
+
+        pos  += sizeof(u8);
+        size -= sizeof(u8);
     }
 
     sec += key;
