@@ -1,5 +1,7 @@
 /*
 
+	gcc -fwhole-program -Wall -Wextra -O2 -march=native xtun-encoding-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512]
+	openssl aes-256-cbc -salt -in /dev/zero -out /proc/self/fd/1 -pass stdin <<< $(sha256sum <<< ewewgewew) | pv > /dev/null
 */
 
 #ifndef TEST
@@ -35,6 +37,10 @@ typedef uint64_t u64;
 
 #ifndef CHUNK_SIZE_MAX
 #define  CHUNK_SIZE_MAX 1500
+#endif
+
+#ifndef DECODE
+#define  DECODE 1
 #endif
 
 static inline u64 myrandom (void) {
@@ -86,7 +92,7 @@ int main (void) {
 
 			fprintf(stderr, "\n -- SECRET 0x%04X KEY 0x%04X = HASH 0x%04X \n",
 				secret, key, hashOriginal);
-
+#if DECODE
 			// DECODE
 #if !TEST			
 			const u16 hashNew = xtun_decode(SECRET16(secret), KEY16(key), chunkRW, chunkSize);
@@ -105,6 +111,7 @@ int main (void) {
 				fprintf(stderr, "ERROR: HASH MISMATCH\n");
 				return 1;
 			}
+#endif
 		}
 	}
 
