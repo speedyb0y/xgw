@@ -20,6 +20,13 @@
 #ifndef XGW
 #define XGW_XTUN_SERVER_IS 0
 #define XGW_XTUN_SERVER_PORT 2000
+#define XGW_XTUN_ASSERT 1
+#endif
+
+#if XGW_XTUN_ASSERT
+#define XTUN_ASSERT(c) if (!(c)) { printk("ASSERT FAILED: " #c "\n"); }
+#else
+#define XTUN_ASSERT(c) ({})
 #endif
 
 typedef __u8  u8;
@@ -50,10 +57,14 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define XTUN_SERVER_PORT XGW_XTUN_SERVER_PORT
 
-#define XTUN_SIZE     CACHE_LINE_SIZE
-#define XTUN_SIZE_ETH (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE)
-#define XTUN_SIZE_IP  (               IP4_HDR_SIZE + UDP_HDR_SIZE)
-#define XTUN_SIZE_UDP (                              UDP_HDR_SIZE)
+// EXPECTED SIZE
+#define XTUN_SIZE CACHE_LINE_SIZE
+
+#define XTUN_SIZE_ALL (XTUN_SIZE_PRIVATE + XTUN_SIZE_ETH)
+#define XTUN_SIZE_PRIVATE   (sizeof(net_device_s*) + sizeof(u64) + sizeof(u32) + sizeof(u16))
+#define XTUN_SIZE_ETH       (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE)
+#define XTUN_SIZE_IP        (               IP4_HDR_SIZE + UDP_HDR_SIZE)
+#define XTUN_SIZE_UDP       (                              UDP_HDR_SIZE)
 
 typedef struct xtun_s {
     net_device_s* phys;
@@ -251,7 +262,7 @@ static u16 encode (u64 hash, u64 key, u8* pos, u8* const end) {
     hash &= 0xFFFFU;
     // SE FOR 0, TRANSFORMA EM 1
     hash += !hash;
-        
+
     return (u16)hash;
 }
 
@@ -286,33 +297,32 @@ static u16 decode (u64 hash, u64 key, u8* pos, u8* const end) {
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
+    u32 key;
+
     sk_buff_s* const skb = *pskb;
 
-    void* const payload = PTR(skb_mac_header(skb)) + XTUN_SIZE_ETH;
+    xtun_s* const hdr = PTR(skb_mac_header(skb)) - XTUN_SIZE_PRIVATE;
 
-    xtun_s* const pkt = PTR(payload) - sizeof(xtun_s);
+    void* const payload = PTR(hdr) + sizeof(xtun_s);
 
-    // ASSERT: PTR(pkt) >= PTR(skb->head)
+    XTUN_ASSERT(PTR(hdr->eDst) >= PTR(skb->head));
     // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
-    // ASSERT: skb->protocol == pkt->eType
+    // ASSERT: skb->protocol == hdr->eType
 
-    if (skb->len < XTUN_SIZE_ETH)
-        // TOO SMALL
-        goto pass;
-
-    if (pkt->eType     != BE16(ETH_P_IP)    
-     || pkt->iVersion  != BE8(0x45)
-     || pkt->iProtocol != BE8(IPPROTO_UDP))
+    if (skb->len < XTUN_SIZE_ETH
+     || hdr->eType     != BE16(ETH_P_IP)
+     || hdr->iVersion  != BE8(0x45)
+     || hdr->iProtocol != BE8(IPPROTO_UDP))
         // NOT UDP/IPV4/ETHERNET
         goto pass;
 
     // WILL UNSIGNED OVERFLOW IF LOWER
 #if XGW_XTUN_SERVER_IS
-    const uint id = BE16(pkt->uDst) - XTUN_SERVER_PORT;
+    const uint id = BE16(hdr->uDst) - XTUN_SERVER_PORT;
 #else
-    const uint id = BE16(pkt->uSrc) - XTUN_SERVER_PORT;
+    const uint id = BE16(hdr->uSrc) - XTUN_SERVER_PORT;
 #endif
-    
+
     if (id >= TUNS_N)
         // NOT IN SERVER PORT RANGE
         goto pass;
@@ -323,15 +333,13 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         // NO SUCH TUNNEL
         goto pass;
 
-    // ASSERT: pkt->uDst == xtun->uSrc
+    // ASSERT: hdr->uDst == xtun->uSrc
 
     xtun_s* const xtun = netdev_priv(virt);
 
-    u32 key;
-    
     // HANDLE AUTH AND CURRENT KEY
 #if XGW_XTUN_SERVER_IS
-    if (!pkt->iHash) {
+    if (!hdr->iHash) {
         if (skb->len != (XTUN_SIZE_ETH + XTUN_AUTH_SIZE))
             // INVALID AUTH SIZE
             goto drop;
@@ -341,13 +349,13 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     } else
         key = xtun->key;
 #else
-    if (!pkt->iHash)
+    if (!hdr->iHash)
         // UNEXPECTED AUTH FROM SERVER
         goto drop;
     key = xtun->key;
-#endif    
+#endif
 
-    if (decode(xtun->secret, key, payload, SKB_TAIL_PTR(skb)) != pkt->iHash)
+    if (decode(xtun->secret, key, payload, SKB_TAIL_PTR(skb)) != hdr->iHash)
         // HASH MISMATCH
         goto drop;
 
@@ -359,24 +367,24 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     skb->transport_header = payload - PTR(skb->head);
     skb->len             -= XTUN_SIZE_ETH;
     skb->dev              = virt;
-    skb->protocol         = pkt->eType;
+    skb->protocol         = hdr->eType;
 
 #if XGW_XTUN_SERVER_IS
     // DETECT AND UPDATE PATH CHANGES
-    
+
     net_device_s* const dev = skb->dev;
-    
+
     const u64 hash = (u64)(uintptr_t)dev
-      + ((u64)pkt->eDst[0] <<  0)
-      + ((u64)pkt->eDst[1] <<  4)
-      + ((u64)pkt->eDst[2] <<  8)
-      + ((u64)pkt->eSrc[0] << 12)
-      + ((u64)pkt->eSrc[1] << 16)
-      + ((u64)pkt->eSrc[2] << 20)
-      + ((u64)pkt->iSrc    << 24)
-      + ((u64)pkt->iDst    << 28)
-      + ((u64)pkt->uSrc    << 32)
-      + ((u64)pkt->uDst    << 36)
+      + ((u64)hdr->eDst[0] <<  0)
+      + ((u64)hdr->eDst[1] <<  4)
+      + ((u64)hdr->eDst[2] <<  8)
+      + ((u64)hdr->eSrc[0] << 12)
+      + ((u64)hdr->eSrc[1] << 16)
+      + ((u64)hdr->eSrc[2] << 20)
+      + ((u64)hdr->iSrc    << 24)
+      + ((u64)hdr->iDst    << 28)
+      + ((u64)hdr->uSrc    << 32)
+      + ((u64)hdr->uDst    << 36)
     ;
 
     if (hash != xtun->hash) {
@@ -392,20 +400,20 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         xtun->hash    = hash;
         xtun->key     = key;
         xtun->phys    = dev;
-        xtun->eDst[0] = pkt->eSrc[0];
-        xtun->eDst[1] = pkt->eSrc[1];
-        xtun->eDst[2] = pkt->eSrc[2];
-        xtun->eSrc[0] = pkt->eDst[0];
-        xtun->eSrc[1] = pkt->eDst[1];
-        xtun->eSrc[2] = pkt->eDst[2];
-        xtun->iSrc    = pkt->iDst;
-        xtun->iDst    = pkt->iSrc;
+        xtun->eDst[0] = hdr->eSrc[0];
+        xtun->eDst[1] = hdr->eSrc[1];
+        xtun->eDst[2] = hdr->eSrc[2];
+        xtun->eSrc[0] = hdr->eDst[0];
+        xtun->eSrc[1] = hdr->eDst[1];
+        xtun->eSrc[2] = hdr->eDst[2];
+        xtun->iSrc    = hdr->iDst;
+        xtun->iDst    = hdr->iSrc;
         // NOTE: NOSSA PORTA NÃO É ATUALIZADA AQUI:
         //      A PORTA DO SERVIDOR É ESTÁVEL
         //      A PORTA DO CLIENTE É ELE QUE MUDA
         // TANTO QUE NEM VAI CHEGAR ATÉ AQUI SE NÃO FOR PARA A PORTA ATUAL
-      //xtun->uSrc    = pkt->uDst;
-        xtun->uDst    = pkt->uSrc;
+      //xtun->uSrc    = hdr->uDst;
+        xtun->uDst    = hdr->uSrc;
     }
 #endif
 
@@ -566,6 +574,7 @@ static int __init xtun_init(void) {
     printk("XTUN: INIT\n");
 
     BUILD_BUG_ON(sizeof(xtun_s) != XTUN_SIZE);
+    BUILD_BUG_ON(sizeof(xtun_s) != XTUN_SIZE_ALL);
     BUILD_BUG_ON(sizeof(xtun_auth_s) != XTUN_AUTH_SIZE);
 
     // HOOK INTERFACES
@@ -579,7 +588,7 @@ static int __init xtun_init(void) {
             printk("XTUN: INTERFACE %s: COULD NOT FIND\n", itfc);
             continue;
         }
-                                   
+
         rtnl_lock();
 
         // NOTE: WE ARE SUPPORTING SAME INTERFACE MULTIPLE TIMES
