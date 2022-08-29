@@ -1,16 +1,6 @@
 
-#define ENCODING_ORIG_ADD XGW_XTUN_ENCODING_ORIG_ADD
-
 #define ENCODING_INIT_KEY_ADD XGW_XTUN_ENCODING_INIT_KEY_ADD
 #define ENCODING_INIT_SEC_ADD XGW_XTUN_ENCODING_INIT_SEC_ADD
-
-#define ENCODING_ROUND_KEY_ADD XGW_XTUN_ENCODING_ROUND_KEY_ADD
-#define ENCODING_ROUND_SEC_ADD XGW_XTUN_ENCODING_ROUND_SEC_ADD
-
-#if ENCODING_ORIG_ADD <= 0 \
- || ENCODING_ORIG_ADD >= 0xFFFFFFFFFFFFFFFF
-#error "BAD ENCODING_ORIG_ADD"
-#endif
 
 #if ENCODING_INIT_SEC_ADD <= 0 \
  || ENCODING_INIT_SEC_ADD > 0xFFFFFFFFFFFFFFFF
@@ -20,16 +10,6 @@
 #if ENCODING_INIT_KEY_ADD <= 0 \
  || ENCODING_INIT_KEY_ADD > 0xFFFFFFFFFFFFFFFF
 #error "BAD ENCODING_INIT_KEY_ADD"
-#endif
-
-#if ENCODING_ROUND_SEC_ADD <= 0 \
- || ENCODING_ROUND_SEC_ADD > 0xFFFFFFFFFFFFFFFF
-#error "BAD ENCODING_ROUND_SEC_ADD"
-#endif
-
-#if ENCODING_ROUND_KEY_ADD <= 0 \
- || ENCODING_ROUND_KEY_ADD > 0xFFFFFFFFFFFFFFFF
-#error "BAD ENCODING_ROUND_KEY_ADD"
 #endif
 
 #define BE8(x) (x)
@@ -82,8 +62,8 @@ static u64 xtun_encode (u64 sec, u64 key, void* pos, uint size) {
     sec += ENCODING_INIT_SEC_ADD;
     key += ENCODING_INIT_KEY_ADD;
 
-    sec += swap64(key, (size % 32));
-    key += swap64(sec, (size % 32));
+    sec += swap64(key, (size % 64));
+    key += swap64(sec, (size % 64));
 
     while (size >= sizeof(u64)) {
 
@@ -92,15 +72,14 @@ static u64 xtun_encode (u64 sec, u64 key, void* pos, uint size) {
         u64 value = orig;
 
         value += key;
-        value ^= sec;
-        
-        value = swap64(value, ((key + sec) % 48));
+        value += sec;
+        value = swap64(value, ((key ^ sec) + size) % 63);
 
         *(u64*)pos = BE64(value);
 
-        sec += key >> 32;
-        sec += orig;
-        key ^= sec;
+        sec += orig >> (key % 64);
+        key += sec >> (size % 64);
+        key ^= orig;
 
         pos  += sizeof(u64);
         size -= sizeof(u64);
@@ -135,8 +114,8 @@ static u64 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
     sec += ENCODING_INIT_SEC_ADD;
     key += ENCODING_INIT_KEY_ADD;
 
-    sec += swap64(key, (size % 32));
-    key += swap64(sec, (size % 32));
+    sec += swap64(key, (size % 64));
+    key += swap64(sec, (size % 64));
 
     while (size >= sizeof(u64)) {
 
@@ -144,16 +123,15 @@ static u64 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
 
         u64 orig = value;
 
-        orig = swap64_undo(orig, ((key + sec) % 48));
-        
-        orig ^= sec;
+        orig = swap64_undo(orig, ((key ^ sec) + size) % 63);
+        orig -= sec;        
         orig -= key;
 
         *(u64*)pos = BE64(orig);
 
-        sec += key >> 32;
-        sec += orig;
-        key ^= sec;
+        sec += orig >> (key % 64);
+        key += sec >> (size % 64);
+        key ^= orig;
 
         pos  += sizeof(u64);
         size -= sizeof(u64);

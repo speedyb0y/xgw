@@ -1,7 +1,10 @@
 /*
 
-	gcc -fwhole-program -Wall -Wextra -O2 -march=native xtun-encoding-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512]
-	openssl aes-256-cbc -salt -in /dev/zero -out /proc/self/fd/1 -pass stdin <<< $(sha256sum <<< ewewgewew) | pv > /dev/null
+    gcc -fwhole-program -Wall -Wextra -O2 -march=native xtun-encoding-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512]
+
+
+    gcc -fwhole-program -Wall -Wextra -O2 -march=native xtun-encoding-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512] -DDECODE=0 -DPRINT=0
+    openssl aes-256-cbc -salt -in /dev/zero -out /proc/self/fd/1 -pass stdin <<< $(sha256sum <<< ewewgewew) | pv > /dev/null
 */
 
 #ifndef TEST
@@ -32,93 +35,105 @@ typedef uint64_t u64;
 #include "xtun-encoding.c"
 
 #ifndef CHUNK_SIZE_MIN
-#define  CHUNK_SIZE_MIN 128
+#define CHUNK_SIZE_MIN 128
 #endif
 
 #ifndef CHUNK_SIZE_MAX
-#define  CHUNK_SIZE_MAX 1500
+#define CHUNK_SIZE_MAX 1500
 #endif
 
 #ifndef DECODE
-#define  DECODE 1
+#define DECODE 1
+#endif
+
+#ifndef PRINT
+#define PRINT 1
+#endif
+
+#ifndef COUNT
+#define COUNT 1
 #endif
 
 static inline u64 myrandom (void) {
 
-	static u64 x = 0x556465607ULL;
+    static u64 x = 0x556465607ULL;
 
-	//x += time(NULL);
-	x += 1;
+    //x += time(NULL);
+    x += 1;
 
-	return x;
+    return x;
 }
 
 int main (void) {
 
-	u8 chunk[CHUNK_SIZE_MAX];
-	u8 chunkRW[CHUNK_SIZE_MAX];
-	int chunkSize;
+    u8 chunk[CHUNK_SIZE_MAX];
+    u8 chunkRW[CHUNK_SIZE_MAX];
+    int chunkSize;
 
-	while ((chunkSize = read(STDIN_FILENO, chunk, (CHUNK_SIZE_MIN + (myrandom() % (CHUNK_SIZE_MAX - CHUNK_SIZE_MIN))))) > 0) {
+    while ((chunkSize = read(STDIN_FILENO, chunk, (CHUNK_SIZE_MIN + (myrandom() % (CHUNK_SIZE_MAX - CHUNK_SIZE_MIN))))) > 0) {
 
-		fprintf(stderr, "SIZE %u\n", chunkSize);
+#if PRINT
+        fprintf(stderr, "SIZE %u\n", chunkSize);
+#endif
 
-		for (uint c = 16; c; c--) {
-			
-			// USA ESSE ORIGINAL
-			memcpy(chunkRW, chunk, chunkSize);
+        for (uint c = COUNT; c; c--) {
 
-			const u16 secret = (u16)myrandom();
-			const u16 key    = (u16)myrandom(); // FIXME: NAO PODE SER 0
+            // USA ESSE ORIGINAL
+            memcpy(chunkRW, chunk, chunkSize);
 
-			// ENCODE		
+            const u16 secret = (u16)myrandom();
+            const u16 key    = (u16)myrandom(); // FIXME: NAO PODE SER 0
+
+            // ENCODE
 #if !TEST
-			const u16 hashOriginal = xtun_encode(SECRET16(secret), KEY16(key), chunkRW, chunkSize);
+            const u16 hashOriginal = xtun_encode(SECRET16(secret), KEY16(key), chunkRW, chunkSize);
 #else
-			const u16 hashOriginal = 0;
+            const u16 hashOriginal = 0;
 #endif
-			// MOSTRA COMO FICA ENCODADO
-			const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
+            // MOSTRA COMO FICA ENCODADO
+            const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
 
-			if (written == -1) {
-				fprintf(stderr, "FAILED TO WRITE: %s\n", strerror(errno));
-				return 1;
-			}
-			
-			if (written != chunkSize) {
-				fprintf(stderr, "FAILED TO WRITE: INCOMPLETE\n");
-				return 1;
-			}
+            if (written == -1) {
+                fprintf(stderr, "FAILED TO WRITE: %s\n", strerror(errno));
+                return 1;
+            }
 
-			fprintf(stderr, "\n -- SECRET 0x%04X KEY 0x%04X = HASH 0x%04X \n",
-				secret, key, hashOriginal);
+            if (written != chunkSize) {
+                fprintf(stderr, "FAILED TO WRITE: INCOMPLETE\n");
+                return 1;
+            }
+
+#if PRINT
+            fprintf(stderr, "\n -- SECRET 0x%04X KEY 0x%04X = HASH 0x%04X \n",
+                secret, key, hashOriginal);
+#endif
 #if DECODE
-			// DECODE
-#if !TEST			
-			const u16 hashNew = xtun_decode(SECRET16(secret), KEY16(key), chunkRW, chunkSize);
+            // DECODE
+#if !TEST
+            const u16 hashNew = xtun_decode(SECRET16(secret), KEY16(key), chunkRW, chunkSize);
 #else
-			const u16 hashNew = hashOriginal;
+            const u16 hashNew = hashOriginal;
 #endif
 
-			// COMPARE DATA
-			if (memcmp(chunk, chunkRW, chunkSize)) {
-				fprintf(stderr, "ERROR: DATA MISMATCH\n");
-				return 1;
-			}
+            // COMPARE DATA
+            if (memcmp(chunk, chunkRW, chunkSize)) {
+                fprintf(stderr, "ERROR: DATA MISMATCH\n");
+                return 1;
+            }
 
-			// COMPARE HASH
-			if (hashNew != hashOriginal) {
-				fprintf(stderr, "ERROR: HASH MISMATCH\n");
-				return 1;
-			}
+            // COMPARE HASH
+            if (hashNew != hashOriginal) {
+                fprintf(stderr, "ERROR: HASH MISMATCH\n");
+                return 1;
+            }
 #endif
-		}
-	}
+        }
+    }
 
-	if (chunkSize == -1) {
-		fprintf(stderr, "FAILED TO READ: %s\n", strerror(errno));
-		return 1;
-	}
+    if (chunkSize == -1) {
+        fprintf(stderr, "FAILED TO READ: %s\n", strerror(errno));
+        return 1;
+    }
 
-	return 0;
+    return 0;
 }
