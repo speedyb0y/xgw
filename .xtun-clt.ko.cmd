@@ -1,1 +1,0 @@
-cmd_/home/speedyb0y/xtun/xtun-clt.ko := ld -r -m elf_x86_64 -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T scripts/module.lds -o /home/speedyb0y/xtun/xtun-clt.ko /home/speedyb0y/xtun/xtun-clt.o /home/speedyb0y/xtun/xtun-clt.mod.o;  true
