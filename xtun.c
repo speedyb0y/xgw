@@ -50,7 +50,7 @@ typedef struct xtun_s {
     net_device_s* phys;
     u64 hash; // THE PATH HASH
     u32 key;
-    u16 id; // TODO: "ENVIA COM DESTINO AO TUNEL Y DO PEER; O PEER SABE QUE SEU TUNEL Y CORRESPONDE AO MEU TUNEL X"
+    u16 secret; // TODO: "ENVIA COM DESTINO AO TUNEL Y DO PEER; O PEER SABE QUE SEU TUNEL Y CORRESPONDE AO MEU TUNEL X"
 #define ETH_HDR_SIZE 14
     u16 eDst[3];
     u16 eSrc[3];
@@ -85,6 +85,7 @@ typedef struct xtun_cfg_s {
     u16 iID;
     u16 uSrc;
     u16 uDst;
+    u16 secret;
     u32 key;
 } xtun_cfg_s;
 
@@ -122,12 +123,12 @@ typedef struct xtun_auth_s {
     u64 randoms  [AUTH_RANDOMS_N];
 } xtun_auth_s;
 
-static u32 xtun_auth_key_ (uint save, xtun_auth_s* const auth) {
+static u32 xtun_auth_key_ (const u16 secret, xtun_auth_s* const auth, bool save) {
 
-    u64 register0 = AUTH_REGISTER_0 + auth->randoms[AUTH_INIT_0];
-    u64 register1 = AUTH_REGISTER_1 + auth->randoms[AUTH_INIT_1];
-    u64 register2 = AUTH_REGISTER_2 + auth->randoms[AUTH_INIT_2];
-    u64 register3 = AUTH_REGISTER_3 + auth->randoms[AUTH_INIT_3];
+    u64 register0 = AUTH_REGISTER_0 + secret + auth->randoms[AUTH_INIT_0];
+    u64 register1 = AUTH_REGISTER_1 + secret + auth->randoms[AUTH_INIT_1];
+    u64 register2 = AUTH_REGISTER_2 + secret + auth->randoms[AUTH_INIT_2];
+    u64 register3 = AUTH_REGISTER_3 + secret + auth->randoms[AUTH_INIT_3];
 
     for (uint c = AUTH_LOOP_COUNT; c; c--) {
 
@@ -175,14 +176,14 @@ static u32 xtun_auth_key_ (uint save, xtun_auth_s* const auth) {
     return (u32)register0;
 }
 
-static inline u32 xtun_auth_key_gen (xtun_auth_s* const auth) {
+static inline u32 xtun_auth_key_gen (const u16 secret, xtun_auth_s* const auth) {
 
-    return xtun_auth_key_(true, auth);
+    return xtun_auth_key_(secret, auth, true);
 }
 
-static inline u32 xtun_auth_key_check (xtun_auth_s* const auth) {
+static inline u32 xtun_auth_key_check (const u16 secret, xtun_auth_s* const auth) {
 
-    return xtun_auth_key_(false, auth);
+    return xtun_auth_key_(secret, auth, false);
 }
 
 #define XTUN_ID(xtun) ((uint)(xtun - virts))
@@ -196,15 +197,15 @@ static inline u32 xtun_auth_key_check (xtun_auth_s* const auth) {
 #define MAC(a,b,c,d,e,f) { _MAC(a), _MAC(b), _MAC(c), _MAC(d), _MAC(e), _MAC(f) }
 
 static xtun_cfg_s cfgs[] = {
-    { .key = 0, .virt = "xgw-0", .iID = 0, .phys = "isp-0", .iTOS = 0, .iTTL = 64,
+    { .secret = 0, .key = 0, .virt = "xgw-0", .iID = 0, .phys = "isp-0", .iTOS = 0, .iTTL = 64,
         .eSrc = MAC(d0,50,99,10,10,10), .iSrc = {192,168,0,20},    .uSrc = 2000,
         .eDst = MAC(54,9F,06,F4,C7,A0), .iDst = {200,200,200,200}, .uDst = 3000,
     },
-    { .key = 0, .virt = "xgw-1", .iID = 1, .phys = "isp-1", .iTOS = 0, .iTTL = 64,
+    { .secret = 0, .key = 0, .virt = "xgw-1", .iID = 1, .phys = "isp-1", .iTOS = 0, .iTTL = 64,
         .eSrc = MAC(d0,50,99,11,11,11), .iSrc = {192,168,100,20},  .uSrc = 2111,
         .eDst = MAC(CC,ED,21,96,99,C0), .iDst = {200,200,200,200}, .uDst = 3111,
     },
-    { .key = 0, .virt = "xgw-2", .iID = 2, .phys = "isp-2", .iTOS = 0, .iTTL = 64,
+    { .secret = 0, .key = 0, .virt = "xgw-2", .iID = 2, .phys = "isp-2", .iTOS = 0, .iTTL = 64,
         .eSrc = MAC(d0,50,99,12,12,12), .iSrc = {192,168,1,20},    .uSrc = 2222,
         .eDst = MAC(90,55,DE,A1,CD,F0), .iDst = {200,200,200,200}, .uDst = 3222,
     },
@@ -254,6 +255,49 @@ static void decode (u64 key, u8* pos, u8* const end) {
     }
 }
 
+static inline u64 xtun_path_hash (const xtun_s* const pkt, const net_device_s* const dev) {
+
+    return (u64)(uintptr_t)dev
+      + ((u64)pkt->eDst[0] <<  0)
+      + ((u64)pkt->eDst[1] <<  4)
+      + ((u64)pkt->eDst[2] <<  8)
+      + ((u64)pkt->eSrc[0] << 12)
+      + ((u64)pkt->eSrc[1] << 16)
+      + ((u64)pkt->eSrc[2] << 20)
+      + ((u64)pkt->iSrc    << 24)
+      + ((u64)pkt->iDst    << 28)
+      + ((u64)pkt->uSrc    << 32)
+      + ((u64)pkt->uDst    << 36)
+    ;
+}
+
+static inline void xtun_path_save (xtun_s* const restrict xtun, const u64 hash, const u32 key, const xtun_s* restrict const pkt, net_device_s* const dev) {
+
+    if (xtun->phys != dev) {
+        if (xtun->phys)
+            dev_put(xtun->phys);
+        dev_hold(dev);
+    }
+
+    xtun->hash    = hash;
+    xtun->key     = key;
+    xtun->phys    = dev;
+    xtun->eDst[0] = pkt->eSrc[0];
+    xtun->eDst[1] = pkt->eSrc[1];
+    xtun->eDst[2] = pkt->eSrc[2];
+    xtun->eSrc[0] = pkt->eDst[0];
+    xtun->eSrc[1] = pkt->eDst[1];
+    xtun->eSrc[2] = pkt->eDst[2];
+    xtun->iSrc    = pkt->iDst;
+    xtun->iDst    = pkt->iSrc;
+    // NOTE: NOSSA PORTA NÃO É ATUALIZADA AQUI:
+    //      A PORTA DO SERVIDOR É ESTÁVEL
+    //      A PORTA DO CLIENTE É ELE QUE MUDA
+    // TANTO QUE NEM VAI CHEGAR ATÉ AQUI SE NÃO FOR PARA A PORTA ATUAL
+  //xtun->uSrc    = pkt->uDst;
+    xtun->uDst    = pkt->uSrc;
+}
+
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
@@ -268,67 +312,34 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     net_device_s* const virt = virts[BE16(pkt->iID) % TUNS_N];
 
-    if (!virt) // NO SUCH TUNNEL
+    if (!virt)
+        // NO SUCH TUNNEL
         return RX_HANDLER_PASS;
 
     xtun_s* const xtun = netdev_priv(virt);
 
-    const u64 hash = (u64)(uintptr_t)skb->dev
-      + ((u64)pkt->eDst[0] <<  0)
-      + ((u64)pkt->eDst[1] <<  4)
-      + ((u64)pkt->eDst[2] <<  8)
-      + ((u64)pkt->eSrc[0] << 12)
-      + ((u64)pkt->eSrc[1] << 16)
-      + ((u64)pkt->eSrc[2] << 20)
-      + ((u64)pkt->iSrc    << 24)
-      + ((u64)pkt->iDst    << 28)
-      + ((u64)pkt->uSrc    << 32)
-      + ((u64)pkt->uDst    << 36)
-    ;
+    const u64 hash = xtun_path_hash(pkt, skb->dev);
 
-    // VERIFY PATH
     if (xtun->hash != hash) {
-        // THIS IS NOT THE KNOWN PATH
 
-        if (pkt->uDst      != xtun->uSrc // TEM QUE SER NA PORTA EM QUE ESTE TUNEL ESTA ESCUTANDO
-         || pkt->iID       != xtun->id
+        if (skb->len       != (XTUN_SIZE_ETH + XTUN_AUTH_SIZE)
+         || pkt->uDst      != xtun->uSrc // TEM QUE SER NA PORTA EM QUE ESTE TUNEL ESTA ESCUTANDO
+         ////|| pkt->iID       != xtun->id
          || pkt->iProtocol != BE8(IPPROTO_UDP)
          || pkt->iVersion  != BE8(0x45)
          || pkt->eType     != BE16(ETH_P_IP)
-         || skb->len       != (XTUN_SIZE_ETH + XTUN_AUTH_SIZE)
         ) // IT'S NOT OUR SERVICE / TUN ID MISMATCH / IT'S NOT AUTH
             return RX_HANDLER_PASS;
 
-        const u32 key = xtun_auth_key_check(payload);
+        const u32 key = xtun_auth_key_check(xtun->secret, payload);
 
-        if (!key) // INCORRECT AUTH / IT'S NOT AUTH
+        if (!key)
+            // INCORRECT AUTH / IT'S NOT AUTH
             return RX_HANDLER_PASS;
 
         printk("XTUN: TUNNEL %s: UPDATING PATH\n", virt->name);
 
-        // COPIA
-        xtun->hash    = hash;
-        xtun->key     = key;
-        xtun->eDst[0] = pkt->eSrc[0];
-        xtun->eDst[1] = pkt->eSrc[1];
-        xtun->eDst[2] = pkt->eSrc[2];
-        xtun->eSrc[0] = pkt->eDst[0];
-        xtun->eSrc[1] = pkt->eDst[1];
-        xtun->eSrc[2] = pkt->eDst[2];
-        xtun->iSrc    = pkt->iDst;
-        xtun->iDst    = pkt->iSrc;
-        // NOTE: NOSSA PORTA NÃO É ATUALIZADA AQUI:
-        //      A PORTA DO SERVIDOR É ESTÁVEL
-        //      A PORTA DO CLIENTE É ELE QUE MUDA
-        // TANTO QUE NEM VAI CHEGAR ATÉ AQUI SE NÃO FOR PARA A PORTA ATUAL
-      //xtun->uSrc    = pkt->uDst;
-        xtun->uDst    = pkt->uSrc;
-
-        if (xtun->phys != skb->dev) {
-            if (xtun->phys)
-                dev_put(xtun->phys);
-            dev_hold((xtun->phys = skb->dev));
-        }
+        xtun_path_save(xtun, hash, key, pkt, skb->dev);
     }
 
     decode(xtun->key, payload, SKB_TAIL_PTR(skb));
@@ -446,11 +457,11 @@ static int __init xtun_init(void) {
 
 #define _A6(x) x[0], x[1], x[2], x[3], x[4], x[5]
 #define _A4(x) x[0], x[1], x[2], x[3]
-        printk("XTUN: TUNNEL %s: INITIALIZING WITH KEY 0x%08X PHYS %s TOS 0x%02X TTL %u"
+        printk("XTUN: TUNNEL %s: INITIALIZING WITH SECRET 0x%04X KEY 0x%08X PHYS %s TOS 0x%02X TTL %u"
             " SRC #%u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
             " DST #%u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
             "\n",
-            cfg->virt, cfg->key,
+            cfg->virt, cfg->secret, cfg->key,
             cfg->phys, cfg->iTOS, cfg->iTTL,
                  tid, _A6(cfg->eSrc), _A4(cfg->iSrc), cfg->uSrc,
             cfg->iID, _A6(cfg->eDst), _A4(cfg->iDst), cfg->uDst
@@ -484,8 +495,8 @@ static int __init xtun_init(void) {
 
                         xtun->phys       =  phys;
                         xtun->hash       =  0;
-                        xtun->key        =  cfg->key;
-                        xtun->id         =  BE16(tid);
+                        xtun->secret     =  cfg->secret;
+                        xtun->key        =  cfg->key; // WILL AUTO CHANGE LATER
                         xtun->eDst[0]    =  BE16(cfg->eDst16[0]);
                         xtun->eDst[1]    =  BE16(cfg->eDst16[1]);
                         xtun->eDst[2]    =  BE16(cfg->eDst16[2]);
