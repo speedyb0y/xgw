@@ -1,5 +1,10 @@
 
-#define BYTE_X 0x33
+#if XGW_XTUN_ENCODING_BYTE_X <= 0
+ || XGW_XTUN_ENCODING_BYTE_X >= 0xFF
+#error "BAD BYTE X"
+#endif
+
+#define BYTE_X XGW_XTUN_ENCODING_BYTE_X
 
 static u16 encode (u64 hash, u64 key, u8* pos, u8* const end) {
 
