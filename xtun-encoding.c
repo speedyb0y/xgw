@@ -47,7 +47,7 @@ static inline u64 xtun_encoding_round_key (u64 sec, u64 key, u8 orig) {
 }
 
 static inline u64 xtun_encoding_round_sec (u64 sec, u64 key, u8 orig) {
-
+(void)key;
     sec += orig   << (sec % 32);
     sec += sec << (orig  % 32);
     sec += ENCODE_SECRET_ADD;
@@ -55,8 +55,8 @@ static inline u64 xtun_encoding_round_sec (u64 sec, u64 key, u8 orig) {
     return sec;
 }
 
-static inline u64 xtun_encoding_finish_hash (sec, key) {
-
+static inline u64 xtun_encoding_finish_hash (u64 sec, u64 key) {
+(void)key;
     // SE FOR 0, TRANSFORMA EM 1
     sec += !sec;
     
@@ -66,8 +66,8 @@ static inline u64 xtun_encoding_finish_hash (sec, key) {
 // RETORNA: HASH OF SECRET + KEY + ORIGINAL
 static u64 xtun_encode (u64 sec, u64 key, u8* pos, u8* const end) {
 
-    sec = xtun_encoding_init_sec(sec, key);
-    key = xtun_encoding_init_key(sec, key);
+    sec = xtun_encoding_init_sec(sec, key + (end - pos));
+    key = xtun_encoding_init_key(sec, key + ((end - pos)/2));
 
     while (pos != end) {
 
@@ -84,8 +84,8 @@ static u64 xtun_encode (u64 sec, u64 key, u8* pos, u8* const end) {
 
         *pos++ = value;
 
-        sec = xtun_encoding_round_sec(sec, key, value);
-        key = xtun_encoding_round_key(sec, key, value);
+        sec = xtun_encoding_round_sec(sec, key, orig);
+        key = xtun_encoding_round_key(sec, key, orig);
     }
 
     return xtun_encoding_finish_hash(sec, key);
@@ -94,8 +94,12 @@ static u64 xtun_encode (u64 sec, u64 key, u8* pos, u8* const end) {
 // RETORNA: HASH OF SECRET + KEY + ORIGINAL
 static u64 xtun_decode (u64 sec, u64 key, u8* pos, u8* const end) {
 
-    sec = xtun_encoding_init_sec(sec, key);
-    key = xtun_encoding_init_key(sec, key);
+    uint size = (end
+
+    - pos);
+
+    sec = xtun_encoding_init_sec(sec, key + size);
+    key = xtun_encoding_init_key(sec, key + ((end - pos)/2));
 
     while (pos != end) {
 

@@ -56,7 +56,7 @@ int main (void) {
 			const u32 key    = (u32)myrandom(); // FIXME: NAO PODE SER 0
 
 			// ENCODE		
-			const u16 hashOriginal = encode(secret, key, chunkRW, chunkRW + chunkSize);
+			const u16 hashOriginal = xtun_encode(secret, key, chunkRW, chunkRW + chunkSize);
 
 			// MOSTRA COMO FICA ENCODADO
 			const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
@@ -75,7 +75,7 @@ int main (void) {
 				(unsigned long long int )secret, key, hashOriginal);
 
 			// DECODE
-			const u16 hashNew = decode(secret, key, chunkRW, chunkRW + chunkSize);
+			const u16 hashNew = xtun_decode(secret, key, chunkRW, chunkRW + chunkSize);
 
 			// COMPARE DATA
 			if (memcmp(chunk, chunkRW, chunkSize)) {
