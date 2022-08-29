@@ -96,7 +96,6 @@ typedef struct xtun_cfg_s {
     union { u8 cltAddr[4]; u32 cltAddr32; };
     union { u8 srvAddr[4]; u32 srvAddr32; };
     u16 cltPort;
-    u16 srvPort;
     u8  iTOS;
     u8  iTTL;
 } xtun_cfg_s;
@@ -108,15 +107,15 @@ static net_device_s* virts[TUNS_N];
 static const xtun_cfg_s cfgs[] = {
     {.id = 0, .secret = 0, .virt = "xgw-0", .phys = "isp-0", .iTOS = 0, .iTTL = 64,
         .cltMAC = MAC(d0,50,99,10,10,10), .cltAddr = {192,168,0,20},    .cltPort = 2000,
-        .srvMAC = MAC(54,9F,06,F4,C7,A0), .srvAddr = {200,200,200,200}, .srvPort = 3000,
+        .srvMAC = MAC(54,9F,06,F4,C7,A0), .srvAddr = {200,200,200,200}
     },
     { .id = 1, .secret = 0, .virt = "xgw-1", .phys = "isp-1", .iTOS = 0, .iTTL = 64,
         .cltMAC = MAC(d0,50,99,11,11,11), .cltAddr = {192,168,100,20},  .cltPort = 2111,
-        .srvMAC = MAC(CC,ED,21,96,99,C0), .srvAddr = {200,200,200,200}, .srvPort = 3000,
+        .srvMAC = MAC(CC,ED,21,96,99,C0), .srvAddr = {200,200,200,200}
     },
     { .id = 2, .secret = 0, .virt = "xgw-2", .phys = "isp-2", .iTOS = 0, .iTTL = 64,
         .cltMAC = MAC(d0,50,99,12,12,12), .cltAddr = {192,168,1,20},    .cltPort = 2222,
-        .srvMAC = MAC(90,55,DE,A1,CD,F0), .srvAddr = {200,200,200,200}, .srvPort = 3000,
+        .srvMAC = MAC(90,55,DE,A1,CD,F0), .srvAddr = {200,200,200,200}
     },
 };
 
@@ -493,7 +492,7 @@ static void xtun_initialize (xtun_s* const xtun, const xtun_cfg_s* const cfg, ne
     xtun->iSrc       =  BE32(cfg->cltAddr32);
     xtun->iDst       =  BE32(cfg->srvAddr32);
     xtun->uSrc       =  BE16(cfg->cltPort);
-    xtun->uDst       =  BE16(cfg->srvPort + cfg->id);
+    xtun->uDst       =  BE16(XTUN_SERVER_PORT + cfg->id);
 #endif
     xtun->uSize      =  BE16(0);
     xtun->uCksum     =  BE16(0);
@@ -557,7 +556,7 @@ static int __init xtun_init(void) {
             " SRV MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
             cfg->virt, cfg->id, cfg->secret, cfg->phys, cfg->iTOS, cfg->iTTL,
             _A6(cfg->cltMAC), _A4(cfg->cltAddr), cfg->cltPort,
-            _A6(cfg->srvMAC), _A4(cfg->srvAddr), cfg->srvPort
+            _A6(cfg->srvMAC), _A4(cfg->srvAddr), XTUN_SERVER_PORT
             );
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
