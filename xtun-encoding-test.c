@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -24,101 +25,67 @@ typedef uint64_t u64;
 
 #include "encoding.c"
 
-#define BUFF_SIZE 65536
+#define CHUNK_SIZE_MAX 1500
 
-int main (int argsN, const char* args[]) {
+static inline uint myrandom (void) {
 
-	int enc;
+	static u64 x = 0;
 
-	if (argsN != 2) {
+	x += time(NULL);
+	x += x;
 
-		return 1;
-	}
+	return x;
+}
 
-	if (!strcmp(args[1], "e") ||
-		!strcmp(args[1], "enc") ||
-		!strcmp(args[1], "encode") ||
-		!strcmp(args[1], "encrypt")) {
-		enc = 1;
-	} elif (
-		!strcmp(args[1], "d") ||
-		!strcmp(args[1], "dec") ||
-		!strcmp(args[1], "decode") ||
-		!strcmp(args[1], "decrypt")) {
-		enc = 0;
-	} else {
-		
-		return 1;
-	}
+int main (void) {
 
-	void* const buff = malloc(BUFF_SIZE);
+	u8 chunk[CHUNK_SIZE_MAX]; int chunkSize;
+	u8 chunkRW[CHUNK_SIZE_MAX];
 
-	if (buff == NULL) {
+	while ((chunkSize = read(STDIN_FILENO, chunk, (1 + (myrandom() % (CHUNK_SIZE_MAX - 1)))))) {
 
-		return 1;
-	}
-
-	u64 accum = ZERO;
-
-	loop {
-
-		const int readen = read(STDIN_FILENO, buff, BUFF_SIZE);
-
-		if (readen == 0) {
-			//fprintf(stderr, "EOF\n");
-			return 0;
-		}
-
-		if (readen == -1) {
+		if (chunkSize == -1) {
 			fprintf(stderr, "FAILED TO READ: %s\n", strerror(errno));
 			return 1;
 		}
 
-		u8* pos = buff;
-		u8* end = buff + readen;
+		// USA ESSE ORIGINAL
+		memcpy(chunkRW, chunk, chunkSize);
 
-		while (pos != end) {
-			
-			uint value = *pos;
+		const u16 secret = 0;
+		const u32 key = 1;
 
-			if (enc) {
-				// ENCODE
+		// ENCODE		
+		const u16 hashOriginal = encode(secret, key, chunkRW, chunkRW + chunkSize);
 
-				const uint orig = value;
+		// MOSTRA COMO FICA ENCODADO
+		const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
 
-				value ^= accum;
-				value &= 0xFF;
-				value |= 0x100;
-				value -= BYTE_X;
-				value ^= (value & 0xF) << 4;
-				value &= 0xFF;
-
-				accum <<= 1;
-				accum += orig;
-				
-			} else {
-				// DECODE
-
-				value ^= (value & 0xF) << 4;
-				value += BYTE_X;
-				value ^= accum;
-				value &= 0xFF;
-				
-				accum <<= 1;
-				accum += value;
-			}
+		if (written == -1) {
+			fprintf(stderr, "FAILED TO WRITE: %s\n", strerror(errno));
+			return 1;
+		}
 		
-			*pos++ = value;
+		if (written != chunkSize) {
+			fprintf(stderr, "FAILED TO WRITE: INCOMPLETE\n");
+			return 1;
 		}
 
-		const int written = write(STDOUT_FILENO, buff, readen);
+		// DECODE
+		const u16 hashNew = decode(secret, key, chunkRW, chunkRW + chunkSize);
 
-		if (written != readen) {
-			if (written == -1)
-				fprintf(stderr, "FAILED TO READ: %s\n", strerror(errno));
-			else
-				fprintf(stderr, "FAILED TO WRITE: INCOMPLETE\n");
+		// COMPARE DATA
+		if (memcmp(chunk, chunkRW, chunkSize)) {
+			fprintf(stderr, "ERROR: DATA MISMATCH\n");
+			return 1;
+		}
+
+		// COMPARE HASH
+		if (hashNew != hashOriginal) {
+			fprintf(stderr, "ERROR: HASH MISMATCH\n");
 			return 1;
 		}
 	}
+
+	return 0;
 }

@@ -6,14 +6,15 @@
 
 #define BYTE_X XGW_XTUN_ENCODING_BYTE_X
 
-static u16 encode (u64 hash, u64 key, u8* pos, u8* const end) {
+// RETORNA: HASH OF ORIGINAL
+static u16 encode (u64 secret, u64 key, u8* pos, u8* const end) {
 
     while (pos != end) {
 
         const uint orig = *pos;
 
-        hash <<= 1;
-        hash += orig;
+        secret <<= 1;
+        secret += orig;
 
         uint value = orig;
 
@@ -30,16 +31,17 @@ static u16 encode (u64 hash, u64 key, u8* pos, u8* const end) {
         *pos++ = value;
     }
 
-    hash += hash >> 32;
-    hash += hash >> 16;
-    hash &= 0xFFFFU;
+    secret += secret >> 32;
+    secret += secret >> 16;
+    secret &= 0xFFFFU;
     // SE FOR 0, TRANSFORMA EM 1
-    hash += !hash;
+    secret += !secret;
 
-    return (u16)hash;
+    return (u16)secret;
 }
 
-static u16 decode (u64 hash, u64 key, u8* pos, u8* const end) {
+// RETORNA: HASH OF ORIGINAL
+static u16 decode (u64 secret, u64 key, u8* pos, u8* const end) {
 
     while (pos != end) {
 
@@ -55,15 +57,15 @@ static u16 decode (u64 hash, u64 key, u8* pos, u8* const end) {
 
         *pos++ = value;
 
-        hash <<= 1;
-        hash += value;
+        secret <<= 1;
+        secret += value;
     }
 
-    hash += hash >> 32;
-    hash += hash >> 16;
-    hash &= 0xFFFFU;
+    secret += secret >> 32;
+    secret += secret >> 16;
+    secret &= 0xFFFFU;
     // SE FOR 0, TRANSFORMA EM 1
-    hash += !hash;
+    secret += !secret;
 
-    return (u16)hash;
+    return (u16)secret;
 }
