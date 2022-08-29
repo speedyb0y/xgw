@@ -57,7 +57,11 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 typedef struct xtun_s {
     net_device_s* phys;
+#if XGW_XTUN_SERVER_IS
     u64 hash; // THE PATH HASH
+#else
+    u64 reserved;
+#endif
     u32 key; // DINAMICO, GERADO PELO CLIENTE
     u16 secret; // COMUM ENTRE AMBAS AS PARTES, NUNCA REPASSADO
 #define ETH_HDR_SIZE 14
@@ -218,11 +222,14 @@ static inline u32 xtun_auth_key_check (const u16 secret, xtun_auth_s* const auth
 
 #define BYTE_X 0x33
 
-static void encode (u64 key, u8* pos, u8* const end) {
+static u16 encode (u64 hash, u64 key, u8* pos, u8* const end) {
 
     while (pos != end) {
 
         const uint orig = *pos;
+
+        hash <<= 1;
+        hash += orig;
 
         uint value = orig;
 
@@ -238,9 +245,17 @@ static void encode (u64 key, u8* pos, u8* const end) {
 
         *pos++ = value;
     }
+
+    hash += hash >> 32;
+    hash += hash >> 16;
+    hash &= 0xFFFFU;
+    // SE FOR 0, TRANSFORMA EM 1
+    hash += !hash;
+        
+    return (u16)hash;
 }
 
-static void decode (u64 key, u8* pos, u8* const end) {
+static u16 decode (u64 hash, u64 key, u8* pos, u8* const end) {
 
     while (pos != end) {
 
@@ -255,50 +270,18 @@ static void decode (u64 key, u8* pos, u8* const end) {
         key += value;
 
         *pos++ = value;
-    }
-}
 
-static inline u64 xtun_path_hash (const xtun_s* const pkt, const net_device_s* const dev) {
-
-    return (u64)(uintptr_t)dev
-      + ((u64)pkt->eDst[0] <<  0)
-      + ((u64)pkt->eDst[1] <<  4)
-      + ((u64)pkt->eDst[2] <<  8)
-      + ((u64)pkt->eSrc[0] << 12)
-      + ((u64)pkt->eSrc[1] << 16)
-      + ((u64)pkt->eSrc[2] << 20)
-      + ((u64)pkt->iSrc    << 24)
-      + ((u64)pkt->iDst    << 28)
-      + ((u64)pkt->uSrc    << 32)
-      + ((u64)pkt->uDst    << 36)
-    ;
-}
-
-static inline void xtun_path_save (xtun_s* const restrict xtun, const u64 hash, const u32 key, const xtun_s* restrict const pkt, net_device_s* const dev) {
-
-    if (xtun->phys != dev) {
-        if (xtun->phys)
-            dev_put(xtun->phys);
-        dev_hold(dev);
+        hash <<= 1;
+        hash += value;
     }
 
-    xtun->hash    = hash;
-    xtun->key     = key;
-    xtun->phys    = dev;
-    xtun->eDst[0] = pkt->eSrc[0];
-    xtun->eDst[1] = pkt->eSrc[1];
-    xtun->eDst[2] = pkt->eSrc[2];
-    xtun->eSrc[0] = pkt->eDst[0];
-    xtun->eSrc[1] = pkt->eDst[1];
-    xtun->eSrc[2] = pkt->eDst[2];
-    xtun->iSrc    = pkt->iDst;
-    xtun->iDst    = pkt->iSrc;
-    // NOTE: NOSSA PORTA NÃO É ATUALIZADA AQUI:
-    //      A PORTA DO SERVIDOR É ESTÁVEL
-    //      A PORTA DO CLIENTE É ELE QUE MUDA
-    // TANTO QUE NEM VAI CHEGAR ATÉ AQUI SE NÃO FOR PARA A PORTA ATUAL
-  //xtun->uSrc    = pkt->uDst;
-    xtun->uDst    = pkt->uSrc;
+    hash += hash >> 32;
+    hash += hash >> 16;
+    hash &= 0xFFFFU;
+    // SE FOR 0, TRANSFORMA EM 1
+    hash += !hash;
+
+    return (u16)hash;
 }
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
@@ -313,42 +296,60 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
     // ASSERT: skb->protocol == pkt->eType
 
+    if (skb->len < XTUN_SIZE_ETH)
+        // TOO SMALL
+        goto pass;
+
+    if (pkt->eType     != BE16(ETH_P_IP)    
+     || pkt->iVersion  != BE8(0x45)
+     || pkt->iProtocol != BE8(IPPROTO_UDP))
+        // NOT UDP/IPV4/ETHERNET
+        goto pass;
+
+    // WILL UNSIGNED OVERFLOW IF LOWER
 #if XGW_XTUN_SERVER_IS
-    net_device_s* const virt = virts[(BE16(pkt->uDst) - XTUN_SERVER_PORT) % TUNS_N];
+    const uint id = BE16(pkt->uDst) - XTUN_SERVER_PORT;
 #else
-    net_device_s* const virt = virts[(BE16(pkt->uSrc) - XTUN_SERVER_PORT) % TUNS_N];
+    const uint id = BE16(pkt->uSrc) - XTUN_SERVER_PORT;
 #endif
+    
+    if (id >= TUNS_N)
+        // NOT IN SERVER PORT RANGE
+        goto pass;
+
+    net_device_s* const virt = virts[id];
 
     if (!virt)
         // NO SUCH TUNNEL
-        return RX_HANDLER_PASS;
+        goto pass;
+
+    // ASSERT: pkt->uDst == xtun->uSrc
 
     xtun_s* const xtun = netdev_priv(virt);
 
-    const u64 hash = xtun_path_hash(pkt, skb->dev);
+    u32 key;
+    
+    // HANDLE AUTH AND CURRENT KEY
+#if XGW_XTUN_SERVER_IS
+    if (!pkt->iHash) {
+        if (skb->len != (XTUN_SIZE_ETH + XTUN_AUTH_SIZE))
+            // INVALID AUTH SIZE
+            goto drop;
+        if (!(key = xtun_auth_key_check(xtun->secret, payload)))
+            // INCORRECT AUTH
+            goto drop;
+    } else
+        key = xtun->key;
+#else
+    if (!pkt->iHash)
+        // UNEXPECTED AUTH FROM SERVER
+        goto drop;
+    key = xtun->key;
+#endif    
 
-    if (xtun->hash != hash) {
-
-        if (skb->len       != (XTUN_SIZE_ETH + XTUN_AUTH_SIZE)
-         || pkt->uDst      != xtun->uSrc // TEM QUE SER NA PORTA EM QUE ESTE TUNEL ESTA ESCUTANDO
-         || pkt->iProtocol != BE8(IPPROTO_UDP)
-         || pkt->iVersion  != BE8(0x45)
-         || pkt->eType     != BE16(ETH_P_IP)
-        ) // IT'S NOT OUR SERVICE / TUN ID MISMATCH / IT'S NOT AUTH
-            return RX_HANDLER_PASS;
-
-        const u32 key = xtun_auth_key_check(xtun->secret, payload);
-
-        if (!key)
-            // INCORRECT AUTH / IT'S NOT AUTH
-            return RX_HANDLER_PASS;
-
-        printk("XTUN: TUNNEL %s: UPDATING PATH\n", virt->name);
-
-        xtun_path_save(xtun, hash, key, pkt, skb->dev);
-    }
-
-    decode(xtun->key, payload, SKB_TAIL_PTR(skb));
+    if (decode(xtun->secret, key, payload, SKB_TAIL_PTR(skb)) != pkt->iHash)
+        // HASH MISMATCH
+        goto drop;
 
     // DESENCAPSULA
     skb->mac_len          = 0;
@@ -360,7 +361,63 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     skb->dev              = virt;
     skb->protocol         = pkt->eType;
 
+#if XGW_XTUN_SERVER_IS
+    // DETECT AND UPDATE PATH CHANGES
+    
+    net_device_s* const dev = skb->dev;
+    
+    const u64 hash = (u64)(uintptr_t)dev
+      + ((u64)pkt->eDst[0] <<  0)
+      + ((u64)pkt->eDst[1] <<  4)
+      + ((u64)pkt->eDst[2] <<  8)
+      + ((u64)pkt->eSrc[0] << 12)
+      + ((u64)pkt->eSrc[1] << 16)
+      + ((u64)pkt->eSrc[2] << 20)
+      + ((u64)pkt->iSrc    << 24)
+      + ((u64)pkt->iDst    << 28)
+      + ((u64)pkt->uSrc    << 32)
+      + ((u64)pkt->uDst    << 36)
+    ;
+
+    if (hash != xtun->hash) {
+
+        printk("XTUN: TUNNEL %s: UPDATING PATH\n", virt->name);
+
+        if (xtun->phys != dev) {
+            if (xtun->phys)
+                dev_put(xtun->phys);
+            dev_hold(dev);
+        }
+
+        xtun->hash    = hash;
+        xtun->key     = key;
+        xtun->phys    = dev;
+        xtun->eDst[0] = pkt->eSrc[0];
+        xtun->eDst[1] = pkt->eSrc[1];
+        xtun->eDst[2] = pkt->eSrc[2];
+        xtun->eSrc[0] = pkt->eDst[0];
+        xtun->eSrc[1] = pkt->eDst[1];
+        xtun->eSrc[2] = pkt->eDst[2];
+        xtun->iSrc    = pkt->iDst;
+        xtun->iDst    = pkt->iSrc;
+        // NOTE: NOSSA PORTA NÃO É ATUALIZADA AQUI:
+        //      A PORTA DO SERVIDOR É ESTÁVEL
+        //      A PORTA DO CLIENTE É ELE QUE MUDA
+        // TANTO QUE NEM VAI CHEGAR ATÉ AQUI SE NÃO FOR PARA A PORTA ATUAL
+      //xtun->uSrc    = pkt->uDst;
+        xtun->uDst    = pkt->uSrc;
+    }
+#endif
+
+pass:
+
     return RX_HANDLER_ANOTHER;
+
+drop:
+
+    kfree_skb(skb);
+
+    return RX_HANDLER_CONSUMED;
 }
 
 static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* const dev) {
@@ -453,10 +510,12 @@ static void xtun_dev_setup (net_device_s* const dev) {
 #define _A6(x) x[0], x[1], x[2], x[3], x[4], x[5]
 #define _A4(x) x[0], x[1], x[2], x[3]
 
-static void xtun_initialize (xtun_s* const xtun, const xtun_cfg_s* const cfg, net_device_s* const phys) {
+static void xtun_dev_initialize (xtun_s* const xtun, const xtun_cfg_s* const cfg, net_device_s* const phys) {
 
     xtun->phys       =  phys;
-    xtun->hash       =  0; // CLIENT: WILL AUTO CHANGE LATER | SERVER: WILL BE DISCOVERED ON INPUT
+#if XGW_XTUN_SERVER_IS
+    xtun->hash       =  0; // CLIENT: UNUSED | SERVER: WILL BE DISCOVERED ON INPUT
+#endif
     xtun->secret     =  cfg->secret; // COMMON
     xtun->key        =  0; // CLIENT: WILL AUTO CHANGE LATER | SERVER: WILL BE DISCOVERED ON INPUT
 #if XGW_XTUN_SERVER_IS
@@ -586,8 +645,8 @@ static int __init xtun_init(void) {
             continue;
         }
 
-        // INITIALIZE IT
-        xtun_initialize((xtun_s*)netdev_priv(virt), cfg, phys);
+        // INITIALIZE IT, AS WE CAN'T PASS THE CONFIG TO alloc_netdev()
+        xtun_dev_initialize((xtun_s*)netdev_priv(virt), cfg, phys);
 
         // MAKE IT VISIBLE IN THE SYSTEM
         if (register_netdev(virt)) {
