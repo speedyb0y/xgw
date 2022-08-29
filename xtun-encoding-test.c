@@ -23,7 +23,7 @@ typedef uint64_t u64;
 
 #include "config.h"
 
-#include "encoding.c"
+#include "xtun-encoding.c"
 
 #define CHUNK_SIZE_MAX 1500
 
@@ -39,15 +39,11 @@ static inline u64 myrandom (void) {
 
 int main (void) {
 
-	u8 chunk[CHUNK_SIZE_MAX]; int chunkSize;
+	u8 chunk[CHUNK_SIZE_MAX];
 	u8 chunkRW[CHUNK_SIZE_MAX];
+	int chunkSize;
 
-	while ((chunkSize = read(STDIN_FILENO, chunk, (1 + (myrandom() % (CHUNK_SIZE_MAX - 1)))))) {
-
-		if (chunkSize == -1) {
-			fprintf(stderr, "FAILED TO READ: %s\n", strerror(errno));
-			return 1;
-		}
+	while ((chunkSize = read(STDIN_FILENO, chunk, (1 + (myrandom() % (CHUNK_SIZE_MAX - 1))))) > 0) {
 
 		fprintf(stderr, "SIZE %u\n", chunkSize);
 
@@ -75,7 +71,7 @@ int main (void) {
 				return 1;
 			}
 
-			fprintf(stderr, " -- SECRET %0llX KEY 0x%08X = HASH 0x%04X \n",
+			fprintf(stderr, "\n -- SECRET %0llX KEY 0x%08X = HASH 0x%04X \n",
 				(unsigned long long int )secret, key, hashOriginal);
 
 			// DECODE
@@ -93,6 +89,11 @@ int main (void) {
 				return 1;
 			}
 		}
+	}
+
+	if (chunkSize == -1) {
+		fprintf(stderr, "FAILED TO READ: %s\n", strerror(errno));
+		return 1;
 	}
 
 	return 0;
