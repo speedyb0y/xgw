@@ -229,14 +229,13 @@ static inline u32 xtun_auth_key_check (const u16 secret, xtun_auth_s* const auth
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
-    u32 key;
-
     sk_buff_s* const skb = *pskb;
 
     const xtun_s* const hdr = PTR(skb_mac_header(skb)) - XTUN_SIZE_PRIVATE;
 
     void* const payload = PTR(hdr) + sizeof(*hdr);
 
+    //XTUN_ASSERT(skb->dev != virt);
     XTUN_ASSERT(PTR(hdr->eDst) >= PTR(skb->head));
     // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
     // ASSERT: skb->protocol == hdr->eType
@@ -269,37 +268,26 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     xtun_s* const xtun = netdev_priv(virt);
 
-    // HANDLE AUTH AND CURRENT KEY
+    if (hdr->iHash) {
+        // NOT AUTH
+        if (decode(xtun->secret, xtun->key, payload, SKB_TAIL_PTR(skb)) != hdr->iHash)
+            // HASH MISMATCH
+            goto drop;
+    } else {
+        // AUTH
 #if XGW_XTUN_SERVER_IS
-    if (!hdr->iHash) {
         if (skb->len != (XTUN_SIZE_ETH + XTUN_AUTH_SIZE))
             // INVALID AUTH SIZE
             goto drop;
         if (!(key = xtun_auth_key_check(xtun->secret, payload)))
             // INCORRECT AUTH
             goto drop;
-    } else
-        key = xtun->key;
-#else
-    if (!hdr->iHash)
-        // UNEXPECTED AUTH FROM SERVER
+        // USA ELA
+        xtun->key = key;
+#else // UNEXPECTED AUTH FROM SERVER
         goto drop;
-    key = xtun->key;
 #endif
-
-    if (decode(xtun->secret, key, payload, SKB_TAIL_PTR(skb)) != hdr->iHash)
-        // HASH MISMATCH
-        goto drop;
-
-    // DESENCAPSULA
-    skb->mac_len          = 0;
-    skb->data             = payload;
-    skb->mac_header       =
-    skb->network_header   =
-    skb->transport_header = payload - PTR(skb->head);
-    skb->len             -= XTUN_SIZE_ETH;
-    skb->dev              = virt;
-    skb->protocol         = hdr->eType;
+    }
 
 #if XGW_XTUN_SERVER_IS
     // DETECT AND UPDATE PATH CHANGES
@@ -319,7 +307,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
       + ((u64)hdr->uDst    << 36)
     ;
 
-    if (hash != xtun->hash) {
+    if (xtun->hash != hash) {
 
         printk("XTUN: TUNNEL %s: UPDATING PATH\n", virt->name);
 
@@ -330,7 +318,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         }
 
         xtun->hash    = hash;
-        xtun->key     = key;
         xtun->phys    = dev;
         xtun->eDst[0] = hdr->eSrc[0];
         xtun->eDst[1] = hdr->eSrc[1];
@@ -347,14 +334,26 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
       //xtun->uSrc    = hdr->uDst;
         xtun->uDst    = hdr->uSrc;
     }
+
+    if (!hdr->iHash)
+        // ERA UM AUTH, SO QUIS ATUALIZAR O PATH
+        goto drop;
 #endif
 
-pass:
+    // DESENCAPSULA
+    skb->mac_len          = 0;
+    skb->data             = payload;
+    skb->mac_header       =
+    skb->network_header   =
+    skb->transport_header = payload - PTR(skb->head);
+    skb->len             -= XTUN_SIZE_ETH;
+    skb->dev              = virt;
+    skb->protocol         = hdr->eType;
 
+pass:
     return RX_HANDLER_ANOTHER;
 
 drop:
-
     kfree_skb(skb);
 
     return RX_HANDLER_CONSUMED;
@@ -614,3 +613,6 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("speedyb0y");
 MODULE_DESCRIPTION("XTUN");
 MODULE_VERSION("0.1");
+
+
+TODO SE O DECODE/AHSH FALHAR, TENTA COM A KEY ANTERIOR
