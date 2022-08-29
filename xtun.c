@@ -17,6 +17,11 @@
 #include <net/addrconf.h>
 #include <linux/module.h>
 
+#ifndef XGW
+#define XGW_XTUN_SERVER_IS 0
+#define XGW_XTUN_SERVER_PORT 2000
+#endif
+
 typedef __u8  u8;
 typedef __u16 u16;
 typedef __u32 u32;
@@ -27,6 +32,8 @@ typedef struct net_device net_device_s;
 typedef struct net net_s;
 typedef struct header_ops header_ops_s;
 typedef struct net_device_ops net_device_ops_s;
+
+#define SKB_TAIL_PTR(skb) PTR(skb_tail_pointer(skb))
 
 #define PTR(p) ((void*)(p))
 
@@ -41,6 +48,8 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define CACHE_LINE_SIZE 64
 
+#define XTUN_SERVER_PORT XGW_XTUN_SERVER_PORT
+
 #define XTUN_SIZE     CACHE_LINE_SIZE
 #define XTUN_SIZE_ETH (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE)
 #define XTUN_SIZE_IP  (               IP4_HDR_SIZE + UDP_HDR_SIZE)
@@ -49,8 +58,8 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 typedef struct xtun_s {
     net_device_s* phys;
     u64 hash; // THE PATH HASH
-    u32 key;
-    u16 secret; // TODO: "ENVIA COM DESTINO AO TUNEL Y DO PEER; O PEER SABE QUE SEU TUNEL Y CORRESPONDE AO MEU TUNEL X"
+    u32 key; // DINAMICO, GERADO PELO CLIENTE
+    u16 secret; // COMUM ENTRE AMBAS AS PARTES, NUNCA REPASSADO
 #define ETH_HDR_SIZE 14
     u16 eDst[3];
     u16 eSrc[3];
@@ -59,7 +68,7 @@ typedef struct xtun_s {
     u8  iVersion;
     u8  iTOS;
     u16 iSize;
-    u16 iID; // YOUR TUNNEL ID
+    u16 iHash;
     u16 iFrag;
     u8  iTTL;
     u8  iProtocol;
@@ -73,21 +82,43 @@ typedef struct xtun_s {
     u16 uCksum;
 } xtun_s;
 
+#define __MAC(a,b,c) a ## b ## c
+#define _MAC(x) __MAC(0x,x,U)
+#define MAC(a,b,c,d,e,f) { _MAC(a), _MAC(b), _MAC(c), _MAC(d), _MAC(e), _MAC(f) }
+
 typedef struct xtun_cfg_s {
+    u16 id;
+    u16 secret;
     const char virt[IFNAMSIZ];
     const char phys[IFNAMSIZ];
-    union { u8 eDst[8]; u16 eDst16[4]; };
-    union { u8 eSrc[8]; u16 eSrc16[4]; };
-    union { u8 iSrc[4]; u32 iSrc32; };
-    union { u8 iDst[4]; u32 iDst32; };
+    union { u8 cltMAC[8]; u16 cltMAC16[4]; };
+    union { u8 srvMAC[8]; u16 srvMAC16[4]; };
+    union { u8 cltAddr[4]; u32 cltAddr32; };
+    union { u8 srvAddr[4]; u32 srvAddr32; };
+    u16 cltPort;
+    u16 srvPort;
     u8  iTOS;
     u8  iTTL;
-    u16 iID;
-    u16 uSrc;
-    u16 uDst;
-    u16 secret;
-    u32 key;
 } xtun_cfg_s;
+
+#define TUNS_N 4096
+
+static net_device_s* virts[TUNS_N];
+
+static const xtun_cfg_s cfgs[] = {
+    {.id = 0, .secret = 0, .virt = "xgw-0", .phys = "isp-0", .iTOS = 0, .iTTL = 64,
+        .cltMAC = MAC(d0,50,99,10,10,10), .cltAddr = {192,168,0,20},    .cltPort = 2000,
+        .srvMAC = MAC(54,9F,06,F4,C7,A0), .srvAddr = {200,200,200,200}, .srvPort = 3000,
+    },
+    { .id = 1, .secret = 0, .virt = "xgw-1", .phys = "isp-1", .iTOS = 0, .iTTL = 64,
+        .cltMAC = MAC(d0,50,99,11,11,11), .cltAddr = {192,168,100,20},  .cltPort = 2111,
+        .srvMAC = MAC(CC,ED,21,96,99,C0), .srvAddr = {200,200,200,200}, .srvPort = 3000,
+    },
+    { .id = 2, .secret = 0, .virt = "xgw-2", .phys = "isp-2", .iTOS = 0, .iTTL = 64,
+        .cltMAC = MAC(d0,50,99,12,12,12), .cltAddr = {192,168,1,20},    .cltPort = 2222,
+        .srvMAC = MAC(90,55,DE,A1,CD,F0), .srvAddr = {200,200,200,200}, .srvPort = 3000,
+    },
+};
 
 #define AUTH_LOOP_COUNT 8
 // NAO PODE SER NEM O PRIMEIRO, E NEM O ULTIMO
@@ -186,37 +217,10 @@ static inline u32 xtun_auth_key_check (const u16 secret, xtun_auth_s* const auth
     return xtun_auth_key_(secret, auth, false);
 }
 
-#define XTUN_ID(xtun) ((uint)(xtun - virts))
-
-#define SKB_TAIL_PTR(skb) PTR(skb_tail_pointer(skb))
-
-#define TUNS_N (sizeof(cfgs)/sizeof(cfgs[0]))
-
-#define __MAC(a,b,c) a ## b ## c
-#define _MAC(x) __MAC(0x,x,U)
-#define MAC(a,b,c,d,e,f) { _MAC(a), _MAC(b), _MAC(c), _MAC(d), _MAC(e), _MAC(f) }
-
-static xtun_cfg_s cfgs[] = {
-    { .secret = 0, .key = 0, .virt = "xgw-0", .iID = 0, .phys = "isp-0", .iTOS = 0, .iTTL = 64,
-        .eSrc = MAC(d0,50,99,10,10,10), .iSrc = {192,168,0,20},    .uSrc = 2000,
-        .eDst = MAC(54,9F,06,F4,C7,A0), .iDst = {200,200,200,200}, .uDst = 3000,
-    },
-    { .secret = 0, .key = 0, .virt = "xgw-1", .iID = 1, .phys = "isp-1", .iTOS = 0, .iTTL = 64,
-        .eSrc = MAC(d0,50,99,11,11,11), .iSrc = {192,168,100,20},  .uSrc = 2111,
-        .eDst = MAC(CC,ED,21,96,99,C0), .iDst = {200,200,200,200}, .uDst = 3111,
-    },
-    { .secret = 0, .key = 0, .virt = "xgw-2", .iID = 2, .phys = "isp-2", .iTOS = 0, .iTTL = 64,
-        .eSrc = MAC(d0,50,99,12,12,12), .iSrc = {192,168,1,20},    .uSrc = 2222,
-        .eDst = MAC(90,55,DE,A1,CD,F0), .iDst = {200,200,200,200}, .uDst = 3222,
-    },
-};
-
-static net_device_s* virts[TUNS_N];
-
 #define BYTE_X 0x33
 
 static void encode (u64 key, u8* pos, u8* const end) {
-    
+
     while (pos != end) {
 
         const uint orig = *pos;
@@ -238,7 +242,7 @@ static void encode (u64 key, u8* pos, u8* const end) {
 }
 
 static void decode (u64 key, u8* pos, u8* const end) {
-    
+
     while (pos != end) {
 
         uint value = *pos;
@@ -310,7 +314,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
     // ASSERT: skb->protocol == pkt->eType
 
-    net_device_s* const virt = virts[BE16(pkt->iID) % TUNS_N];
+#if XGW_XTUN_SERVER_IS
+    net_device_s* const virt = virts[(BE16(pkt->uDst) - XTUN_SERVER_PORT) % TUNS_N];
+#else
+    net_device_s* const virt = virts[(BE16(pkt->uSrc) - XTUN_SERVER_PORT) % TUNS_N];
+#endif
 
     if (!virt)
         // NO SUCH TUNNEL
@@ -324,7 +332,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
         if (skb->len       != (XTUN_SIZE_ETH + XTUN_AUTH_SIZE)
          || pkt->uDst      != xtun->uSrc // TEM QUE SER NA PORTA EM QUE ESTE TUNEL ESTA ESCUTANDO
-         ////|| pkt->iID       != xtun->id
          || pkt->iProtocol != BE8(IPPROTO_UDP)
          || pkt->iVersion  != BE8(0x45)
          || pkt->eType     != BE16(ETH_P_IP)
@@ -444,6 +451,58 @@ static void xtun_dev_setup (net_device_s* const dev) {
         ;
 }
 
+#define _A6(x) x[0], x[1], x[2], x[3], x[4], x[5]
+#define _A4(x) x[0], x[1], x[2], x[3]
+
+static void xtun_initialize (xtun_s* const xtun, const xtun_cfg_s* const cfg, net_device_s* const phys) {
+
+    xtun->phys       =  phys;
+    xtun->hash       =  0;
+    xtun->secret     =  cfg->secret;
+    xtun->key        =  0; // WILL AUTO CHANGE LATER
+#if XGW_XTUN_SERVER_IS
+    xtun->eDst[0]    =  BE16(0);
+    xtun->eDst[1]    =  BE16(0);
+    xtun->eDst[2]    =  BE16(0);
+    xtun->eSrc[0]    =  BE16(0);
+    xtun->eSrc[1]    =  BE16(0);
+    xtun->eSrc[2]    =  BE16(0);
+#else
+    xtun->eDst[0]    =  BE16(cfg->srvMAC16[0]);
+    xtun->eDst[1]    =  BE16(cfg->srvMAC16[1]);
+    xtun->eDst[2]    =  BE16(cfg->srvMAC16[2]);
+    xtun->eSrc[0]    =  BE16(cfg->cltMAC16[0]);
+    xtun->eSrc[1]    =  BE16(cfg->cltMAC16[1]);
+    xtun->eSrc[2]    =  BE16(cfg->cltMAC16[2]);
+#endif
+    xtun->eType      =  BE16(ETH_P_IP);
+    xtun->iVersion   =  BE8(0x45);
+    xtun->iTOS       =  BE8(cfg->iTOS);
+    xtun->iSize      =  BE16(0);
+    xtun->iHash      =  BE16(0);
+    xtun->iFrag      =  BE16(0);
+    xtun->iTTL       =  BE8(cfg->iTTL);
+    xtun->iProtocol  =  BE8(IPPROTO_UDP);
+    xtun->iCksum     =  BE16(0);
+#if XGW_XTUN_SERVER_IS
+    xtun->iSrc       =  BE32(0);
+    xtun->iDst       =  BE32(0);
+    xtun->uSrc       =  BE16(XTUN_SERVER_PORT + cfg->id);
+    xtun->uDst       =  BE16(0);
+#else
+    xtun->iSrc       =  BE32(cfg->cltAddr32);
+    xtun->iDst       =  BE32(cfg->srvAddr32);
+    xtun->uSrc       =  BE16(cfg->cltPort);
+    xtun->uDst       =  BE16(cfg->srvPort + cfg->id);
+#endif
+    xtun->uSize      =  BE16(0);
+    xtun->uCksum     =  BE16(0);
+}
+
+#define ARRAY_COUNT(a) (sizeof(a)/sizeof((a)[0]))
+
+static const char* const itfcs[] = { "eth0" };
+
 static int __init xtun_init(void) {
 
     printk("XTUN: INIT\n");
@@ -451,94 +510,91 @@ static int __init xtun_init(void) {
     BUILD_BUG_ON(sizeof(xtun_s) != XTUN_SIZE);
     BUILD_BUG_ON(sizeof(xtun_auth_s) != XTUN_AUTH_SIZE);
 
-    for (uint tid = 0; tid != TUNS_N; tid++) {
+    // HOOK INTERFACES
+    for (uint i = 0; i != ARRAY_COUNT(itfcs); i++) {
 
-        xtun_cfg_s* const cfg = &cfgs[tid];
+        const char* const itfc = itfcs[i];
 
-#define _A6(x) x[0], x[1], x[2], x[3], x[4], x[5]
-#define _A4(x) x[0], x[1], x[2], x[3]
-        printk("XTUN: TUNNEL %s: INITIALIZING WITH SECRET 0x%04X KEY 0x%08X PHYS %s TOS 0x%02X TTL %u"
-            " SRC #%u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
-            " DST #%u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
-            "\n",
-            cfg->virt, cfg->secret, cfg->key,
-            cfg->phys, cfg->iTOS, cfg->iTTL,
-                 tid, _A6(cfg->eSrc), _A4(cfg->iSrc), cfg->uSrc,
-            cfg->iID, _A6(cfg->eDst), _A4(cfg->iDst), cfg->uDst
+        net_device_s* dev;
+
+        if (!(dev = dev_get_by_name(&init_net, itfc))) {
+            printk("XTUN: INTERFACE %s: COULD NOT FIND\n", itfc);
+            continue;
+        }
+                                   
+        rtnl_lock();
+
+        // NOTE: WE ARE SUPPORTING SAME INTERFACE MULTIPLE TIMES
+        if (dev->rx_handler != xtun_in) {
+            // NOT HOOKED YET
+            if (!netdev_rx_handler_register(dev, xtun_in, NULL)) {
+                // NOW IT'S HOOKED
+                // TODO: FIXME: TEM QUE FAZER ISSO EM TODAS AS INTERFACES OU NAO VAI PODER CONSIDERAR O SKB COMO xtun_s
+                printk("XTUN: INTERFACE %s: HOOKED\n", itfc);
+                dev->hard_header_len += sizeof(xtun_s) - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
+                dev->min_header_len  += sizeof(xtun_s) - ETH_HLEN;
+                dev = NULL;
+            }
+        } else
+            // ALREADY HOOKED
+            dev = NULL;
+
+        rtnl_unlock();
+
+        if (dev)
+            dev_put(dev);
+    }
+
+    // INITIALIZE TUNNELS
+    memset(virts, 0, sizeof(virts));
+
+    for (uint i = 0; i != ARRAY_COUNT(cfgs); i++) {
+
+        const xtun_cfg_s* const cfg = &cfgs[i];
+
+        printk("XTUN: TUNNEL %s: INITIALIZING WITH ID #%u SECRET 0x%04X PHYS %s TOS 0x%02X TTL %u\n"
+            " CLT MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n"
+            " SRV MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
+            cfg->virt, cfg->id, cfg->secret, cfg->phys, cfg->iTOS, cfg->iTTL,
+            _A6(cfg->cltMAC), _A4(cfg->cltAddr), cfg->cltPort,
+            _A6(cfg->srvMAC), _A4(cfg->srvAddr), cfg->srvPort
             );
 
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
 
-        if (phys) {
+        if (!phys) {
+            printk("XTUN: TUNNEL %s: CREATE FAILED - PHYS NOT FOUND\n", cfg->virt);
+            continue;
+        }
 
-            rtnl_lock();
+        // THE HOOK OWNS IT
+        dev_put(phys);
 
-            if (phys->rx_handler != xtun_in) {
-                if (!netdev_rx_handler_register(phys, xtun_in, NULL)) { // TODO: FIXME: TEM QUE FAZER ISSO EM TODAS AS INTERFACES OU NAO VAI PODER CONSIDERAR O SKB COMO xtun_s
-                    printk("XTUN: INTERFACE %s: HOOKED\n", phys->name);
-                    phys->hard_header_len += sizeof(xtun_s) - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
-                    phys->min_header_len  += sizeof(xtun_s) - ETH_HLEN;
-                }
-            }
+        if (phys->rx_handler != xtun_in) {
+            printk("XTUN: TUNNEL %s: CREATE FAILED - PHYS NOT HOOKED\n", cfg->virt);
+            continue;
+        }
 
-            rtnl_unlock();
+        // CREATE THE VIRTUAL INTERFACE
+        net_device_s* const virt = alloc_netdev(sizeof(xtun_s), cfg->virt, NET_NAME_USER, xtun_dev_setup);
 
-            if (phys->rx_handler == xtun_in) {
+        if (!virt) {
+            printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT ALLOCATE\n", cfg->virt);
+            continue;
+        }
 
-                net_device_s* const virt = alloc_netdev(sizeof(xtun_s), cfg->virt, NET_NAME_USER, xtun_dev_setup);
+        // INITIALIZE IT
+        xtun_initialize((xtun_s*)netdev_priv(virt), cfg, phys);
 
-                if (virt) {
+        // MAKE IT VISIBLE IN THE SYSTEM
+        if (register_netdev(virt)) {
+            printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->virt);
+            free_netdev(virt);
+            continue;
+        }
 
-                    if (!register_netdev(virt)) {
-
-                        xtun_s* const xtun = netdev_priv(virt);
-
-                        xtun->phys       =  phys;
-                        xtun->hash       =  0;
-                        xtun->secret     =  cfg->secret;
-                        xtun->key        =  cfg->key; // WILL AUTO CHANGE LATER
-                        xtun->eDst[0]    =  BE16(cfg->eDst16[0]);
-                        xtun->eDst[1]    =  BE16(cfg->eDst16[1]);
-                        xtun->eDst[2]    =  BE16(cfg->eDst16[2]);
-                        xtun->eSrc[0]    =  BE16(cfg->eSrc16[0]);
-                        xtun->eSrc[1]    =  BE16(cfg->eSrc16[1]);
-                        xtun->eSrc[2]    =  BE16(cfg->eSrc16[2]);
-                        xtun->eType      =  BE16(ETH_P_IP);
-                        xtun->iVersion   =  BE8(0x45);
-                        xtun->iTOS       =  BE8(cfg->iTOS);
-                        xtun->iSize      =  BE16(0);
-                        xtun->iID        =  BE16(cfg->iID);
-                        xtun->iFrag      =  BE16(0);
-                        xtun->iTTL       =  BE8(cfg->iTTL);
-                        xtun->iProtocol  =  BE8(IPPROTO_UDP);
-                        xtun->iCksum     =  BE16(0);
-                        xtun->iSrc       =  BE32(cfg->iSrc32);
-                        xtun->iDst       =  BE32(cfg->iDst32);
-                        xtun->uSrc       =  BE16(cfg->uSrc);
-                        xtun->uDst       =  BE16(cfg->uDst);
-                        xtun->uSize      =  BE16(0);
-                        xtun->uCksum     =  BE16(0);
-
-                        virts[tid] = virt;
-
-                        continue;
-                    }
-
-                    printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->virt);
-
-                    free_netdev(virt);
-
-                } else
-                    printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT ALLOCATE\n", cfg->virt);
-            } else
-                printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT HOOK PHYS\n", cfg->virt);
-
-            dev_put(phys);
-
-        } else
-            printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT FIND PHYS\n", cfg->virt);
-
-        virts[tid] = NULL;
+        // NOW REGISTER IT
+        virts[cfg->id] = virt;
     }
 
     return 0;
