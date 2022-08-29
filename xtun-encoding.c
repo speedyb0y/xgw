@@ -52,20 +52,12 @@ static inline u64 U16_AS_U64 (u64 x) {
 
 static inline u64 swap64 (const u64 x, const uint q) {
 
-    const u64 a = x & ((1ULL << q) - 1ULL);
-    const u64 b = x >> q;
-
-    return (a << (64 - q)) | b;
+    return (x >> q) | (x << (64 - q));
 }
 
-static inline u64 swap64_undo (const u64 x, uint q) {
+static inline u64 swap64_undo (const u64 x, const uint q) {
 
-    q = 64 - q;
-
-    const u64 a = x & ((1ULL << q) - 1ULL);
-    const u64 b = x >> q;
-
-    return (a << (64 - q)) | b;
+    return (x << q) | (x >> (64 - q));
 }
 
 // U64 -> U16 ; 0 -> 1
@@ -83,9 +75,9 @@ static u64 xtun_encode (u64 sec, u64 key, void* pos, uint size) {
 
     key += ENCODING_INIT_KEY_ADD;
     sec += ENCODING_INIT_SEC_ADD;
-
-    key += swap64(key, (sec % 64));
-    sec += swap64(sec, (key % 64));
+    
+    sec += swap64(key, (size % 32));
+    key += swap64(sec, (sec  % 32));
 
     while (size >= sizeof(u64)) {
 
@@ -94,7 +86,7 @@ static u64 xtun_encode (u64 sec, u64 key, void* pos, uint size) {
         u64 value = orig;
 
         value += sec;
-        value = swap64(value, (key % 64));
+        value = swap64(value, (key % 32));
 
         *(u64*)pos = BE64(value);
 
@@ -132,11 +124,11 @@ static u64 xtun_encode (u64 sec, u64 key, void* pos, uint size) {
 // RETORNA: HASH OF SECRET + KEY + ORIGINAL
 static u64 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
 
-    key += ENCODING_INIT_KEY_ADD;
     sec += ENCODING_INIT_SEC_ADD;
+    key += ENCODING_INIT_KEY_ADD;
 
-    key += swap64(key, (sec % 64));
-    sec += swap64(sec, (key % 64));
+    sec += swap64(key, (size % 32));
+    key += swap64(sec, (sec  % 32));
 
     while (size >= sizeof(u64)) {
 
@@ -144,7 +136,7 @@ static u64 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
 
         u64 orig = value;
 
-        orig = swap64_undo(orig, (key % 64));
+        orig = swap64_undo(orig, (key % 32));
         orig -= sec;
 
         *(u64*)pos = BE64(orig);
@@ -168,7 +160,7 @@ static u64 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
         *(u8*)pos = BE8(orig);
 
         sec <<= 1;
-        key += orig;
+        sec += orig;
 
         pos  += sizeof(u8);
         size -= sizeof(u8);
