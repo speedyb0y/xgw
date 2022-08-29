@@ -2,6 +2,10 @@
 
 */
 
+#ifndef TEST
+#define TEST 0
+#endif
+
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -53,11 +57,14 @@ int main (void) {
 			memcpy(chunkRW, chunk, chunkSize);
 
 			const u16 secret = (u16)myrandom();
-			const u32 key    = (u32)myrandom(); // FIXME: NAO PODE SER 0
+			const u16 key    = (u16)myrandom(); // FIXME: NAO PODE SER 0
 
 			// ENCODE		
-			const u16 hashOriginal = xtun_encode(secret, key, chunkRW, chunkRW + chunkSize);
-
+#if !TEST
+			const u16 hashOriginal = xtun_encode(SECRET16(secret), KEY16(key), chunkRW, chunkSize);
+#else
+			const u16 hashOriginal = 0;
+#endif
 			// MOSTRA COMO FICA ENCODADO
 			const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
 
@@ -71,11 +78,15 @@ int main (void) {
 				return 1;
 			}
 
-			fprintf(stderr, "\n -- SECRET %0llX KEY 0x%08X = HASH 0x%04X \n",
-				(unsigned long long int )secret, key, hashOriginal);
+			fprintf(stderr, "\n -- SECRET 0x%04X KEY 0x%04X = HASH 0x%04X \n",
+				secret, key, hashOriginal);
 
 			// DECODE
-			const u16 hashNew = xtun_decode(secret, key, chunkRW, chunkRW + chunkSize);
+#if !TEST			
+			const u16 hashNew = xtun_decode(SECRET16(secret), KEY16(key), chunkRW, chunkSize);
+#else
+			const u16 hashNew = hashOriginal;
+#endif
 
 			// COMPARE DATA
 			if (memcmp(chunk, chunkRW, chunkSize)) {
