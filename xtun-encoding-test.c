@@ -27,12 +27,12 @@ typedef uint64_t u64;
 
 #define CHUNK_SIZE_MAX 1500
 
-static inline uint myrandom (void) {
+static inline u64 myrandom (void) {
 
-	static u64 x = 0;
+	static u64 x = 0x556465607ULL;
 
-	x += time(NULL);
-	x += x;
+	//x += time(NULL);
+	x += 1;
 
 	return x;
 }
@@ -49,41 +49,49 @@ int main (void) {
 			return 1;
 		}
 
-		// USA ESSE ORIGINAL
-		memcpy(chunkRW, chunk, chunkSize);
+		fprintf(stderr, "SIZE %u\n", chunkSize);
 
-		const u16 secret = 0;
-		const u32 key = 1;
+		for (uint c = 16; c; c--) {
+			
+			// USA ESSE ORIGINAL
+			memcpy(chunkRW, chunk, chunkSize);
 
-		// ENCODE		
-		const u16 hashOriginal = encode(secret, key, chunkRW, chunkRW + chunkSize);
+			const u16 secret = (u16)myrandom();
+			const u32 key    = (u32)myrandom(); // FIXME: NAO PODE SER 0
 
-		// MOSTRA COMO FICA ENCODADO
-		const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
+			// ENCODE		
+			const u16 hashOriginal = encode(secret, key, chunkRW, chunkRW + chunkSize);
 
-		if (written == -1) {
-			fprintf(stderr, "FAILED TO WRITE: %s\n", strerror(errno));
-			return 1;
-		}
-		
-		if (written != chunkSize) {
-			fprintf(stderr, "FAILED TO WRITE: INCOMPLETE\n");
-			return 1;
-		}
+			// MOSTRA COMO FICA ENCODADO
+			const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
 
-		// DECODE
-		const u16 hashNew = decode(secret, key, chunkRW, chunkRW + chunkSize);
+			if (written == -1) {
+				fprintf(stderr, "FAILED TO WRITE: %s\n", strerror(errno));
+				return 1;
+			}
+			
+			if (written != chunkSize) {
+				fprintf(stderr, "FAILED TO WRITE: INCOMPLETE\n");
+				return 1;
+			}
 
-		// COMPARE DATA
-		if (memcmp(chunk, chunkRW, chunkSize)) {
-			fprintf(stderr, "ERROR: DATA MISMATCH\n");
-			return 1;
-		}
+			fprintf(stderr, " -- SECRET %0llX KEY 0x%08X = HASH 0x%04X \n",
+				(unsigned long long int )secret, key, hashOriginal);
 
-		// COMPARE HASH
-		if (hashNew != hashOriginal) {
-			fprintf(stderr, "ERROR: HASH MISMATCH\n");
-			return 1;
+			// DECODE
+			const u16 hashNew = decode(secret, key, chunkRW, chunkRW + chunkSize);
+
+			// COMPARE DATA
+			if (memcmp(chunk, chunkRW, chunkSize)) {
+				fprintf(stderr, "ERROR: DATA MISMATCH\n");
+				return 1;
+			}
+
+			// COMPARE HASH
+			if (hashNew != hashOriginal) {
+				fprintf(stderr, "ERROR: HASH MISMATCH\n");
+				return 1;
+			}
 		}
 	}
 

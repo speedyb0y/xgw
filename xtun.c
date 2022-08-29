@@ -225,7 +225,7 @@ static inline u32 xtun_auth_key_check (const u16 secret, xtun_auth_s* const auth
     return xtun_auth_key_(secret, auth, false);
 }
 
-#include "encoding.c"
+#include "xtun-encoding.c"
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
