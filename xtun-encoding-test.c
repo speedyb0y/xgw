@@ -9,6 +9,8 @@
     openssl aes-256-cbc -salt -in /dev/zero -out /proc/self/fd/1 -pass stdin <<< $(sha256sum <<< ewewgewew) | pv > /dev/null
 */
 
+#include "config.h"
+
 #ifndef TEST
 #define TEST 0
 #endif
@@ -32,7 +34,8 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-#include "config.h"
+#define BE8(x) (x)
+#define BE64(x)(x) // TODO: FIXME:
 
 #include "xtun-encoding.c"
 
@@ -88,7 +91,7 @@ int main (void) {
 
             // ENCODE
 #if !TEST
-            const u16 hashOriginal = xtun_encode(SECRET16(secret), KEY16(key), chunkRW, chunkSize);
+            const u16 hashOriginal = xtun_encode(secret, key, chunkRW, chunkSize);
 #else
             const u16 hashOriginal = 0;
 #endif
@@ -112,7 +115,7 @@ int main (void) {
 #if DECODE
             // DECODE
 #if !TEST
-            const u16 hashNew = xtun_decode(SECRET16(secret), KEY16(key), chunkRW, chunkSize);
+            const u16 hashNew = xtun_decode(secret, key, chunkRW, chunkSize);
 #else
             const u16 hashNew = hashOriginal;
 #endif
