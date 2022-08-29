@@ -82,24 +82,24 @@ static u64 xtun_encode (u64 sec, u64 key, void* pos, uint size) {
 
     key += ENCODING_INIT_KEY_ADD;
     sec += ENCODING_INIT_SEC_ADD;
-    
+
     key += swap64(key, (sec % 64));
     sec += swap64(sec, (key % 64));
 
     while (size >= sizeof(u64)) {
 
         const u64 orig = BE64(*(u64*)pos);
-        
+
         u64 value = orig;
 
-		value += sec;
-		value = swap64(value, (key % 64));
+        value += sec;
+        value = swap64(value, (key % 64));
 
         *(u64*)pos = BE64(value);
 
-		sec <<= 1;
-		sec += key;
-		key += orig;
+        sec <<= 1;
+        sec += key;
+        key += orig;
 
         pos  += sizeof(u64);
         size -= sizeof(u64);
@@ -120,7 +120,7 @@ static u64 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
 
     key += ENCODING_INIT_KEY_ADD;
     sec += ENCODING_INIT_SEC_ADD;
-    
+
     key += swap64(key, (sec % 64));
     sec += swap64(sec, (key % 64));
 
@@ -129,15 +129,15 @@ static u64 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
         const u64 value = BE64(*(u64*)pos);
 
         u64 orig = value;
-        
-		orig = swap64_undo(orig, (key % 64));
-		orig -= sec;
+
+        orig = swap64_undo(orig, (key % 64));
+        orig -= sec;
 
         *(u64*)pos = BE64(orig);
 
-		sec <<= 1;
-		sec += key;
-		key += orig;
+        sec <<= 1;
+        sec += key;
+        key += orig;
 
         pos  += sizeof(u64);
         size -= sizeof(u64);
