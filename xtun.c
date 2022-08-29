@@ -456,9 +456,9 @@ static void xtun_dev_setup (net_device_s* const dev) {
 static void xtun_initialize (xtun_s* const xtun, const xtun_cfg_s* const cfg, net_device_s* const phys) {
 
     xtun->phys       =  phys;
-    xtun->hash       =  0;
-    xtun->secret     =  cfg->secret;
-    xtun->key        =  0; // WILL AUTO CHANGE LATER
+    xtun->hash       =  0; // CLIENT: WILL AUTO CHANGE LATER | SERVER: WILL BE DISCOVERED ON INPUT
+    xtun->secret     =  cfg->secret; // COMMON
+    xtun->key        =  0; // CLIENT: WILL AUTO CHANGE LATER | SERVER: WILL BE DISCOVERED ON INPUT
 #if XGW_XTUN_SERVER_IS
     xtun->eDst[0]    =  BE16(0);
     xtun->eDst[1]    =  BE16(0);
@@ -474,28 +474,28 @@ static void xtun_initialize (xtun_s* const xtun, const xtun_cfg_s* const cfg, ne
     xtun->eSrc[1]    =  BE16(cfg->cltMAC16[1]);
     xtun->eSrc[2]    =  BE16(cfg->cltMAC16[2]);
 #endif
-    xtun->eType      =  BE16(ETH_P_IP);
-    xtun->iVersion   =  BE8(0x45);
-    xtun->iTOS       =  BE8(cfg->iTOS);
-    xtun->iSize      =  BE16(0);
-    xtun->iHash      =  BE16(0);
-    xtun->iFrag      =  BE16(0);
-    xtun->iTTL       =  BE8(cfg->iTTL);
-    xtun->iProtocol  =  BE8(IPPROTO_UDP);
-    xtun->iCksum     =  BE16(0);
+    xtun->eType      =  BE16(ETH_P_IP); // FIXED
+    xtun->iVersion   =  BE8(0x45); // FIXED
+    xtun->iTOS       =  BE8(cfg->iTOS); // MAY BE ALTERED IN TRANSIT
+    xtun->iSize      =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
+    xtun->iHash      =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
+    xtun->iFrag      =  BE16(0); // FIXED
+    xtun->iTTL       =  BE8(cfg->iTTL); // MAY BE ALTERED IN TRANSIT
+    xtun->iProtocol  =  BE8(IPPROTO_UDP); // FIXED
+    xtun->iCksum     =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
 #if XGW_XTUN_SERVER_IS
-    xtun->iSrc       =  BE32(0);
-    xtun->iDst       =  BE32(0);
+    xtun->iSrc       =  BE32(0); // WILL BE DISCOVERED ON INPUT
+    xtun->iDst       =  BE32(0); // WILL BE DISCOVERED ON INPUT
     xtun->uSrc       =  BE16(XTUN_SERVER_PORT + cfg->id);
-    xtun->uDst       =  BE16(0);
+    xtun->uDst       =  BE16(0); // WILL BE DISCOVERED ON INPUT
 #else
     xtun->iSrc       =  BE32(cfg->cltAddr32);
     xtun->iDst       =  BE32(cfg->srvAddr32);
     xtun->uSrc       =  BE16(cfg->cltPort);
     xtun->uDst       =  BE16(XTUN_SERVER_PORT + cfg->id);
 #endif
-    xtun->uSize      =  BE16(0);
-    xtun->uCksum     =  BE16(0);
+    xtun->uSize      =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
+    xtun->uCksum     =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
 }
 
 #define ARRAY_COUNT(a) (sizeof(a)/sizeof((a)[0]))
@@ -559,6 +559,9 @@ static int __init xtun_init(void) {
             _A6(cfg->srvMAC), _A4(cfg->srvAddr), XTUN_SERVER_PORT
             );
 
+#if XGW_XTUN_SERVER_IS
+        net_device_s* const phys = NULL;
+#else
         net_device_s* const phys = dev_get_by_name(&init_net, cfg->phys);
 
         if (!phys) {
@@ -573,6 +576,7 @@ static int __init xtun_init(void) {
             printk("XTUN: TUNNEL %s: CREATE FAILED - PHYS NOT HOOKED\n", cfg->virt);
             continue;
         }
+#endif
 
         // CREATE THE VIRTUAL INTERFACE
         net_device_s* const virt = alloc_netdev(sizeof(xtun_s), cfg->virt, NET_NAME_USER, xtun_dev_setup);
