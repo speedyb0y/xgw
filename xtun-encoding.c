@@ -17,20 +17,20 @@
 
 static inline u64 encrypt64 (u64 x, const u64 mask) {
 
-	uint q = popcount64(mask);
+    uint q = popcount64(mask);
 
-	x += mask;
-	x = (x >> q) | (x << (64 - q));
+    x += mask;
+    x = (x >> q) | (x << (64 - q));
 
     return x;
 }
 
 static inline u64 decrypt64 (u64 x, const u64 mask) {
 
-	uint q = popcount64(mask);
+    uint q = popcount64(mask);
 
-	x = (x << q) | (x >> (64 - q));
-	x -= mask;
+    x = (x << q) | (x >> (64 - q));
+    x -= mask;
 
     return x;
 }
