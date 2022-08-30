@@ -425,7 +425,7 @@ static int __init xtun_init(void) {
                 dev = NULL;
             }
         } else
-            // ALREADY HOOKED
+            // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
             dev = NULL;
 
         rtnl_unlock();
@@ -478,15 +478,14 @@ static int __init xtun_init(void) {
 #endif
             xtun_path_s* const path = &node->paths[pid];
 
-#if !XGW_XTUN_SERVER_IS
-            path->seila      =  0;
-            path->bandSrv    =  cfgPath->bandSrv;
-#endif
-            path->band       =  cfgPath->band;
-            path->phys       =  phys;
 #if XGW_XTUN_SERVER_IS
             path->hash       =  0; // CLIENT: UNUSED | SERVER: WILL BE DISCOVERED ON INPUT
+#else
+            path->seila      =  0;
+            path->bandSrv    =  cfgPath->bandSrv;
+            path->band       =  cfgPath->band;
 #endif
+            path->itfc       =  itfc;
 #if XGW_XTUN_SERVER_IS
             path->eDst[0]    =  BE16(0);
             path->eDst[1]    =  BE16(0);
