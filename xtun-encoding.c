@@ -36,7 +36,7 @@ static inline u64 decrypt64 (u64 x, const u64 mask) {
 }
 
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-static u64 xtun_encode (u64 sec, u64 key, void* data, uint size) {
+static u16 xtun_encode (u64 sec, u64 key, void* data, uint size) {
 
     sec += ENCODING_SEC_ADD;
     key += ENCODING_KEY_ADD;
@@ -88,7 +88,7 @@ static u64 xtun_encode (u64 sec, u64 key, void* data, uint size) {
     sec &= 0xFFFFULL;
     sec += !sec;
 
-    return sec;
+    return (u16)sec;
 }
 
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
@@ -102,9 +102,7 @@ static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
 
     while (size >= sizeof(u64)) {
 
-        const u64 value = BE64(*(u64*)data);
-
-        u64 orig = value;
+        u64 orig = BE64(*(u64*)data);
 
         orig = decrypt64(orig, key);
         orig = decrypt64(orig, sec);
@@ -121,9 +119,7 @@ static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
 
     while (size) {
 
-        const u8 value = BE8(*(u8*)data);
-
-        u64 orig = value;
+        u64 orig = BE8(*(u8*)data);
 
         orig -= encrypt64(key, size);
         orig -= encrypt64(sec, size);
@@ -144,5 +140,5 @@ static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
     sec &= 0xFFFFULL;
     sec += !sec;
 
-    return sec;
+    return (u16)sec;
 }
