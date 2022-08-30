@@ -29,6 +29,8 @@
 #define XTUN_AUTH_SIZE ((AUTH_REGISTERS_N + AUTH_RANDOMS_N)*sizeof(u64))
 
 typedef struct xtun_auth_s {
+	// u64 ???;
+	// u64 band;
     u64 verify   [AUTH_REGISTERS_N]; // COMO OS REGISTROS TERMINAM
     u64 randoms  [AUTH_RANDOMS_N];
 } xtun_auth_s;
