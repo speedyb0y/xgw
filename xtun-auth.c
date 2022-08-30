@@ -35,12 +35,12 @@ typedef struct xtun_auth_s {
     u64 randoms  [AUTH_RANDOMS_N];
 } xtun_auth_s;
 
-static u16 xtun_auth_key_ (const u16 secret, xtun_auth_s* const auth, bool save) {
+static u64 xtun_auth_key_ (const u64 secret, xtun_auth_s* const auth, bool save) {
 
-    u64 register0 = AUTH_REGISTER_0 + secret + auth->randoms[AUTH_INIT_0];
-    u64 register1 = AUTH_REGISTER_1 + secret + auth->randoms[AUTH_INIT_1];
-    u64 register2 = AUTH_REGISTER_2 + secret + auth->randoms[AUTH_INIT_2];
-    u64 register3 = AUTH_REGISTER_3 + secret + auth->randoms[AUTH_INIT_3];
+    u64 register0 = AUTH_REGISTER_0 + auth->randoms[AUTH_INIT_0] + secret;
+    u64 register1 = AUTH_REGISTER_1 + auth->randoms[AUTH_INIT_1] + secret;
+    u64 register2 = AUTH_REGISTER_2 + auth->randoms[AUTH_INIT_2] + secret;
+    u64 register3 = AUTH_REGISTER_3 + auth->randoms[AUTH_INIT_3] + secret;
 
     for (uint c = AUTH_LOOP_COUNT; c; c--) {
 
@@ -77,22 +77,18 @@ static u16 xtun_auth_key_ (const u16 secret, xtun_auth_s* const auth, bool save)
     register0 += register1;
     register0 += register2;
     register0 += register3;
-    register0 += register0 >> 32;
-    register0 += register0 >> 16;
-    register0 &= 0xFFFFULL;
     register0 += !register0;
-    // RETORNA 0 SE FALHOU, OU UMA KEY SE SUCESSO
-    register0 *= save;
 
-    return (u16)register0;
+    // RETORNA 0 SE FALHOU, OU UMA KEY SE SUCESSO
+    return register0 * save;
 }
 
-static inline u16 xtun_auth_key_gen (const u16 secret, xtun_auth_s* const auth) {
+static inline u64 xtun_auth_key_gen (const u64 secret, xtun_auth_s* const auth) {
 
     return xtun_auth_key_(secret, auth, true);
 }
 
-static inline u16 xtun_auth_key_check (const u16 secret, xtun_auth_s* const auth) {
+static inline u64 xtun_auth_key_check (const u64 secret, xtun_auth_s* const auth) {
 
     return xtun_auth_key_(secret, auth, false);
 }

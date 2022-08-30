@@ -86,8 +86,8 @@ int main (void) {
             // USA ESSE ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
 
-            const u16 secret = (u16)myrandom();
-            const u16 key    = (u16)myrandom(); // FIXME: NAO PODE SER 0
+            const u64 secret = (u16)myrandom();
+            const u64 key    = (u16)myrandom(); // FIXME: NAO PODE SER 0
 
             // ENCODE
 #if !TEST
@@ -115,9 +115,9 @@ int main (void) {
 #if DECODE
             // DECODE
 #if !TEST
-            const u16 hashNew = xtun_decode(secret, key, chunkRW, chunkSize);
+            const u64 hashNew = xtun_decode(secret, key, chunkRW, chunkSize);
 #else
-            const u16 hashNew = hashOriginal;
+            const u64 hashNew = hashOriginal;
 #endif
 
             // COMPARE DATA

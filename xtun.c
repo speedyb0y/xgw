@@ -36,7 +36,7 @@ typedef struct net net_s;
 typedef struct header_ops header_ops_s;
 typedef struct net_device_ops net_device_ops_s;
 
-#define SKB_TAIL_PTR(skb) PTR(skb_tail_pointer(skb))
+#define SKB_TAIL(skb) PTR(skb_tail_pointer(skb))
 
 #define PTR(p) ((void*)(p))
 
@@ -58,6 +58,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define PORT(nid, pid) (XTUN_SERVER_PORT + (nid)*10 + (pid))
 
+// WILL UNSIGNED OVERFLOW IF LOWER
 #define PORT_NID(port) (((port) - XTUN_SERVER_PORT) / 10)
 #define PORT_PID(port) (((port) - XTUN_SERVER_PORT) % 10)
 
@@ -102,7 +103,6 @@ typedef struct xtun_path_s {
     u16 uCksum;
 } xtun_path_s;
 
-// TODO: FIXME: AUMENTAR SECRET E KEY
 typedef struct xtun_node_s {
     net_device_s* dev; // TUNNEL VIRTUAL INTERFACE DEVICE
     u64 remaining;
@@ -125,6 +125,10 @@ typedef struct xtun_cfg_path_s {
     u8  iTOS;
     u8  iTTL;
     u16 band;
+#if !XGW_XTUN_SERVER_IS
+    u32 seila;
+    u32 bandSrv;
+#endif
 } xtun_cfg_path_s;
 
 typedef struct xtun_cfg_node_s {
@@ -166,36 +170,36 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     //XTUN_ASSERT(skb->dev != virt);
     XTUN_ASSERT(PTR(hdr->eDst) >= PTR(skb->head));
     // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
-    // ASSERT: skb->protocol == hdr->eType
+    XTUN_ASSERT(skb->protocol == hdr->eType);
+    //XTUN_ASSERT(payload <= skb->end);
 
-    if (skb->len < XTUN_PATH_SIZE_ETH
-     || hdr->eType     != BE16(ETH_P_IP)
-     || hdr->iVersion  != BE8(0x45)
-     || hdr->iProtocol != BE8(IPPROTO_UDP))
-        // NOT UDP/IPV4/ETHERNET
-        goto pass;
+    // TODO: FIXME: VAI TER QUE CONSIDERAR AMBOS OS CABECALHOS E O SKB PORQUE PODE TER UM LIXO ALI
+    const uint payloadSize = SKB_TAIL(skb) - payload;
 
-    // WILL UNSIGNED OVERFLOW IF LOWER
 #if XGW_XTUN_SERVER_IS
     const uint srvPort = BE16(hdr->uDst);
 #else
     const uint srvPort = BE16(hdr->uSrc);
 #endif
-
     const uint nid = PORT_NID(srvPort);
     const uint pid = PORT_PID(srvPort);
 
     xtun_node_s* const node = &nodes[nid];
 
-    if (nid >= NODES_N
+    if (skb->len < XTUN_PATH_SIZE_ETH
+     || hdr->eType     != BE16(ETH_P_IP)
+     || hdr->iVersion  != BE8(0x45)
+     || hdr->iProtocol != BE8(IPPROTO_UDP)
+     || nid >= NODES_N
      || pid >= PATHS_N
      || !node->dev)
+        // NOT UDP/IPV4/ETHERNET
         // WE DON'T HAVE THIS TUNNEL/PATH
         goto pass;
 
     if (hdr->iHash) {
         // NOT AUTH
-        if (xtun_decode(node->secret, node->key, payload, SKB_TAIL_PTR(skb) - payload) != hdr->iHash)
+        if (xtun_decode(node->secret, node->key, payload, payloadSize) != hdr->iHash)
             // HASH MISMATCH
             goto drop;
     } else {
@@ -474,6 +478,10 @@ static int __init xtun_init(void) {
 #endif
             xtun_path_s* const path = &node->paths[pid];
 
+#if !XGW_XTUN_SERVER_IS
+            path->seila      =  0;
+            path->bandSrv    =  cfgPath->bandSrv;
+#endif
             path->band       =  cfgPath->band;
             path->phys       =  phys;
 #if XGW_XTUN_SERVER_IS
