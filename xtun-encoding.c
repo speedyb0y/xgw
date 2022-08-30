@@ -15,14 +15,24 @@
 #define popcount32(x) __builtin_popcount((uint)(x))
 #define popcount64(x) __builtin_popcountll((uintll)(x))
 
-static inline u64 swap64 (const u64 x, const uint q) {
+static inline u64 swap64 (u64 x, const u64 mask) {
 
-    return (x >> q) | (x << (64 - q));
+	uint q = popcount64(mask);
+
+	x += mask;
+	x = (x >> q) | (x << (64 - q));
+
+    return x;
 }
 
-static inline u64 swap64_undo (const u64 x, const uint q) {
+static inline u64 swap64_undo (u64 x, const u64 mask) {
 
-    return (x << q) | (x >> (64 - q));
+	uint q = popcount64(mask);
+
+	x = (x << q) | (x >> (64 - q));
+	x -= mask;
+
+    return x;
 }
 
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
@@ -31,8 +41,8 @@ static u64 xtun_encode (u64 sec, u64 key, void* data, uint size) {
     sec += ENCODING_SEC_ADD;
     key += ENCODING_KEY_ADD;
 
-    sec += swap64(key, popcount32(size));
-    key += swap64(sec, popcount32(size));
+    sec += swap64(key, size);
+    key += swap64(sec, size);
 
     while (size >= sizeof(u64)) {
 
@@ -40,15 +50,13 @@ static u64 xtun_encode (u64 sec, u64 key, void* data, uint size) {
 
         u64 value = orig;
 
-        value  = swap64(value, popcount32(size));
-        value += key;
-        value  = swap64(value, popcount64(sec));
-        value += sec;
-        value  = swap64(value, popcount64(key));
+        value = swap64(value, size);
+        value = swap64(value, sec);
+        value = swap64(value, key);
 
         *(u64*)data = BE64(value);
 
-        sec += swap64(key, popcount64(orig));
+        sec += swap64(key, orig);
         key += orig;
 
         data += sizeof(u64);
@@ -61,13 +69,13 @@ static u64 xtun_encode (u64 sec, u64 key, void* data, uint size) {
 
         u64 value = orig;
 
-        value += sec;
-        value ^= key;
+        value += swap64(sec, size);
+        value += swap64(key, size);
         value &= 0xFFU;
 
         *(u8*)data = BE8(value);
 
-        sec += swap64(key, popcount64(orig));
+        sec += swap64(key, orig);
         key += orig;
 
         data += sizeof(u8);
@@ -89,8 +97,8 @@ static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
     sec += ENCODING_SEC_ADD;
     key += ENCODING_KEY_ADD;
 
-    sec += swap64(key, popcount32(size));
-    key += swap64(sec, popcount32(size));
+    sec += swap64(key, size);
+    key += swap64(sec, size);
 
     while (size >= sizeof(u64)) {
 
@@ -98,15 +106,13 @@ static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
 
         u64 orig = value;
 
-        orig  = swap64_undo(orig, popcount64(key));
-        orig -= sec;
-        orig  = swap64_undo(orig, popcount64(sec));
-        orig -= key;
-        orig  = swap64_undo(orig, popcount32(size));
+        orig = swap64_undo(orig, key);
+        orig = swap64_undo(orig, sec);
+        orig = swap64_undo(orig, size);
 
         *(u64*)data = BE64(orig);
 
-        sec += swap64(key, popcount64(orig));
+        sec += swap64(key, orig);
         key += orig;
 
         data += sizeof(u64);
@@ -119,13 +125,13 @@ static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
 
         u64 orig = value;
 
-        orig ^= key;
-        orig -= sec;
+        orig -= swap64(key, size);
+        orig -= swap64(sec, size);
         orig &= 0xFFU;
 
         *(u8*)data = BE8(orig);
 
-        sec += swap64(key, popcount64(orig));
+        sec += swap64(key, orig);
         key += orig;
 
         data += sizeof(u8);
