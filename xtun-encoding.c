@@ -12,6 +12,9 @@
 #error "BAD ENCODING_KEY_ADD"
 #endif
 
+#define popcount32(x) __builtin_popcount((uint)(x))
+#define popcount64(x) __builtin_popcountll((uintll)(x))
+
 static inline u64 swap64 (const u64 x, const uint q) {
 
     return (x >> q) | (x << (64 - q));
@@ -23,108 +26,116 @@ static inline u64 swap64_undo (const u64 x, const uint q) {
 }
 
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-static u64 xtun_encode (u64 sec, u64 key, void* pos, uint size) {
+static u64 xtun_encode (u64 sec, u64 key, void* data, uint size) {
 
     sec += ENCODING_SEC_ADD;
     key += ENCODING_KEY_ADD;
 
-    sec += swap64(key, (size % 64));
-    key += swap64(sec, (size % 64));
+    sec += swap64(key, popcount32(size));
+    key += swap64(sec, popcount32(size));
 
     while (size >= sizeof(u64)) {
 
-        const u64 orig = BE64(*(u64*)pos);
+        const u64 orig = BE64(*(u64*)data);
 
         u64 value = orig;
 
+        value  = swap64(value, popcount32(size));
         value += key;
-        value ^= sec;
-        value = swap64(value, (key + sec + size) % 64);
+        value  = swap64(value, popcount64(sec));
+        value += sec;
+        value  = swap64(value, popcount64(key));
 
-        *(u64*)pos = BE64(value);
+        *(u64*)data = BE64(value);
 
-        key += sec >> (size % 64);
-        sec += orig >> (key % 64);
+        sec += swap64(key, popcount64(orig));
+        key += orig;
 
-        pos  += sizeof(u64);
+        data += sizeof(u64);
         size -= sizeof(u64);
     }
 
     while (size) {
 
-        const u8 orig = BE8(*(u8*)pos);
+        const u8 orig = BE8(*(u8*)data);
 
-        u8 value = orig;
+        u64 value = orig;
 
         value += sec;
+        value ^= key;
+        value &= 0xFFU;
 
-        *(u8*)pos = BE8(value);
+        *(u8*)data = BE8(value);
 
-        sec <<= 1;
-        sec += orig;
+        sec += swap64(key, popcount64(orig));
+        key += orig;
 
-        pos  += sizeof(u8);
+        data += sizeof(u8);
         size -= sizeof(u8);
     }
 
     sec += key;
     sec += sec >> 32;
     sec += sec >> 16;
-    sec &= 0xFFFFULL;    
+    sec &= 0xFFFFULL;
     sec += !sec;
 
     return sec;
 }
 
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-static u16 xtun_decode (u64 sec, u64 key, void* pos, uint size) {
+static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
 
     sec += ENCODING_SEC_ADD;
     key += ENCODING_KEY_ADD;
 
-    sec += swap64(key, (size % 64));
-    key += swap64(sec, (size % 64));
+    sec += swap64(key, popcount32(size));
+    key += swap64(sec, popcount32(size));
 
     while (size >= sizeof(u64)) {
 
-        const u64 value = BE64(*(u64*)pos);
+        const u64 value = BE64(*(u64*)data);
 
         u64 orig = value;
 
-        orig = swap64_undo(orig, (key + sec + size) % 64);
-        orig ^= sec;        
+        orig  = swap64_undo(orig, popcount64(key));
+        orig -= sec;
+        orig  = swap64_undo(orig, popcount64(sec));
         orig -= key;
+        orig  = swap64_undo(orig, popcount32(size));
 
-        *(u64*)pos = BE64(orig);
+        *(u64*)data = BE64(orig);
 
-        key += sec >> (size % 64);
-        sec += orig >> (key % 64);
+        sec += swap64(key, popcount64(orig));
+        key += orig;
 
-        pos  += sizeof(u64);
+        data += sizeof(u64);
         size -= sizeof(u64);
     }
 
     while (size) {
 
-        const u8 value = BE8(*(u8*)pos);
+        const u8 value = BE8(*(u8*)data);
 
-        u8 orig = value;
+        u64 orig = value;
 
+        orig ^= key;
         orig -= sec;
+        orig &= 0xFFU;
 
-        *(u8*)pos = BE8(orig);
+        *(u8*)data = BE8(orig);
 
-        sec <<= 1;
-        sec += orig;
+        sec += swap64(key, popcount64(orig));
+        key += orig;
 
-        pos  += sizeof(u8);
+        data += sizeof(u8);
         size -= sizeof(u8);
     }
 
     sec += key;
     sec += sec >> 32;
     sec += sec >> 16;
-    sec &= 0xFFFFULL;    
+    sec &= 0xFFFFULL;
     sec += !sec;
 
     return sec;

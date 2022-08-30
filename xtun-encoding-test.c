@@ -28,6 +28,7 @@
 #define elif else if
 
 typedef unsigned int uint;
+typedef unsigned long long int uintll;
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -109,8 +110,8 @@ int main (void) {
             }
 
 #if PRINT
-            fprintf(stderr, "\n -- SECRET 0x%04X KEY 0x%04X = HASH 0x%04X \n",
-                secret, key, hashOriginal);
+            fprintf(stderr, "\n -- SECRET 0x%016llX KEY 0x%016llX = HASH 0x%04X \n",
+                (uintll)secret, (uintll)key, hashOriginal);
 #endif
 #if DECODE
             // DECODE

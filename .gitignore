@@ -11,6 +11,7 @@
 # Normal rules (sorted alphabetically)
 #
 __pycache__
+a.out
 Kconfig.xgw
 kconfig-xgw.h
 cpufeature-xgw.h
