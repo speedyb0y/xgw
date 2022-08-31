@@ -588,6 +588,15 @@ static int __init xtun_init(void) {
             path->uCksum     =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
         }
 
+        // INITIALIZE IT
+        node->secret         =  cfgNode->secret;
+        node->key            =  cfgNode->key;
+        node->flowPackets    =  cfgNode->flowPackets;
+        node->flowRemaining  =  0;
+        node->flowCounter    =  0;
+
+        xtun_node_flows_update(node);
+
         // CREATE THE VIRTUAL INTERFACE
         net_device_s* const dev = alloc_netdev(sizeof(xtun_node_s*), cfgNode->name, NET_NAME_USER, xtun_dev_setup);
 
@@ -597,24 +606,15 @@ static int __init xtun_init(void) {
         }
 
         // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
-        XTUN_DEV_NODE(dev) = node;
+        XTUN_DEV_NODE((node->dev = dev)) = node;
 
         // MAKE IT VISIBLE IN THE SYSTEM
         if (register_netdev(dev)) {
             printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfgNode->name);
+            node->dev = NULL;
             free_netdev(dev);
             continue;
         }
-
-        // NOW REGISTER IT
-        node->dev            =  dev;
-        node->secret         =  cfgNode->secret;
-        node->key            =  cfgNode->key;
-        node->flowPackets    =  cfgNode->flowPackets;
-        node->flowRemaining  =  0;
-        node->flowCounter    =  0;
-
-        xtun_node_flows_update(node);
     }
 
     return 0;
