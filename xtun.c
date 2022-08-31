@@ -122,7 +122,7 @@ typedef struct xtun_node_s {
 
 static void flows_gen (xtun_node_s* const node) {
 
-    const uint total = (
+    const uintll total = (
         node->paths[0].myBand +
         node->paths[1].myBand +
         node->paths[2].myBand +
@@ -132,10 +132,8 @@ static void flows_gen (xtun_node_s* const node) {
     uint flow = 0;
 
     for (uint pid = 0; pid != PATHS_N; pid++)
-        while (uint c = ((((u64)node->paths[pid].myBand) << 16) * FLOWS_N) / total; c; c--)
+        for (uint q = ((((uintll)node->paths[pid].myBand) << 16) * FLOWS_N) / total; q; q--)
             node->flows[flow++] = pid;
-
-    ASSERT(flow <= FLOWS_N);
 
     while (flow != FLOWS_N)
         node->flows[flow++] = pid++ % PATHS_N;
