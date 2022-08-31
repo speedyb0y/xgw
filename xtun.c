@@ -62,6 +62,13 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define PORT_NID(port) (((port) - XTUN_SERVER_PORT) / 10)
 #define PORT_PID(port) (((port) - XTUN_SERVER_PORT) % 10)
 
+//
+#if 0
+#define XTUN_DEV_NODE(dev) (*(xtun_node_s**)netdev_priv(dev))
+#else
+#define XTUN_DEV_NODE(dev) ((dev)->rx_handler_data)
+#endif
+
 // EXPECTED SIZE
 #define XTUN_PATH_SIZE CACHE_LINE_SIZE
 
@@ -338,7 +345,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ENCAPSULATE
     xtun_path_s* const pkt = PTR(skb->data) - sizeof(xtun_path_s);
 
-    xtun_node_s* const node = *(xtun_node_s**)netdev_priv(dev);
+    xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
     const uint pid = 0;
 
@@ -573,7 +580,7 @@ static int __init xtun_init(void) {
         }
 
         // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
-        *(xtun_node_s**)netdev_priv(dev) = node;
+        XTUN_DEV_NODE(dev) = node;
 
         // MAKE IT VISIBLE IN THE SYSTEM
         if (register_netdev(dev)) {
