@@ -80,6 +80,9 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #endif
 #endif
 
+#include "xtun-encoding.c"
+#include "xtun-auth.c"
+
 #define PORT(nid, pid) (XTUN_SERVER_PORT + (nid)*10 + (pid))
 
 // WILL UNSIGNED OVERFLOW IF LOWER
@@ -241,9 +244,6 @@ static const xtun_cfg_node_s cfgNode[1] =
     }},
 };
 
-#include "xtun-encoding.c"
-#include "xtun-auth.c"
-
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
@@ -371,11 +371,10 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     skb->len             -= XTUN_PATH_SIZE_ETH;
     skb->dev              = node->dev;
     skb->protocol         =
-		((hdr->iVersion & 0xF0) == 0x40) ?
-			BE16(ETH_P_IP) :
-			BE16(ETH_P_IPV6);
+        ((hdr->iVersion & 0xF0) == 0x40) ?
+            BE16(ETH_P_IP) :
+            BE16(ETH_P_IPV6);
 
-pass:
     return RX_HANDLER_ANOTHER;
 
 pass:
