@@ -83,12 +83,5 @@ static u64 xtun_auth_key_ (const u64 secret, xtun_auth_s* const auth, bool save)
     return register0 * save;
 }
 
-static inline u64 xtun_auth_key_gen (const u64 secret, xtun_auth_s* const auth) {
-
-    return xtun_auth_key_(secret, auth, true);
-}
-
-static inline u64 xtun_auth_key_check (const u64 secret, xtun_auth_s* const auth) {
-
-    return xtun_auth_key_(secret, auth, false);
-}
+#define xtun_auth_key_gen(secret, auth) xtun_auth_key_(secret, auth, true)
+#define xtun_auth_key_chk(secret, auth) xtun_auth_key_(secret, auth, false)

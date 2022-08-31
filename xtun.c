@@ -278,12 +278,13 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 #if SERVER
      || nid >= NODES_N
 #else
-     || nid >= NODE_ID
+     || nid != NODE_ID
 #endif
      || pid >= PATHS_N
      || !node->dev)
         // NOT UDP/IPV4/ETHERNET
         // WE DON'T HAVE THIS TUNNEL/PATH
+        // NODE ID IS NOT MINE
         goto pass;
 
     if (hdr->iHash) {
@@ -297,7 +298,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         if (skb->len != (XTUN_PATH_SIZE_ETH + XTUN_AUTH_SIZE))
             // INVALID AUTH SIZE
             goto drop;
-        const u16 key = xtun_auth_key_check(node->secret, payload);
+        const u64 key = xtun_auth_key_chk(node->secret, payload);
         if (!key)
             // INCORRECT AUTH
             goto drop;
