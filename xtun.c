@@ -260,7 +260,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     // TODO: FIXME: VAI TER QUE CONSIDERAR AMBOS OS CABECALHOS E O SKB PORQUE PODE TER UM LIXO ALI
     const uint payloadSize = SKB_TAIL(skb) - payload;
 
-	// IDENTIFY NODE AND PATH IDS FROM SERVER PORT
+    // IDENTIFY NODE AND PATH IDS FROM SERVER PORT
 #if XTUN_SERVER_IS
     const uint port = BE16(hdr->uDst);
 #else
@@ -301,9 +301,9 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     xtun_path_s* const path = &node->paths[pid];
 
-    net_device_s* const dev = skb->dev;
+    net_device_s* const itfc = skb->dev;
 
-    const u64 hash = (u64)(uintptr_t)dev
+    const u64 hash = (u64)(uintptr_t)itfc
       + ((u64)hdr->eDst[0] <<  0)
       + ((u64)hdr->eDst[1] <<  4)
       + ((u64)hdr->eDst[2] <<  8)
@@ -313,21 +313,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
       + ((u64)hdr->iSrc    << 24)
       + ((u64)hdr->iDst    << 28)
       + ((u64)hdr->uSrc    << 32)
-      + ((u64)hdr->uDst    << 36)
     ;
 
     if (path->hash != hash) {
-
-        printk("XTUN: TUNNEL %s: UPDATING PATH\n", node->dev->name);
-
-        if (path->itfc != dev) {
-            if (path->itfc)
-                dev_put(path->itfc);
-            dev_hold(dev);
-        }
-
         path->hash    = hash;
-        path->itfc    = dev;
+        path->itfc    = itfc;
         path->eDst[0] = hdr->eSrc[0];
         path->eDst[1] = hdr->eSrc[1];
         path->eDst[2] = hdr->eSrc[2];
@@ -336,17 +326,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         path->eSrc[2] = hdr->eDst[2];
         path->iSrc    = hdr->iDst;
         path->iDst    = hdr->iSrc;
-        // NOTE: NOSSA PORTA NÃO É ATUALIZADA AQUI:
-        //      A PORTA DO SERVIDOR É ESTÁVEL
-        //      A PORTA DO CLIENTE É ELE QUE MUDA
-        // TANTO QUE NEM VAI CHEGAR ATÉ AQUI SE NÃO FOR PARA A PORTA ATUAL
-      //path->uSrc    = hdr->uDst;
         path->uDst    = hdr->uSrc;
-    }
 
-    if (!hdr->iHash)
-        // ERA UM AUTH, SO QUIS ATUALIZAR O PATH
-        goto drop;
+        printk("XTUN: TUNNEL %s: UPDATED PATH #%u WITH HASH 0x%016llX INTERFACE %s\n",
+            node->dev->name, pid, (uintll)path->hash, itfc->name);
+    }
 #endif
 
     // DESENCAPSULA
@@ -527,8 +511,15 @@ static int __init xtun_init(void) {
         __NODE_CFG(nid)
         __NODE(nid)
 
-        printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH SECRET 0x%016llX\n",
-            cfgNode->name, nid, (uintll)cfgNode->secret);
+        printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH"
+            " IHASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX"
+            "\n",
+            cfgNode->name, nid, cfg->iHash,
+            (uintll)cfgNode->keys[0],
+            (uintll)cfgNode->keys[1],
+            (uintll)cfgNode->keys[2],
+            (uintll)cfgNode->keys[3]
+        );
 
         for (uint pid = 0; pid != XTUN_PATHS_N; pid++) {
 
@@ -611,8 +602,11 @@ static int __init xtun_init(void) {
         }
 
         // INITIALIZE IT
-        node->secret         =  cfgNode->secret;
-        node->key            =  cfgNode->key;
+        node->iHash          =  cfgNode->iHash;
+        node->keys[0]        =  cfgNode->keys[0];
+        node->keys[1]        =  cfgNode->keys[1];
+        node->keys[2]        =  cfgNode->keys[2];
+        node->keys[3]        =  cfgNode->keys[3];
         node->flowPackets    =  cfgNode->flowPackets;
         node->flowRemaining  =  0;
         node->flowCounter    =  0;
