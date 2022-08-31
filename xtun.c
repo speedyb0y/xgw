@@ -362,8 +362,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         goto drop;
 #endif
 
-    const uint ipVersion = hdr->iVersion >> 4;
-
     // DESENCAPSULA
     skb->mac_len          = 0;
     skb->data             = payload;
@@ -372,7 +370,10 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     skb->transport_header = payload - PTR(skb->head);
     skb->len             -= XTUN_PATH_SIZE_ETH;
     skb->dev              = node->dev;
-    skb->protocol         = ipVersion == 4 ? BE16(ETH_P_IP) : BE16(ETH_P_IPV6);
+    skb->protocol         =
+		((hdr->iVersion & 0xF0) == 0x40) ?
+			BE16(ETH_P_IP) :
+			BE16(ETH_P_IPV6);
 
 pass:
     return RX_HANDLER_ANOTHER;
