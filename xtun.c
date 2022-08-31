@@ -386,35 +386,39 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     } else
         node->flowRemaining--;
 
-    // FLOW HASH
-    u64 flowHash = *(u8*)payload >> 4;
+    // FLOW HASH -> FLOW ID
+    u64 flow = *(u8*)payload >> 4;
 
-    if (flowHash == 4) {
-        // IPv4
-        flowHash = *(u8*)(payload + 10);
-        if (flowHash == IPPROTO_TCP
-         || flowHash == IPPROTO_UDP
-         || flowHash == IPPROTO_SCTP
-         || flowHash == IPPROTO_DCCP)
-            flowHash += *(u32*)(payload + 20);
-        flowHash += *(u64*)(payload + 12);
-    } elif (flowHash == 6) {
-        // IPv6
-        flowHash = *(u8*)(payload + );
-        if (flowHash == IPPROTO_TCP
-         || flowHash == IPPROTO_UDP
-         || flowHash == IPPROTO_SCTP
-         || flowHash == IPPROTO_DCCP)
-            flowHash += *(u32*)(payload + 40);
-        flowHash += *(u64*)(payload +  8);
-        flowHash += *(u64*)(payload + 16);
-        flowHash += *(u64*)(payload + 24);
-        flowHash += *(u64*)(payload + 32);
+    if (flow == 4) {
+        flow = *(u8*)(payload + 10);
+        if (flow == IPPROTO_TCP
+         || flow == IPPROTO_UDP
+         || flow == IPPROTO_UDPLITE
+         || flow == IPPROTO_SCTP
+         || flow == IPPROTO_DCCP)
+            flow += *(u32*)(payload + 20);
+        flow += *(u64*)(payload + 12);
+    } elif (flow == 6) {
+        flow = *(u8*)(payload + 6);
+        if (flow == IPPROTO_TCP
+         || flow == IPPROTO_UDP
+         || flow == IPPROTO_UDPLITE
+         || flow == IPPROTO_SCTP
+         || flow == IPPROTO_DCCP)
+            flow += *(u32*)(payload + 40);
+        flow += *(u64*)(payload +  8);
+        flow += *(u64*)(payload + 16);
+        flow += *(u64*)(payload + 24);
+        flow += *(u64*)(payload + 32);
     }
 
-    const uint pid = node->flows[(node->flowShift + flowHash) % XTUN_FLOWS_N];
+    flow += flow >> 32;
+    flow += flow >> 16;
+    flow += node->flowShift;
+    flow %= XTUN_FLOWS_N;
 
-    xtun_path_s* const path = &node->paths[pid]; // TODO: FIXME:
+    // FLOW ID -> PATH ID
+    xtun_path_s* const path = &node->paths[node->flows[flow]];
 
     // ASSERT: PTR(skb_mac_header(skb)) == PTR(skb->data)
     // ASSERT: PTR(skb_network_header(skb)) == PTR(skb->data)
