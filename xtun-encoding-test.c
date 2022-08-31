@@ -38,6 +38,8 @@ typedef uint64_t u64;
 #define BE8(x) (x)
 #define BE64(x)(x) // TODO: FIXME:
 
+#define CACHE_LINE_SIZE 64
+
 #include "xtun-encoding.c"
 
 #ifndef CHUNK_SIZE_MIN
@@ -62,7 +64,7 @@ typedef uint64_t u64;
 
 static inline u64 myrandom (void) {
 
-    static u64 x = 0x556465607ULL;
+    static u64 x = 0x5564EB5A1465607ULL;
 
     //x += time(NULL);
     x += 1;
@@ -81,11 +83,15 @@ int main (void) {
 #if PRINT
         fprintf(stderr, "SIZE %u\n", chunkSize);
 #endif
-
-        for (uint c = COUNT; c; c--) {
-
+#if 1
             // USA ESSE ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
+#endif
+        for (uint c = COUNT; c; c--) {
+
+#if 0
+            memcpy(chunkRW, chunk, chunkSize);
+#endif
 
             const u64 secret = (u16)myrandom();
             const u64 key    = (u16)myrandom(); // FIXME: NAO PODE SER 0

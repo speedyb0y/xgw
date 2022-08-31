@@ -180,9 +180,18 @@ typedef struct xtun_cfg_node_s {
     xtun_cfg_path_s paths[PATHS_N];
 } xtun_cfg_node_s;
 
+#if XGW_XTUN_SERVER_IS
 static xtun_node_s nodes[NODES_N];
+#else
+static xtun_node_s node[1];
+#endif
 
-static const xtun_cfg_node_s cfgs[NODES_N] = {
+#if XGW_XTUN_SERVER_IS
+static const xtun_cfg_node_s cfgs[NODES_N] =
+#else
+static const xtun_cfg_node_s cfgNode[1] =
+#endif
+{
     { .name = "xgw-0", .secret = 0x4506545646E640EFULL, .key = 0xE45503465064ULL, .paths = {
         { .itfc = "isp-0", .cband = 200*1000*1000, .sband = 500*1000*1000, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,10,10,10), .caddr = {192,168,0,20},    .cport = 2000,
@@ -227,7 +236,9 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     const uint nid = PORT_NID(srvPort);
     const uint pid = PORT_PID(srvPort);
 
+#if XGW_XTUN_SERVER_IS
     xtun_node_s* const node = &nodes[nid];
+#endif
 
     if (skb->len < XTUN_PATH_SIZE_ETH
      || hdr->eType     != BE16(ETH_P_IP)
@@ -480,16 +491,21 @@ static int __init xtun_init(void) {
     }
 
     // INITIALIZE TUNNELS
+#if XGW_XTUN_SERVER_IS
     memset(nodes, 0, sizeof(nodes));
+#else
+    memset(node, 0, sizeof(node));
+#endif
 
     for (uint nid = 0; nid != NODES_N; nid++) {
 
+#if XGW_XTUN_SERVER_IS
         const xtun_cfg_node_s* const cfgNode = &cfgs[nid];
+        xtun_node_s* const node = &nodes[nid];
+#endif
 
         printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH SECRET 0x%016llX\n",
             cfgNode->name, nid, (uintll)cfgNode->secret);
-
-        xtun_node_s* const node = &nodes[nid];
 
         for (uint pid = 0; pid != PATHS_N; pid++) {
 
