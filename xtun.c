@@ -178,17 +178,17 @@ typedef struct xtun_node_s {
 
 static void xtun_node_flows_update (xtun_node_s* const node) {
 
-    const uintll total = (
+    const uintll total =
         (uintll)node->paths[0].mband +
         (uintll)node->paths[1].mband +
         (uintll)node->paths[2].mband +
         (uintll)node->paths[3].mband
-    ) << 16;
+    ;
 
     uint flow = 0;
 
     for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
-        for (uint q = ((((uintll)node->paths[pid].mband) << 16) * FLOWS_N) / total; q; q--)
+        for (uint q = (((uintll)node->paths[pid].mband) * FLOWS_N) / total; q; q--)
             node->flows[flow++] = pid;
 
     XTUN_ASSERT(flow == FLOWS_N);
