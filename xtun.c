@@ -378,6 +378,9 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 pass:
     return RX_HANDLER_ANOTHER;
 
+pass:
+    return RX_HANDLER_PASS;
+
 drop:
     kfree_skb(skb);
 
