@@ -369,14 +369,42 @@ drop:
     return RX_HANDLER_CONSUMED;
 }
 
+// EXPECTED SIZE
+#define FLOW_HDR_SIZE CACHE_LINE_SIZE
+
+typedef union flow_hdr_s {
+    struct {
+        u64 ab;
+        u8 ttl;
+        u8 protocol;
+        u16 chk;
+        u64 addrs;
+        u32 ports;
+        u8 _align[FLOW_HDR_SIZE
+            - 2*sizeof(u8)
+            - 1*sizeof(u16)
+            - 1*sizeof(u32)
+            - 2*sizeof(u64)
+            ];
+    } ip4;
+    struct {
+        u32 ab;
+        u16 size;
+        u8 protocol;
+        u8 ttl;
+        u64 addrs[4];
+        u32 ports;
+    } ip6;
+} flow_hdr_s;
+
 static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* const dev) {
 
     // ASSERT: skb->len <= xtun->mtu
     // ASSERT: skb->len <= xtun->dev->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->path->itfc->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
 
-    void* const payload = PTR(skb->data)
-    xtun_path_s* const pkt = PTR(payload) - sizeof(xtun_path_s);
+    flow_hdr_s* const flow = PTR(skb->data);
+    xtun_path_s* const pkt = PTR(flow) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
     // ENVIA flowPackets, E AÍ AVANCA flowShift
@@ -386,39 +414,39 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     } else
         node->flowRemaining--;
 
-    // FLOW HASH -> FLOW ID
-    u64 flow = *(u8*)payload >> 4;
+    // FLOW ID
+    u64 fid = *(u8*)flow >> 4;
 
-    if (flow == 4) {
-        flow = *(u8*)(payload + 10);
-        if (flow == IPPROTO_TCP
-         || flow == IPPROTO_UDP
-         || flow == IPPROTO_UDPLITE
-         || flow == IPPROTO_SCTP
-         || flow == IPPROTO_DCCP)
-            flow += *(u32*)(payload + 20);
-        flow += *(u64*)(payload + 12);
-    } elif (flow == 6) {
-        flow = *(u8*)(payload + 6);
-        if (flow == IPPROTO_TCP
-         || flow == IPPROTO_UDP
-         || flow == IPPROTO_UDPLITE
-         || flow == IPPROTO_SCTP
-         || flow == IPPROTO_DCCP)
-            flow += *(u32*)(payload + 40);
-        flow += *(u64*)(payload +  8);
-        flow += *(u64*)(payload + 16);
-        flow += *(u64*)(payload + 24);
-        flow += *(u64*)(payload + 32);
+    if (fid == 4) {
+        fid = flow->ip4.protocol;
+        if (fid == IPPROTO_TCP
+         || fid == IPPROTO_UDP
+         || fid == IPPROTO_UDPLITE
+         || fid == IPPROTO_SCTP
+         || fid == IPPROTO_DCCP)
+            fid += flow->ip4.ports;
+        fid += flow->ip4.addrs;
+    } elif (fid == 6) {
+        fid = flow->ip4.protocol;
+        if (fid == IPPROTO_TCP
+         || fid == IPPROTO_UDP
+         || fid == IPPROTO_UDPLITE
+         || fid == IPPROTO_SCTP
+         || fid == IPPROTO_DCCP)
+            fid += flow->ip6.ports;
+        fid += flow->ip6.addrs[0];
+        fid += flow->ip6.addrs[1];
+        fid += flow->ip6.addrs[2];
+        fid += flow->ip6.addrs[3];
     }
 
-    flow += flow >> 32;
-    flow += flow >> 16;
-    flow += node->flowShift;
-    flow %= XTUN_FLOWS_N;
+    fid += fid >> 32;
+    fid += fid >> 16;
+    fid += node->flowShift;
+    fid %= XTUN_FLOWS_N;
 
     // FLOW ID -> PATH ID
-    xtun_path_s* const path = &node->paths[node->flows[flow]];
+    xtun_path_s* const path = &node->paths[node->flows[fid]];
 
     // ASSERT: PTR(skb_mac_header(skb)) == PTR(skb->data)
     // ASSERT: PTR(skb_network_header(skb)) == PTR(skb->data)
