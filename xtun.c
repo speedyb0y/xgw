@@ -190,17 +190,6 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
         for (uint q = ((((uintll)node->paths[pid].mband) << 16) * FLOWS_N) / total; q; q--)
             node->flows[flow++] = pid;
-#define _A8(x) x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]
-	printk("XTUN: FLOWS"
-		"%u %u %u %u %u %u %u %u"
-		"%u %u %u %u %u %u %u %u"
-		"%u %u %u %u %u %u %u %u"
-		"%u %u %u %u %u %u %u %u"
-		"\n"
-		_A8(node->flows),
-		_A8(node->flows + 8),
-		_A8(node->flows + 16),
-		_A8(node->flows + 24));
 
     XTUN_ASSERT(flow == FLOWS_N);
 }
