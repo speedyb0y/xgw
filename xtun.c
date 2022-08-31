@@ -261,13 +261,14 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     // TODO: FIXME: VAI TER QUE CONSIDERAR AMBOS OS CABECALHOS E O SKB PORQUE PODE TER UM LIXO ALI
     const uint payloadSize = SKB_TAIL(skb) - payload;
 
+	// IDENTIFY NODE AND PATH IDS FROM SERVER PORT
 #if XTUN_SERVER_IS
-    const uint srvPort = BE16(hdr->uDst);
+    const uint port = BE16(hdr->uDst);
 #else
-    const uint srvPort = BE16(hdr->uSrc);
+    const uint port = BE16(hdr->uSrc);
 #endif
-    const uint nid = PORT_NID(srvPort);
-    const uint pid = PORT_PID(srvPort);
+    const uint nid = PORT_NID(port);
+    const uint pid = PORT_PID(port);
 
     __NODE(nid)
 
