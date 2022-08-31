@@ -51,40 +51,40 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define CACHE_LINE_SIZE 64
 
-#define NODES_N XGW_XTUN_NODES_N
-#define PATHS_N XGW_XTUN_PATHS_N
+#define XTUN_NODES_N XGW_XTUN_NODES_N
+#define XTUN_PATHS_N XGW_XTUN_PATHS_N
 
-#define SERVER      XGW_XTUN_SERVER_IS
-#define SERVER_PORT XGW_XTUN_SERVER_PORT
+#define XTUN_SERVER_IS   XGW_XTUN_SERVER_IS
+#define XTUN_SERVER_PORT XGW_XTUN_SERVER_PORT
 
-#define NODE_ID XGW_XTUN_NODE_ID
+#define XTUN_NODE_ID XGW_XTUN_NODE_ID
 
-#if NODES_N < 1 \
- || NODES_N > 256
-#error "BAD NODES_N"
+#if XTUN_NODES_N < 1 \
+ || XTUN_NODES_N > 256
+#error "BAD XTUN_NODES_N"
 #endif
 
-#if  SERVER_PORT < 1 \
- || (SERVER_PORT + NODES_N) > 0xFFFF
-#error "BAD SERVER_PORT"
+#if  XTUN_SERVER_PORT < 1 \
+ || (XTUN_SERVER_PORT + XTUN_NODES_N) > 0xFFFF
+#error "BAD XTUN_SERVER_PORT"
 #endif
 
-#if PATHS_N != 4
-#error "BAD PATHS_N"
+#if XTUN_PATHS_N != 4
+#error "BAD XTUN_PATHS_N"
 #endif
 
-#if !SERVER
-#if NODE_ID < 0 \
- || NODE_ID >= NODES_N
-#error "BAD NODE_ID"
+#if !XTUN_SERVER_IS
+#if XTUN_NODE_ID < 0 \
+ || XTUN_NODE_ID >= XTUN_NODES_N
+#error "BAD XTUN_NODE_ID"
 #endif
 #endif
 
-#define PORT(nid, pid) (SERVER_PORT + (nid)*10 + (pid))
+#define PORT(nid, pid) (XTUN_SERVER_PORT + (nid)*10 + (pid))
 
 // WILL UNSIGNED OVERFLOW IF LOWER
-#define PORT_NID(port) (((port) - SERVER_PORT) / 10)
-#define PORT_PID(port) (((port) - SERVER_PORT) % 10)
+#define PORT_NID(port) (((port) - XTUN_SERVER_PORT) / 10)
+#define PORT_PID(port) (((port) - XTUN_SERVER_PORT) % 10)
 
 //
 #if 0
@@ -103,7 +103,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XTUN_PATH_SIZE_UDP       (                              UDP_HDR_SIZE)
 
 // MY BAND
-#if SERVER
+#if XTUN_SERVER_IS
 #define mband sband
 #else
 #define mband cband
@@ -111,7 +111,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 typedef struct xtun_path_s {
     net_device_s* itfc;
-#if SERVER
+#if XTUN_SERVER_IS
     u64 hash; // THE PATH HASH
 #else
     u32 seila;
@@ -136,7 +136,7 @@ typedef struct xtun_path_s {
     u32 iDst;
 #define UDP_HDR_SIZE 8
     u16 uSrc;
-    u16 uDst; // THE SERVER PORT WILL DETERMINE THE NODE AND PATH
+    u16 uDst; // THE XTUN_SERVER_IS PORT WILL DETERMINE THE NODE AND PATH
     u16 uSize;
     u16 uCksum;
 } xtun_path_s;
@@ -145,7 +145,7 @@ typedef struct xtun_path_s {
 
 // HÁ UM FLOW PARA CADA PATH.
 // ELES NUNCA VÃO PELO MESMO PATH; DESLOCA TODOS AO MESMO TEMPO.
-// pid = (flowCounter + (flowHash % PATHS_N)) % PATHS_N
+// pid = (flowCounter + (flowHash % XTUN_PATHS_N)) % XTUN_PATHS_N
 typedef struct xtun_node_s {
     net_device_s* dev;
     u64 secret;
@@ -154,7 +154,7 @@ typedef struct xtun_node_s {
     u32 flowRemaining; // VAI COUNTDOWN DE flowPackets ATÉ 0
     u32 flowCounter; // if (flowRemaining == 0) { flowRemaining = flowPackets; flowCounter++ ; } else flowRemaining--;
     u8  flows[FLOWS_N]; // node->paths[node->flows[node->flowCounter + (hash % FLOWS_N)]]
-    xtun_path_s paths[PATHS_N];
+    xtun_path_s paths[XTUN_PATHS_N];
 } xtun_node_s;
 
 static void xtun_node_flows_update (xtun_node_s* const node) {
@@ -168,7 +168,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
 
     uint flow = 0;
 
-    for (uint pid = 0; pid != PATHS_N; pid++)
+    for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
         for (uint q = ((((uintll)node->paths[pid].mband) << 16) * FLOWS_N) / total; q; q--)
             node->flows[flow++] = pid;
 
@@ -202,10 +202,10 @@ typedef struct xtun_cfg_node_s {
     u64 secret;
     u64 key;
     u32 flowPackets;
-    xtun_cfg_path_s paths[PATHS_N];
+    xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
 
-#if SERVER
+#if XTUN_SERVER_IS
 #define __NODE_CFG(nid) const xtun_cfg_node_s* const cfgNode = &cfgs[nid];
 #define __NODE(nid) xtun_node_s* const node = &nodes[nid];
 #else
@@ -213,14 +213,14 @@ typedef struct xtun_cfg_node_s {
 #define __NODE(nid)
 #endif
 
-#if SERVER
-static xtun_node_s nodes[NODES_N];
+#if XTUN_SERVER_IS
+static xtun_node_s nodes[XTUN_NODES_N];
 #else
 static xtun_node_s node[1];
 #endif
 
-#if SERVER
-static const xtun_cfg_node_s cfgs[NODES_N] =
+#if XTUN_SERVER_IS
+static const xtun_cfg_node_s cfgs[XTUN_NODES_N] =
 #else
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
@@ -261,7 +261,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     // TODO: FIXME: VAI TER QUE CONSIDERAR AMBOS OS CABECALHOS E O SKB PORQUE PODE TER UM LIXO ALI
     const uint payloadSize = SKB_TAIL(skb) - payload;
 
-#if SERVER
+#if XTUN_SERVER_IS
     const uint srvPort = BE16(hdr->uDst);
 #else
     const uint srvPort = BE16(hdr->uSrc);
@@ -275,12 +275,12 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
      || hdr->eType     != BE16(ETH_P_IP)
      || hdr->iVersion  != BE8(0x45)
      || hdr->iProtocol != BE8(IPPROTO_UDP)
-#if SERVER
-     || nid >= NODES_N
+#if XTUN_SERVER_IS
+     || nid >= XTUN_NODES_N
 #else
-     || nid != NODE_ID
+     || nid != XTUN_NODE_ID
 #endif
-     || pid >= PATHS_N
+     || pid >= XTUN_PATHS_N
      || !node->dev)
         // NOT UDP/IPV4/ETHERNET
         // WE DON'T HAVE THIS TUNNEL/PATH
@@ -294,7 +294,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
             goto drop;
     } else {
         // AUTH
-#if SERVER
+#if XTUN_SERVER_IS
         if (skb->len != (XTUN_PATH_SIZE_ETH + XTUN_AUTH_SIZE))
             // INVALID AUTH SIZE
             goto drop;
@@ -304,12 +304,12 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
             goto drop;
         // USA ELA
         node->key = key;
-#else // UNEXPECTED AUTH FROM SERVER
+#else // UNEXPECTED AUTH FROM XTUN_SERVER_IS
         goto drop;
 #endif
     }
 
-#if SERVER
+#if XTUN_SERVER_IS
     // DETECT AND UPDATE PATH CHANGES
 
     xtun_path_s* const path = &node->paths[pid];
@@ -527,13 +527,13 @@ static int __init xtun_init(void) {
     }
 
     // INITIALIZE TUNNELS
-#if SERVER
+#if XTUN_SERVER_IS
     memset(nodes, 0, sizeof(nodes));
 #else
     memset(node, 0, sizeof(node));
 #endif
 
-    for (uint nid = 0; nid != NODES_N; nid++) {
+    for (uint nid = 0; nid != XTUN_NODES_N; nid++) {
 
         __NODE_CFG(nid)
         __NODE(nid)
@@ -541,7 +541,7 @@ static int __init xtun_init(void) {
         printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH SECRET 0x%016llX\n",
             cfgNode->name, nid, (uintll)cfgNode->secret);
 
-        for (uint pid = 0; pid != PATHS_N; pid++) {
+        for (uint pid = 0; pid != XTUN_PATHS_N; pid++) {
 
             const xtun_cfg_path_s* const cfgPath = &cfgNode->paths[pid];
 
@@ -553,7 +553,7 @@ static int __init xtun_init(void) {
                 cfgPath->sband, _A6(cfgPath->smac), _A4(cfgPath->saddr), PORT(nid, pid)
                 );
 
-#if SERVER
+#if XTUN_SERVER_IS
             net_device_s* const itfc = NULL;
 #else
             net_device_s* const itfc = dev_get_by_name(&init_net, cfgPath->itfc);
@@ -573,8 +573,8 @@ static int __init xtun_init(void) {
 #endif
             xtun_path_s* const path = &node->paths[pid];
 
-#if SERVER
-            path->hash       =  0; // CLIENT: UNUSED | SERVER: WILL BE DISCOVERED ON INPUT
+#if XTUN_SERVER_IS
+            path->hash       =  0;
             path->sband      =  cfgPath->sband;
 #else
             path->seila      =  0;
@@ -582,7 +582,7 @@ static int __init xtun_init(void) {
             path->sband      =  cfgPath->sband;
 #endif
             path->itfc       =  itfc;
-#if SERVER
+#if XTUN_SERVER_IS
             path->eDst[0]    =  BE16(0);
             path->eDst[1]    =  BE16(0);
             path->eDst[2]    =  BE16(0);
@@ -597,28 +597,28 @@ static int __init xtun_init(void) {
             path->eSrc[1]    =  BE16(cfgPath->cmac16[1]);
             path->eSrc[2]    =  BE16(cfgPath->cmac16[2]);
 #endif
-            path->eType      =  BE16(ETH_P_IP); // FIXED
-            path->iVersion   =  BE8(0x45); // FIXED
-            path->iTOS       =  BE8(cfgPath->tos); // MAY BE ALTERED IN TRANSIT
-            path->iSize      =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
-            path->iHash      =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
-            path->iFrag      =  BE16(0); // FIXED
-            path->iTTL       =  BE8(cfgPath->ttl); // MAY BE ALTERED IN TRANSIT
-            path->iProtocol  =  BE8(IPPROTO_UDP); // FIXED
-            path->iCksum     =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
-#if SERVER
-            path->iSrc       =  BE32(0); // WILL BE DISCOVERED ON INPUT
-            path->iDst       =  BE32(0); // WILL BE DISCOVERED ON INPUT
+            path->eType      =  BE16(ETH_P_IP);
+            path->iVersion   =  BE8(0x45);
+            path->iTOS       =  BE8(cfgPath->tos);
+            path->iSize      =  BE16(0);
+            path->iHash      =  BE16(0);
+            path->iFrag      =  BE16(0);
+            path->iTTL       =  BE8(cfgPath->ttl);
+            path->iProtocol  =  BE8(IPPROTO_UDP);
+            path->iCksum     =  BE16(0);
+#if XTUN_SERVER_IS
+            path->iSrc       =  BE32(0);
+            path->iDst       =  BE32(0);
             path->uSrc       =  BE16(PORT(nid, pid));
-            path->uDst       =  BE16(0); // WILL BE DISCOVERED ON INPUT
+            path->uDst       =  BE16(0);
 #else
             path->iSrc       =  BE32(cfgPath->caddr32);
             path->iDst       =  BE32(cfgPath->saddr32);
             path->uSrc       =  BE16(cfgPath->cport);
             path->uDst       =  BE16(PORT(nid, pid));
 #endif
-            path->uSize      =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
-            path->uCksum     =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
+            path->uSize      =  BE16(0);
+            path->uCksum     =  BE16(0);
         }
 
         // INITIALIZE IT
