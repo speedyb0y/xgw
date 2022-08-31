@@ -54,7 +54,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define NODES_N XGW_XTUN_NODES_N
 #define PATHS_N XGW_XTUN_PATHS_N
 
-#define SERVER 		XGW_XTUN_SERVER_IS
+#define SERVER      XGW_XTUN_SERVER_IS
 #define SERVER_PORT XGW_XTUN_SERVER_PORT
 
 #define NODE_ID XGW_XTUN_NODE_ID
@@ -534,8 +534,8 @@ static int __init xtun_init(void) {
 
     for (uint nid = 0; nid != NODES_N; nid++) {
 
-		__NODE_CFG(nid)
-		__NODE(nid)
+        __NODE_CFG(nid)
+        __NODE(nid)
 
         printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH SECRET 0x%016llX\n",
             cfgNode->name, nid, (uintll)cfgNode->secret);
