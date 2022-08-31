@@ -74,6 +74,13 @@ static inline u64 myrandom (void) {
 
 int main (void) {
 
+	u64 keys[4] = {
+		0x464564456ULL,
+		0xE34232045ULL,
+		0x004560464ULL,
+		0x352532532ULL,
+	};
+
     u8 chunk[CHUNK_SIZE_MAX];
     u8 chunkRW[CHUNK_SIZE_MAX];
     int chunkSize;
@@ -93,12 +100,14 @@ int main (void) {
             memcpy(chunkRW, chunk, chunkSize);
 #endif
 
-            const u64 secret = (u16)myrandom();
-            const u64 key    = (u16)myrandom(); // FIXME: NAO PODE SER 0
+            keys[0] += (u64)myrandom();
+            keys[1] += (u64)myrandom();
+            keys[2] += (u64)myrandom();
+            keys[3] += (u64)myrandom();
 
             // ENCODE
 #if !TEST
-            const u16 hashOriginal = xtun_encode(secret, key, chunkRW, chunkSize);
+            const u16 hashOriginal = xtun_encode(keys, chunkRW, chunkSize);
 #else
             const u16 hashOriginal = 0;
 #endif
@@ -116,13 +125,17 @@ int main (void) {
             }
 
 #if PRINT
-            fprintf(stderr, "\n -- SECRET 0x%016llX KEY 0x%016llX = HASH 0x%04X \n",
-                (uintll)secret, (uintll)key, hashOriginal);
+            fprintf(stderr, "\n -- KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX  = HASH 0x%04X \n",
+                (uintll)keys[0],
+                (uintll)keys[1],
+                (uintll)keys[2],
+                (uintll)keys[3],
+                hashOriginal);
 #endif
 #if DECODE
             // DECODE
 #if !TEST
-            const u64 hashNew = xtun_decode(secret, key, chunkRW, chunkSize);
+            const u64 hashNew = xtun_decode(keys, chunkRW, chunkSize);
 #else
             const u64 hashNew = hashOriginal;
 #endif

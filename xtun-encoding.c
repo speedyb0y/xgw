@@ -1,15 +1,33 @@
 
-#define ENCODING_KEY_ADD XGW_XTUN_ENCODING_KEY_ADD
-#define ENCODING_SEC_ADD XGW_XTUN_ENCODING_SEC_ADD
+#define XTUN_ENCODING_A_ADD XGW_XTUN_ENCODING_A_ADD
+#define XTUN_ENCODING_B_ADD XGW_XTUN_ENCODING_B_ADD
+#define XTUN_ENCODING_C_ADD XGW_XTUN_ENCODING_C_ADD
+#define XTUN_ENCODING_D_ADD XGW_XTUN_ENCODING_D_ADD
 
-#if ENCODING_SEC_ADD <= 0 \
- || ENCODING_SEC_ADD > 0xFFFFFFFFFFFFFFFF
-#error "BAD ENCODING_SEC_ADD"
+#if XTUN_ENCODING_A_ADD <= 0 \
+ || XTUN_ENCODING_A_ADD > 0xFFFFFFFFFFFFFFFF
+#error "BAD XTUN_ENCODING_A_ADD"
 #endif
 
-#if ENCODING_KEY_ADD <= 0 \
- || ENCODING_KEY_ADD > 0xFFFFFFFFFFFFFFFF
-#error "BAD ENCODING_KEY_ADD"
+#if XTUN_ENCODING_B_ADD <= 0 \
+ || XTUN_ENCODING_B_ADD > 0xFFFFFFFFFFFFFFFF
+#error "BAD XTUN_ENCODING_B_ADD"
+#endif
+
+#if XTUN_ENCODING_C_ADD <= 0 \
+ || XTUN_ENCODING_C_ADD > 0xFFFFFFFFFFFFFFFF
+#error "BAD XTUN_ENCODING_C_ADD"
+#endif
+
+#if XTUN_ENCODING_D_ADD <= 0 \
+ || XTUN_ENCODING_D_ADD > 0xFFFFFFFFFFFFFFFF
+#error "BAD XTUN_ENCODING_D_ADD"
+#endif
+
+#define XTUN_ENCODING_KEYS_N 4
+
+#if XTUN_ENCODING_KEYS_N != 4
+#error "BAD XTUN_ENCODING_KEYS_N"
 #endif
 
 #define popcount32(x) __builtin_popcount((uint)(x))
@@ -35,120 +53,137 @@ static inline u64 decrypt64 (u64 x, const u64 mask) {
     return x;
 }
 
+#if 1
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-static u16 xtun_encode (u64 sec, u64 key, void* data, uint size) {
+static u16 xtun_encode (const u64 keys[XTUN_ENCODING_KEYS_N], void* data, uint size) {
 
-	if (sec) {
-
-		sec += ENCODING_SEC_ADD;
-		key += ENCODING_KEY_ADD;
-
-		sec += encrypt64(key, size);
-		key += encrypt64(sec, size);
-
-		data += size;
-
-		while (size >= sizeof(u64)) {
-		 
-			size -= sizeof(u64);
-			data -= sizeof(u64);
-
-			const u64 orig = BE64(*(u64*)data);
-
-			u64 value = orig;
-
-			value = encrypt64(value, size);
-			value = encrypt64(value, sec);
-			value = encrypt64(value, key);
-
-			*(u64*)data = BE64(value);
-
-			sec += encrypt64(key, orig);
-			key += encrypt64(orig, sec);
-		}
-
-		while (size) {
-		 
-			size -= sizeof(u8);
-			data -= sizeof(u8);
-
-			const u8 orig = BE8(*(u8*)data);
-
-			u64 value = orig;
-
-			value += encrypt64(sec, size);
-			value += encrypt64(key, size);
-			value &= 0xFFU;
-
-			*(u8*)data = BE8(value);
-
-			sec += encrypt64(key, orig);
-			key += encrypt64(orig, sec);
-		}
-
-		sec += key;
-		sec += sec >> 32;
-		sec += sec >> 16;
-		sec &= 0xFFFFULL;
-		sec += !sec;
-	}
+	u64 a = keys[0] + XTUN_ENCODING_A_ADD;
+	u64 b = keys[1] + XTUN_ENCODING_B_ADD;
+	u64 c = keys[2] + XTUN_ENCODING_C_ADD;
+	u64 d = keys[3] + XTUN_ENCODING_D_ADD;
 	
-    return (u16)sec;
+	a += encrypt64(d, size);
+	b += encrypt64(c, size);
+	c += encrypt64(b, size);
+	d += encrypt64(a, size);
+
+	data += size;
+
+	while (size >= sizeof(u64)) {
+	 
+		size -= sizeof(u64);
+		data -= sizeof(u64);
+
+		const u64 orig = BE64(*(u64*)data);
+
+		u64 value = orig;
+
+		value = encrypt64(value, size);
+		value = encrypt64(value, a);
+		value = encrypt64(value, b);
+		value = encrypt64(value, c);
+		value = encrypt64(value, d);
+
+		*(u64*)data = BE64(value);
+
+		a += encrypt64(d, orig);
+		b += encrypt64(a, size);		
+		c += encrypt64(orig, b);
+		d += encrypt64(orig, c);
+	}
+
+	while (size) {
+	 
+		size -= sizeof(u8);
+		data -= sizeof(u8);
+
+		const u8 orig = BE8(*(u8*)data);
+
+		u64 value = orig;
+
+		value += encrypt64(a, size);
+		value += encrypt64(b, size);
+		value += encrypt64(c, size);
+		value += encrypt64(d, size);
+		value &= 0xFFU;
+
+		*(u8*)data = BE8(value);
+
+		a += encrypt64(b, orig);
+		b += encrypt64(orig, a);
+	}
+
+	a += b;
+	a += a >> 32;
+	a += a >> 16;
+	a &= 0xFFFFULL;
+	
+    return (u16)a;
 }
 
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
+static u16 xtun_decode (const u64 keys[XTUN_ENCODING_KEYS_N], void* data, uint size) {
 
-	if (sec) {
+	u64 a = keys[0] + XTUN_ENCODING_A_ADD;
+	u64 b = keys[1] + XTUN_ENCODING_B_ADD;
+	u64 c = keys[2] + XTUN_ENCODING_C_ADD;
+	u64 d = keys[3] + XTUN_ENCODING_D_ADD;
+	
+	a += encrypt64(d, size);
+	b += encrypt64(c, size);
+	c += encrypt64(b, size);
+	d += encrypt64(a, size);
 
-		sec += ENCODING_SEC_ADD;
-		key += ENCODING_KEY_ADD;
+	data += size;
 
-		sec += encrypt64(key, size);
-		key += encrypt64(sec, size);
+	while (size >= sizeof(u64)) {
 
-		data += size;
+		size -= sizeof(u64);
+		data -= sizeof(u64);
 
-		while (size >= sizeof(u64)) {
+		u64 orig = BE64(*(u64*)data);
 
-			size -= sizeof(u64);
-			data -= sizeof(u64);
+		orig = decrypt64(orig, d);
+		orig = decrypt64(orig, c);
+		orig = decrypt64(orig, b);
+		orig = decrypt64(orig, a);
+		orig = decrypt64(orig, size);
 
-			u64 orig = BE64(*(u64*)data);
+		*(u64*)data = BE64(orig);
 
-			orig = decrypt64(orig, key);
-			orig = decrypt64(orig, sec);
-			orig = decrypt64(orig, size);
-
-			*(u64*)data = BE64(orig);
-
-			sec += encrypt64(key, orig);
-			key += encrypt64(orig, sec);
-		}
-
-		while (size) {
-
-			size -= sizeof(u8);
-			data -= sizeof(u8);
-
-			u64 orig = BE8(*(u8*)data);
-
-			orig -= encrypt64(key, size);
-			orig -= encrypt64(sec, size);
-			orig &= 0xFFU;
-
-			*(u8*)data = BE8(orig);
-
-			sec += encrypt64(key, orig);
-			key += encrypt64(orig, sec);
-		}
-
-		sec += key;
-		sec += sec >> 32;
-		sec += sec >> 16;
-		sec &= 0xFFFFULL;
-		sec += !sec;
+		a += encrypt64(d, orig);
+		b += encrypt64(a, size);		
+		c += encrypt64(orig, b);
+		d += encrypt64(orig, c);
 	}
 
-    return (u16)sec;
+	while (size) {
+
+		size -= sizeof(u8);
+		data -= sizeof(u8);
+
+		u64 orig = BE8(*(u8*)data);
+
+		orig -= encrypt64(d, size);
+		orig -= encrypt64(c, size);
+		orig -= encrypt64(b, size);
+		orig -= encrypt64(a, size);
+		orig &= 0xFFU;
+
+		*(u8*)data = BE8(orig);
+
+		a += encrypt64(b, orig);
+		b += encrypt64(orig, a);
+	}
+
+	a += b;
+	a += a >> 32;
+	a += a >> 16;
+	a &= 0xFFFFULL;
+
+    return (u16)a;
 }
+#else
+#define xtun_encode(k, d, s) 1
+#define xtun_decode(k, d, s) 1
+#endif

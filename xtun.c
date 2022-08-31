@@ -81,7 +81,6 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #endif
 
 #include "xtun-encoding.c"
-#include "xtun-auth.c"
 
 #define PORT(nid, pid) (XTUN_SERVER_PORT + (nid)*10 + (pid))
 
@@ -288,27 +287,14 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         // NODE ID IS NOT MINE
         goto pass;
 
-    if (hdr->iHash) {
-        // NOT AUTH
-        if (xtun_decode(node->secret, node->key, payload, payloadSize) != hdr->iHash)
+    if (node->iHash == 0) {
+        // ENCRYPTED COMMUNICATION
+        if (xtun_decode(node->keys, payload, payloadSize) != hdr->iHash)
             // HASH MISMATCH
             goto drop;
-    } else {
-        // AUTH
-#if XTUN_SERVER_IS
-        if (skb->len != (XTUN_PATH_SIZE_ETH + XTUN_AUTH_SIZE))
-            // INVALID AUTH SIZE
-            goto drop;
-        const u64 key = xtun_auth_key_chk(node->secret, payload);
-        if (!key)
-            // INCORRECT AUTH
-            goto drop;
-        // USA ELA
-        node->key = key;
-#else // UNEXPECTED AUTH FROM XTUN_SERVER_IS
+    } elif (node->iHash != hdr->iHash)
+        // HASH MISMATCH
         goto drop;
-#endif
-    }
 
 #if XTUN_SERVER_IS
     // DETECT AND UPDATE PATH CHANGES
@@ -493,7 +479,6 @@ static int __init xtun_init(void) {
 
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE_ALL);
-    BUILD_BUG_ON(sizeof(xtun_auth_s) != XTUN_AUTH_SIZE);
 
     // HOOK INTERFACES
     for (uint i = 0; i != ARRAY_COUNT(itfcs); i++) {
