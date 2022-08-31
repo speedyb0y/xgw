@@ -133,7 +133,7 @@ typedef struct xtun_node_s {
     xtun_path_s paths[PATHS_N];
 } xtun_node_s;
 
-static void flows_gen (xtun_node_s* const node) {
+static void xtun_node_flows_update (xtun_node_s* const node) {
 
     const uintll total = (
         (uintll)node->paths[0].mband +
@@ -193,7 +193,7 @@ static const xtun_cfg_node_s cfgs[NODES_N] =
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
-    { .name = "xgw-0", .secret = 0x4506545646E640EFULL, .key = 0xE45503465064ULL, .paths = {
+    { .name = "xgw-0", .secret = 0, .key = 0xE45503465064ULL, .paths = {
         { .itfc = "isp-0", .cband = 200*1000*1000, .sband = 500*1000*1000, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,10,10,10), .caddr = {192,168,0,20},    .cport = 2000,
             .smac = MAC(54,9F,06,F4,C7,A0), .saddr = {200,200,200,200}
@@ -613,6 +613,8 @@ static int __init xtun_init(void) {
         node->flowPackets    =  cfgNode->flowPackets;
         node->flowRemaining  =  0;
         node->flowCounter    =  0;
+
+        xtun_node_flows_update(node);
     }
 
     return 0;

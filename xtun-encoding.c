@@ -38,111 +38,117 @@ static inline u64 decrypt64 (u64 x, const u64 mask) {
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
 static u16 xtun_encode (u64 sec, u64 key, void* data, uint size) {
 
-    sec += ENCODING_SEC_ADD;
-    key += ENCODING_KEY_ADD;
+	if (sec) {
 
-    sec += encrypt64(key, size);
-    key += encrypt64(sec, size);
+		sec += ENCODING_SEC_ADD;
+		key += ENCODING_KEY_ADD;
 
-    data += size;
+		sec += encrypt64(key, size);
+		key += encrypt64(sec, size);
 
-    while (size >= sizeof(u64)) {
-     
-        size -= sizeof(u64);
-        data -= sizeof(u64);
+		data += size;
 
-        const u64 orig = BE64(*(u64*)data);
+		while (size >= sizeof(u64)) {
+		 
+			size -= sizeof(u64);
+			data -= sizeof(u64);
 
-        u64 value = orig;
+			const u64 orig = BE64(*(u64*)data);
 
-        value = encrypt64(value, size);
-        value = encrypt64(value, sec);
-        value = encrypt64(value, key);
+			u64 value = orig;
 
-        *(u64*)data = BE64(value);
+			value = encrypt64(value, size);
+			value = encrypt64(value, sec);
+			value = encrypt64(value, key);
 
-        sec += encrypt64(key, orig);
-        key += encrypt64(orig, sec);
-    }
+			*(u64*)data = BE64(value);
 
-    while (size) {
-     
-        size -= sizeof(u8);
-        data -= sizeof(u8);
+			sec += encrypt64(key, orig);
+			key += encrypt64(orig, sec);
+		}
 
-        const u8 orig = BE8(*(u8*)data);
+		while (size) {
+		 
+			size -= sizeof(u8);
+			data -= sizeof(u8);
 
-        u64 value = orig;
+			const u8 orig = BE8(*(u8*)data);
 
-        value += encrypt64(sec, size);
-        value += encrypt64(key, size);
-        value &= 0xFFU;
+			u64 value = orig;
 
-        *(u8*)data = BE8(value);
+			value += encrypt64(sec, size);
+			value += encrypt64(key, size);
+			value &= 0xFFU;
 
-        sec += encrypt64(key, orig);
-        key += encrypt64(orig, sec);
-    }
+			*(u8*)data = BE8(value);
 
-    sec += key;
-    sec += sec >> 32;
-    sec += sec >> 16;
-    sec &= 0xFFFFULL;
-    sec += !sec;
+			sec += encrypt64(key, orig);
+			key += encrypt64(orig, sec);
+		}
 
+		sec += key;
+		sec += sec >> 32;
+		sec += sec >> 16;
+		sec &= 0xFFFFULL;
+		sec += !sec;
+	}
+	
     return (u16)sec;
 }
 
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
 static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
 
-    sec += ENCODING_SEC_ADD;
-    key += ENCODING_KEY_ADD;
+	if (sec) {
 
-    sec += encrypt64(key, size);
-    key += encrypt64(sec, size);
+		sec += ENCODING_SEC_ADD;
+		key += ENCODING_KEY_ADD;
 
-    data += size;
+		sec += encrypt64(key, size);
+		key += encrypt64(sec, size);
 
-    while (size >= sizeof(u64)) {
+		data += size;
 
-        size -= sizeof(u64);
-        data -= sizeof(u64);
+		while (size >= sizeof(u64)) {
 
-        u64 orig = BE64(*(u64*)data);
+			size -= sizeof(u64);
+			data -= sizeof(u64);
 
-        orig = decrypt64(orig, key);
-        orig = decrypt64(orig, sec);
-        orig = decrypt64(orig, size);
+			u64 orig = BE64(*(u64*)data);
 
-        *(u64*)data = BE64(orig);
+			orig = decrypt64(orig, key);
+			orig = decrypt64(orig, sec);
+			orig = decrypt64(orig, size);
 
-        sec += encrypt64(key, orig);
-        key += encrypt64(orig, sec);
-    }
+			*(u64*)data = BE64(orig);
 
-    while (size) {
+			sec += encrypt64(key, orig);
+			key += encrypt64(orig, sec);
+		}
 
-        size -= sizeof(u8);
-        data -= sizeof(u8);
+		while (size) {
 
-        u64 orig = BE8(*(u8*)data);
+			size -= sizeof(u8);
+			data -= sizeof(u8);
 
-        orig -= encrypt64(key, size);
-        orig -= encrypt64(sec, size);
-        orig &= 0xFFU;
+			u64 orig = BE8(*(u8*)data);
 
-        *(u8*)data = BE8(orig);
+			orig -= encrypt64(key, size);
+			orig -= encrypt64(sec, size);
+			orig &= 0xFFU;
 
-        sec += encrypt64(key, orig);
-        key += encrypt64(orig, sec);
-    }
+			*(u8*)data = BE8(orig);
 
-    sec += key;
-    sec += sec >> 32;
-    sec += sec >> 16;
-    sec &= 0xFFFFULL;
-    sec += !sec;
+			sec += encrypt64(key, orig);
+			key += encrypt64(orig, sec);
+		}
+
+		sec += key;
+		sec += sec >> 32;
+		sec += sec >> 16;
+		sec &= 0xFFFFULL;
+		sec += !sec;
+	}
 
     return (u16)sec;
 }
