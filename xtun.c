@@ -140,7 +140,7 @@ static void flows_gen (xtun_node_s* const node) {
         for (uint q = ((((uintll)node->paths[pid].myBand) << 16) * FLOWS_N) / total; q; q--)
             node->flows[flow++] = pid;
 
-    ASSERT(flow == FLOWS_N);
+    XTUN_ASSERT(flow == FLOWS_N);
 }
 
 /*
@@ -169,6 +169,7 @@ typedef struct xtun_cfg_node_s {
     const char name[IFNAMSIZ];
     u64 secret;
     u64 key;
+    u32 flowPackets;
     xtun_cfg_path_s paths[PATHS_N];
 } xtun_cfg_node_s;
 
@@ -582,10 +583,12 @@ static int __init xtun_init(void) {
         }
 
         // NOW REGISTER IT
-        node->dev     = dev;
-        node->secret  = cfgNode->secret;
-        node->key     = cfgNode->key;
-        node->flow    = 0;
+        node->dev            =  dev;
+        node->secret         =  cfgNode->secret;
+        node->key            =  cfgNode->key;
+        node->flowPackets    =  cfgNode->flowPackets;
+        node->flowRemaining  =  0;
+        node->flowCounter    =  0;
     }
 
     return 0;
