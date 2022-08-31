@@ -44,7 +44,12 @@ static u16 xtun_encode (u64 sec, u64 key, void* data, uint size) {
     sec += encrypt64(key, size);
     key += encrypt64(sec, size);
 
+    data += size;
+
     while (size >= sizeof(u64)) {
+     
+        size -= sizeof(u64);
+        data -= sizeof(u64);
 
         const u64 orig = BE64(*(u64*)data);
 
@@ -58,12 +63,12 @@ static u16 xtun_encode (u64 sec, u64 key, void* data, uint size) {
 
         sec += encrypt64(key, orig);
         key += encrypt64(orig, sec);
-
-        data += sizeof(u64);
-        size -= sizeof(u64);
     }
 
     while (size) {
+     
+        size -= sizeof(u8);
+        data -= sizeof(u8);
 
         const u8 orig = BE8(*(u8*)data);
 
@@ -77,9 +82,6 @@ static u16 xtun_encode (u64 sec, u64 key, void* data, uint size) {
 
         sec += encrypt64(key, orig);
         key += encrypt64(orig, sec);
-
-        data += sizeof(u8);
-        size -= sizeof(u8);
     }
 
     sec += key;
@@ -100,7 +102,12 @@ static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
     sec += encrypt64(key, size);
     key += encrypt64(sec, size);
 
+    data += size;
+
     while (size >= sizeof(u64)) {
+
+        size -= sizeof(u64);
+        data -= sizeof(u64);
 
         u64 orig = BE64(*(u64*)data);
 
@@ -112,12 +119,12 @@ static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
 
         sec += encrypt64(key, orig);
         key += encrypt64(orig, sec);
-
-        data += sizeof(u64);
-        size -= sizeof(u64);
     }
 
     while (size) {
+
+        size -= sizeof(u8);
+        data -= sizeof(u8);
 
         u64 orig = BE8(*(u8*)data);
 
@@ -129,9 +136,6 @@ static u16 xtun_decode (u64 sec, u64 key, void* data, uint size) {
 
         sec += encrypt64(key, orig);
         key += encrypt64(orig, sec);
-
-        data += sizeof(u8);
-        size -= sizeof(u8);
     }
 
     sec += key;
