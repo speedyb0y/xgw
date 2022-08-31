@@ -78,6 +78,13 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XTUN_PATH_SIZE_IP        (               IP4_HDR_SIZE + UDP_HDR_SIZE)
 #define XTUN_PATH_SIZE_UDP       (                              UDP_HDR_SIZE)
 
+// MY BAND
+#if XGW_XTUN_SERVER_IS
+#define mband sband
+#else
+#define mband cband
+#endif
+
 typedef struct xtun_path_s {
     net_device_s* itfc;
 #if XGW_XTUN_SERVER_IS
@@ -122,29 +129,23 @@ typedef struct xtun_node_s {
     u32 flowPackets; // A CADA N PACKETS INCREMENTA O FLOW COUNTER
     u32 flowRemaining; // VAI COUNTDOWN DE flowPackets ATÉ 0
     u32 flowCounter; // if (flowRemaining == 0) { flowRemaining = flowPackets; flowCounter++ ; } else flowRemaining--;
-    u8 flows[FLOWS_N]; // node->paths[node->flows[node->flowCounter + (hash % FLOWS_N)]]
+    u8  flows[FLOWS_N]; // node->paths[node->flows[node->flowCounter + (hash % FLOWS_N)]]
     xtun_path_s paths[PATHS_N];
 } xtun_node_s;
-
-#if XGW_XTUN_SERVER_IS
-#define myBand sband
-#else
-#define myBand cband
-#endif
 
 static void flows_gen (xtun_node_s* const node) {
 
     const uintll total = (
-        (uintll)node->paths[0].myBand +
-        (uintll)node->paths[1].myBand +
-        (uintll)node->paths[2].myBand +
-        (uintll)node->paths[3].myBand
+        (uintll)node->paths[0].mband +
+        (uintll)node->paths[1].mband +
+        (uintll)node->paths[2].mband +
+        (uintll)node->paths[3].mband
     ) << 16;
 
     uint flow = 0;
 
     for (uint pid = 0; pid != PATHS_N; pid++)
-        for (uint q = ((((uintll)node->paths[pid].myBand) << 16) * FLOWS_N) / total; q; q--)
+        for (uint q = ((((uintll)node->paths[pid].mband) << 16) * FLOWS_N) / total; q; q--)
             node->flows[flow++] = pid;
 
     XTUN_ASSERT(flow == FLOWS_N);
