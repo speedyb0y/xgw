@@ -379,40 +379,40 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     xtun_path_s* const pkt = PTR(payload) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
-	// ENVIA flowPackets, E AÍ AVANCA flowShift
-	if (node->flowRemaining == 0) {
-		node->flowRemaining = node->flowPackets;
-		node->flowShift++;
-	} else
-		node->flowRemaining--;
+    // ENVIA flowPackets, E AÍ AVANCA flowShift
+    if (node->flowRemaining == 0) {
+        node->flowRemaining = node->flowPackets;
+        node->flowShift++;
+    } else
+        node->flowRemaining--;
 
-	// FLOW HASH
-	u64 flowHash = *(u8*)payload & 0xF0;
+    // FLOW HASH
+    u64 flowHash = *(u8*)payload & 0xF0;
 
-	if (flowHash == 0x40) {
-		// IPv4
-		flowHash = *(u8*)(payload + 10);
-		if (flowHash == IPPROTO_TCP
-		 || flowHash == IPPROTO_UDP
-		 || flowHash == IPPROTO_SCTP
-		 || flowHash == IPPROTO_DCCP)
-			flowHash += *(u32*)(payload + 20);
-		flowHash += *(u64*)(payload + 12);
-	} elif (flowHash == 0x60) {
-		// IPv6
-		flowHash = *(u8*)(payload + );
-		if (flowHash == IPPROTO_TCP
-		 || flowHash == IPPROTO_UDP
-		 || flowHash == IPPROTO_SCTP
-		 || flowHash == IPPROTO_DCCP)
-			flowHash += *(u32*)(payload + 40);
-		flowHash += *(u64*)(payload +  8);
-		flowHash += *(u64*)(payload + 16);
-		flowHash += *(u64*)(payload + 24);
-		flowHash += *(u64*)(payload + 32);
-	}
-	
-	const uint pid = node->flows[(node->flowShift + flowHash) % XTUN_FLOWS_N];
+    if (flowHash == 0x40) {
+        // IPv4
+        flowHash = *(u8*)(payload + 10);
+        if (flowHash == IPPROTO_TCP
+         || flowHash == IPPROTO_UDP
+         || flowHash == IPPROTO_SCTP
+         || flowHash == IPPROTO_DCCP)
+            flowHash += *(u32*)(payload + 20);
+        flowHash += *(u64*)(payload + 12);
+    } elif (flowHash == 0x60) {
+        // IPv6
+        flowHash = *(u8*)(payload + );
+        if (flowHash == IPPROTO_TCP
+         || flowHash == IPPROTO_UDP
+         || flowHash == IPPROTO_SCTP
+         || flowHash == IPPROTO_DCCP)
+            flowHash += *(u32*)(payload + 40);
+        flowHash += *(u64*)(payload +  8);
+        flowHash += *(u64*)(payload + 16);
+        flowHash += *(u64*)(payload + 24);
+        flowHash += *(u64*)(payload + 32);
+    }
+
+    const uint pid = node->flows[(node->flowShift + flowHash) % XTUN_FLOWS_N];
 
     xtun_path_s* const path = &node->paths[pid]; // TODO: FIXME:
 
