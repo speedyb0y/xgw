@@ -51,6 +51,14 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define CACHE_LINE_SIZE 64
 
+#define __MAC(x) (x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5]
+#define __IP4(x) (x)[0], (x)[1], (x)[2], (x)[3]
+
+#define _MAC(x) __MAC((u8*)(x))
+#define _IP4(x) __IP4((u8*)(x))
+
+#define ARRAY_COUNT(a) (sizeof(a)/sizeof((a)[0]))
+
 #define XTUN_NODES_N XGW_XTUN_NODES_N
 #define XTUN_PATHS_N XGW_XTUN_PATHS_N
 
@@ -150,8 +158,7 @@ typedef struct xtun_path_s {
 // pid = (flowCounter + (flowHash % XTUN_PATHS_N)) % XTUN_PATHS_N
 typedef struct xtun_node_s {
     net_device_s* dev;
-    u64 secret;
-    u64 key;
+    u64 keys[XTUN_KEYS_N];
     u32 flowPackets; // A CADA N PACKETS INCREMENTA O FLOW COUNTER
     u32 flowRemaining; // VAI COUNTDOWN DE flowPackets ATÉ 0
     u32 flowCounter; // if (flowRemaining == 0) { flowRemaining = flowPackets; flowCounter++ ; } else flowRemaining--;
@@ -177,13 +184,9 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     XTUN_ASSERT(flow == FLOWS_N);
 }
 
-/*
-[(((bands[i] << 8)*64)//(sum(bands) << 8)) for i in range(3)]
-*/
-
-#define __MAC(a,b,c) a ## b ## c
-#define _MAC(x) __MAC(0x,x,U)
-#define MAC(a,b,c,d,e,f) { _MAC(a), _MAC(b), _MAC(c), _MAC(d), _MAC(e), _MAC(f) }
+#define MAC__(a,b,c) a ## b ## c
+#define MAC_(x) MAC__(0x,x,U)
+#define MAC(a,b,c,d,e,f) { MAC_(a), MAC_(b), MAC_(c), MAC_(d), MAC_(e), MAC_(f) }
 
 typedef struct xtun_cfg_path_s {
     u64 tband; // TOTAL DE PACOTES A CADA CIRCULADA
@@ -192,8 +195,8 @@ typedef struct xtun_cfg_path_s {
     char itfc[IFNAMSIZ];
     union { u8 cmac[ETH_ALEN]; u16 cmac16[ETH_ALEN/sizeof(u16)]; };
     union { u8 smac[ETH_ALEN]; u16 smac16[ETH_ALEN/sizeof(u16)]; };
-    union { u8 caddr[sizeof(u32)]; u32 caddr32; };
-    union { u8 saddr[sizeof(u32)]; u32 saddr32; };
+    u32 caddr;
+    u32 saddr;
     u16 cport;
     u8 tos;
     u8 ttl;
@@ -201,9 +204,8 @@ typedef struct xtun_cfg_path_s {
 
 typedef struct xtun_cfg_node_s {
     const char name[IFNAMSIZ];
-    u64 secret;
-    u64 key;
     u32 flowPackets;
+    u64 keys[XTUN_KEYS_N];
     xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
 
@@ -328,8 +330,13 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         path->iDst    = hdr->iSrc;
         path->uDst    = hdr->uSrc;
 
-        printk("XTUN: TUNNEL %s: UPDATED PATH #%u WITH HASH 0x%016llX INTERFACE %s\n",
-            node->dev->name, pid, (uintll)path->hash, itfc->name);
+        printk("XTUN: TUNNEL %s: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u"
+            " CLT MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
+            " SRV MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
+            node->name, pid, (uintll)path->hash, path->itfc, BE8(path->iTOS), BE8(path->iTTL),
+            _MAC(path->eSrc), _IP4((u8*)&path->iSrc), BE16(path->uSrc),
+            _MAC(path->eDst), _IP4((u8*)&path->iDst), BE16(path->uDst)
+        );
     }
 #endif
 
@@ -450,11 +457,6 @@ static void xtun_dev_setup (net_device_s* const dev) {
         ;
 }
 
-#define _A6(x) x[0], x[1], x[2], x[3], x[4], x[5]
-#define _A4(x) x[0], x[1], x[2], x[3]
-
-#define ARRAY_COUNT(a) (sizeof(a)/sizeof((a)[0]))
-
 static const char* const itfcs[] = { "eth0" };
 
 static int __init xtun_init(void) {
@@ -525,13 +527,13 @@ static int __init xtun_init(void) {
 
             const xtun_cfg_path_s* const cfgPath = &cfgNode->paths[pid];
 
-            printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u\n"
-                " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n"
+            printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u"
+                " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
                 " SRV BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
                 cfgNode->name, pid, cfgPath->itfc, cfgPath->tos, cfgPath->ttl,
-                cfgPath->cband, _A6(cfgPath->cmac), _A4(cfgPath->caddr), cfgPath->cport,
-                cfgPath->sband, _A6(cfgPath->smac), _A4(cfgPath->saddr), PORT(nid, pid)
-                );
+                cfgPath->cband, _MAC(cfgPath->cmac), _IP4(&cfgPath->caddr), cfgPath->cport,
+                cfgPath->sband, _MAC(cfgPath->smac), _IP4(&cfgPath->saddr), PORT(nid, pid)
+            );
 
 #if XTUN_SERVER_IS
             net_device_s* const itfc = NULL;
@@ -592,8 +594,8 @@ static int __init xtun_init(void) {
             path->uSrc       =  BE16(PORT(nid, pid));
             path->uDst       =  BE16(0);
 #else
-            path->iSrc       =  BE32(cfgPath->caddr32);
-            path->iDst       =  BE32(cfgPath->saddr32);
+            path->iSrc       =  BE32(cfgPath->caddr);
+            path->iDst       =  BE32(cfgPath->saddr);
             path->uSrc       =  BE16(cfgPath->cport);
             path->uDst       =  BE16(PORT(nid, pid));
 #endif
@@ -647,6 +649,3 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("speedyb0y");
 MODULE_DESCRIPTION("XTUN");
 MODULE_VERSION("0.1");
-
-
-//TODO SE O DECODE/AHSH FALHAR, TENTA COM A KEY ANTERIOR
