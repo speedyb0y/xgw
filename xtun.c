@@ -190,12 +190,22 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
         for (uint q = ((((uintll)node->paths[pid].mband) << 16) * FLOWS_N) / total; q; q--)
             node->flows[flow++] = pid;
+#define _A8(x) x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]
+	printk("XTUN: FLOWS"
+		"%u %u %u %u %u %u %u %u"
+		"%u %u %u %u %u %u %u %u"
+		"%u %u %u %u %u %u %u %u"
+		"%u %u %u %u %u %u %u %u"
+		"\n"
+		_A8(node->flows),
+		_A8(node->flows + 8),
+		_A8(node->flows + 16),
+		_A8(node->flows + 24));
 
     XTUN_ASSERT(flow == FLOWS_N);
 }
 
 typedef struct xtun_cfg_path_s {
-    u64 tband; // TOTAL DE PACOTES A CADA CIRCULADA
     u32 cband;
     u32 sband;
     char itfc[IFNAMSIZ];
@@ -211,7 +221,7 @@ typedef struct xtun_cfg_path_s {
 typedef struct xtun_cfg_node_s {
     const char name[IFNAMSIZ];
     u16 iHash;
-    u32 flowPackets;
+    u32 flowPackets; // TOTAL DE PACOTES A CADA CIRCULADA
     u64 keys[XTUN_KEYS_N];
     xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
@@ -619,7 +629,7 @@ static int __init xtun_init(void) {
         node->keys[3]        =  cfgNode->keys[3];
         node->flowPackets    =  cfgNode->flowPackets;
         node->flowRemaining  =  0;
-        node->flowShift    =  0;
+        node->flowShift      =  0;
 
         xtun_node_flows_update(node);
 
