@@ -103,6 +103,8 @@ typedef struct xtun_path_s {
     u16 uCksum;
 } xtun_path_s;
 
+#define FLOWS_N 32
+
 // HÁ UM FLOW PARA CADA PATH.
 // ELES NUNCA VÃO PELO MESMO PATH; DESLOCA TODOS AO MESMO TEMPO.
 // pid = (flowCounter + (flowHash % PATHS_N)) % PATHS_N
@@ -110,9 +112,10 @@ typedef struct xtun_node_s {
     net_device_s* dev;
     u64 secret;
     u64 key;
-    u32 qpkts;
-    u32 flowCounter; // SÓ INCREMENTA
-    u16 flowsRemaining[PATHS_N]; // flowCounter + flows[hash % PATHS_N]
+    u32 flowPackets; // A CADA N PACKETS INCREMENTA O FLOW COUNTER
+    u32 flowRemaining; // VAI COUNTDOWN DE flowPackets ATÉ 0
+    u32 flowCounter; // if (flowRemaining == 0) { flowRemaining = flowPackets; flowCounter++ ; } else flowRemaining--;
+    u8 flows[FLOWS_N]; // node->paths[node->flows[node->flowCounter + (hash % FLOWS_N)]]
     xtun_path_s paths[PATHS_N];
 } xtun_node_s;
 
@@ -131,8 +134,13 @@ static void flows_gen (xtun_node_s* const node) {
         (uintll)node->paths[3].myBand
     ) << 16;
 
+    uint flow = 0;
+
     for (uint pid = 0; pid != PATHS_N; pid++)
-        node->paths[pid].qband = ((((uintll)node->paths[pid].myBand) << 16) * node->qpkts) / total;
+        for (uint q = ((((uintll)node->paths[pid].myBand) << 16) * FLOWS_N) / total; q; q--)
+            node->flows[flow++] = pid;
+
+    ASSERT(flow == FLOWS_N);
 }
 
 /*
