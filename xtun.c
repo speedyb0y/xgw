@@ -166,12 +166,12 @@ typedef struct xtun_path_s {
 typedef struct xtun_node_s {
     net_device_s* dev;
     u64 keys[XTUN_KEYS_N];
+    u64 reserved2;
+    u32 reserved;
     u16 iHash;
     u16 flowShift; // if (flowRemaining == 0) { flowRemaining = flowPackets; flowShift++ ; } else flowRemaining--;
     u32 flowRemaining; // VAI COUNTDOWN DE flowPackets ATÉ 0
     u32 flowPackets; // A CADA N PACKETS INCREMENTA O FLOW COUNTER
-    u32 reserved;
-    u64 reserved2;
     u8  flows[FLOWS_N]; // node->paths[node->flows[node->flowShift + (hash % FLOWS_N)]]
     xtun_path_s paths[XTUN_PATHS_N];
 } xtun_node_s;
