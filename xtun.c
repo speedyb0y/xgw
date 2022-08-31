@@ -387,9 +387,9 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
         node->flowRemaining--;
 
     // FLOW HASH
-    u64 flowHash = *(u8*)payload & 0xF0;
+    u64 flowHash = *(u8*)payload >> 4;
 
-    if (flowHash == 0x40) {
+    if (flowHash == 4) {
         // IPv4
         flowHash = *(u8*)(payload + 10);
         if (flowHash == IPPROTO_TCP
@@ -398,7 +398,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
          || flowHash == IPPROTO_DCCP)
             flowHash += *(u32*)(payload + 20);
         flowHash += *(u64*)(payload + 12);
-    } elif (flowHash == 0x60) {
+    } elif (flowHash == 6) {
         // IPv6
         flowHash = *(u8*)(payload + );
         if (flowHash == IPPROTO_TCP
