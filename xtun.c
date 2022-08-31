@@ -72,14 +72,14 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XTUN_PATH_SIZE_UDP       (                              UDP_HDR_SIZE)
 
 typedef struct xtun_path_s {
-    net_device_s* phys;
+    net_device_s* itfc;
 #if XGW_XTUN_SERVER_IS
     u64 hash; // THE PATH HASH
 #else
     u32 seila;
-    u32 bandSrv; // BANDA DO SERVIDOR, A REPASSAR A ELE; INTERVALO DE ENVIO DISSO/AUTH
+    u32 cband;
 #endif
-    u32 band;
+    u32 sband;
     u16 reserved;
 #define ETH_HDR_SIZE 14
     u16 eDst[3];
@@ -103,11 +103,14 @@ typedef struct xtun_path_s {
     u16 uCksum;
 } xtun_path_s;
 
+#define FLOWS_N 16
+
 typedef struct xtun_node_s {
     net_device_s* dev; // TUNNEL VIRTUAL INTERFACE DEVICE
     u64 remaining;
     u64 secret; // COMUM ENTRE AMBAS AS PARTES, NUNCA REPASSADO
     u64 key; // DINAMICO, GERADO PELO CLIENTE
+    u8 flows[FLOWS_N];
     xtun_path_s paths[PATHS_N];
 } xtun_node_s;
 
@@ -116,19 +119,16 @@ typedef struct xtun_node_s {
 #define MAC(a,b,c,d,e,f) { _MAC(a), _MAC(b), _MAC(c), _MAC(d), _MAC(e), _MAC(f) }
 
 typedef struct xtun_cfg_path_s {
-    const char phys[IFNAMSIZ];
-    union { u8 cltMAC[8]; u16 cltMAC16[4]; };
-    union { u8 srvMAC[8]; u16 srvMAC16[4]; };
-    union { u8 cltAddr[4]; u32 cltAddr32; };
-    union { u8 srvAddr[4]; u32 srvAddr32; };
-    u16 cltPort;
-    u8  iTOS;
-    u8  iTTL;
-    u16 band;
-#if !XGW_XTUN_SERVER_IS
-    u32 seila;
-    u32 bandSrv;
-#endif
+    u32 cband;
+    u32 sband;
+    char itfc[IFNAMSIZ];
+    union { u8 cmac[ETH_ALEN]; u16 cmac16[ETH_ALEN/sizeof(u16)]; };
+    union { u8 smac[ETH_ALEN]; u16 smac16[ETH_ALEN/sizeof(u16)]; };
+    union { u8 caddr[sizeof(u32)]; u32 caddr32; };
+    union { u8 saddr[sizeof(u32)]; u32 saddr32; };
+    u16 cport;
+    u8 tos;
+    u8 ttl;
 } xtun_cfg_path_s;
 
 typedef struct xtun_cfg_node_s {
@@ -141,17 +141,17 @@ static xtun_node_s nodes[NODES_N];
 
 static const xtun_cfg_node_s cfgs[NODES_N] = {
     { .name = "xgw-0", .secret = 0, .paths = {
-        { .phys = "isp-0", .iTOS = 0, .iTTL = 64,
-            .cltMAC = MAC(d0,50,99,10,10,10), .cltAddr = {192,168,0,20},    .cltPort = 2000,
-            .srvMAC = MAC(54,9F,06,F4,C7,A0), .srvAddr = {200,200,200,200}
+        { .itfc = "isp-0", .cband = 200*1000*1000, .sband = 500*1000*1000, .tos = 0, .ttl = 64,
+            .cmac = MAC(d0,50,99,10,10,10), .caddr = {192,168,0,20},    .cport = 2000,
+            .smac = MAC(54,9F,06,F4,C7,A0), .saddr = {200,200,200,200}
         },
-        { .phys = "isp-1", .iTOS = 0, .iTTL = 64,
-            .cltMAC = MAC(d0,50,99,11,11,11), .cltAddr = {192,168,100,20},  .cltPort = 2111,
-            .srvMAC = MAC(CC,ED,21,96,99,C0), .srvAddr = {200,200,200,200}
+        { .itfc = "isp-1", .cband = 10*1000*1000, .sband = 90*1000*1000, .tos = 0, .ttl = 64,
+            .cmac = MAC(d0,50,99,11,11,11), .caddr = {192,168,100,20},  .cport = 2111,
+            .smac = MAC(CC,ED,21,96,99,C0), .saddr = {200,200,200,200}
         },
-        { .phys = "isp-2", .iTOS = 0, .iTTL = 64,
-            .cltMAC = MAC(d0,50,99,12,12,12), .cltAddr = {192,168,1,20},    .cltPort = 2222,
-            .srvMAC = MAC(90,55,DE,A1,CD,F0), .srvAddr = {200,200,200,200}
+        { .itfc = "isp-2", .cband = 250*1000*1000, .sband = 600*1000*1000, .tos = 0, .ttl = 64,
+            .cmac = MAC(d0,50,99,12,12,12), .caddr = {192,168,1,20},    .cport = 2222,
+            .smac = MAC(90,55,DE,A1,CD,F0), .saddr = {200,200,200,200}
         },
     }},
 };
@@ -243,14 +243,14 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
         printk("XTUN: TUNNEL %s: UPDATING PATH\n", node->dev->name);
 
-        if (path->phys != dev) {
-            if (path->phys)
-                dev_put(path->phys);
+        if (path->itfc != dev) {
+            if (path->itfc)
+                dev_put(path->itfc);
             dev_hold(dev);
         }
 
         path->hash    = hash;
-        path->phys    = dev;
+        path->itfc    = dev;
         path->eDst[0] = hdr->eSrc[0];
         path->eDst[1] = hdr->eSrc[1];
         path->eDst[2] = hdr->eSrc[2];
@@ -272,6 +272,8 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         goto drop;
 #endif
 
+    const uint ipVersion = hdr->iVersion >> 4;
+
     // DESENCAPSULA
     skb->mac_len          = 0;
     skb->data             = payload;
@@ -280,7 +282,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     skb->transport_header = payload - PTR(skb->head);
     skb->len             -= XTUN_PATH_SIZE_ETH;
     skb->dev              = node->dev;
-    skb->protocol         = hdr->eType;
+    skb->protocol         = ipVersion == 4 ? BE16(ETH_P_IP) : BE16(ETH_P_IPV6);
 
 pass:
     return RX_HANDLER_ANOTHER;
@@ -325,8 +327,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
 
-    if (pkt->phys) {
-        skb->dev = pkt->phys; // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
+    if (pkt->itfc) {
+        skb->dev = pkt->itfc; // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
         // THE FUNCTION CAN BE CALLED FROM AN INTERRUPT
         // WHEN CALLING THIS METHOD, INTERRUPTS MUST BE ENABLED
         dev_queue_xmit(skb);
@@ -450,28 +452,28 @@ static int __init xtun_init(void) {
 
             const xtun_cfg_path_s* const cfgPath = &cfgNode->paths[pid];
 
-            printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH BAND %u PHYS %s TOS 0x%02X TTL %u\n"
-                " CLT MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n"
-                " SRV MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
-                cfgNode->name, pid, cfgPath->band, cfgPath->phys, cfgPath->iTOS, cfgPath->iTTL,
-                _A6(cfgPath->cltMAC), _A4(cfgPath->cltAddr), cfgPath->cltPort,
-                _A6(cfgPath->srvMAC), _A4(cfgPath->srvAddr), PORT(nid, pid)
+            printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u\n"
+                " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n"
+                " SRV BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
+                cfgNode->name, pid, cfgPath->itfc, cfgPath->tos, cfgPath->ttl,
+                cfgPath->cband, _A6(cfgPath->cmac), _A4(cfgPath->caddr), cfgPath->cport,
+                cfgPath->sband, _A6(cfgPath->smac), _A4(cfgPath->saddr), PORT(nid, pid)
                 );
 
 #if XGW_XTUN_SERVER_IS
-            net_device_s* const phys = NULL;
+            net_device_s* const itfc = NULL;
 #else
-            net_device_s* const phys = dev_get_by_name(&init_net, cfgPath->phys);
+            net_device_s* const itfc = dev_get_by_name(&init_net, cfgPath->itfc);
 
-            if (!phys) {
+            if (!itfc) {
                 printk("XTUN: TUNNEL %s: CREATE FAILED - PHYS NOT FOUND\n", cfgNode->name);
                 continue;
             }
 
             // THE HOOK OWNS IT
-            dev_put(phys);
+            dev_put(itfc);
 
-            if (phys->rx_handler != xtun_in) {
+            if (itfc->rx_handler != xtun_in) {
                 printk("XTUN: TUNNEL %s: CREATE FAILED - PHYS NOT HOOKED\n", cfgNode->name);
                 continue;
             }
@@ -480,10 +482,11 @@ static int __init xtun_init(void) {
 
 #if XGW_XTUN_SERVER_IS
             path->hash       =  0; // CLIENT: UNUSED | SERVER: WILL BE DISCOVERED ON INPUT
+            path->sband      =  cfgPath->sband;
 #else
             path->seila      =  0;
-            path->bandSrv    =  cfgPath->bandSrv;
-            path->band       =  cfgPath->band;
+            path->cband      =  cfgPath->cband;
+            path->sband      =  cfgPath->sband;
 #endif
             path->itfc       =  itfc;
 #if XGW_XTUN_SERVER_IS
@@ -494,20 +497,20 @@ static int __init xtun_init(void) {
             path->eSrc[1]    =  BE16(0);
             path->eSrc[2]    =  BE16(0);
 #else
-            path->eDst[0]    =  BE16(cfgPath->srvMAC16[0]);
-            path->eDst[1]    =  BE16(cfgPath->srvMAC16[1]);
-            path->eDst[2]    =  BE16(cfgPath->srvMAC16[2]);
-            path->eSrc[0]    =  BE16(cfgPath->cltMAC16[0]);
-            path->eSrc[1]    =  BE16(cfgPath->cltMAC16[1]);
-            path->eSrc[2]    =  BE16(cfgPath->cltMAC16[2]);
+            path->eDst[0]    =  BE16(cfgPath->smac16[0]);
+            path->eDst[1]    =  BE16(cfgPath->smac16[1]);
+            path->eDst[2]    =  BE16(cfgPath->smac16[2]);
+            path->eSrc[0]    =  BE16(cfgPath->cmac16[0]);
+            path->eSrc[1]    =  BE16(cfgPath->cmac16[1]);
+            path->eSrc[2]    =  BE16(cfgPath->cmac16[2]);
 #endif
             path->eType      =  BE16(ETH_P_IP); // FIXED
             path->iVersion   =  BE8(0x45); // FIXED
-            path->iTOS       =  BE8(cfgPath->iTOS); // MAY BE ALTERED IN TRANSIT
+            path->iTOS       =  BE8(cfgPath->tos); // MAY BE ALTERED IN TRANSIT
             path->iSize      =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
             path->iHash      =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
             path->iFrag      =  BE16(0); // FIXED
-            path->iTTL       =  BE8(cfgPath->iTTL); // MAY BE ALTERED IN TRANSIT
+            path->iTTL       =  BE8(cfgPath->ttl); // MAY BE ALTERED IN TRANSIT
             path->iProtocol  =  BE8(IPPROTO_UDP); // FIXED
             path->iCksum     =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
 #if XGW_XTUN_SERVER_IS
@@ -516,9 +519,9 @@ static int __init xtun_init(void) {
             path->uSrc       =  BE16(PORT(nid, pid));
             path->uDst       =  BE16(0); // WILL BE DISCOVERED ON INPUT
 #else
-            path->iSrc       =  BE32(cfgPath->cltAddr32);
-            path->iDst       =  BE32(cfgPath->srvAddr32);
-            path->uSrc       =  BE16(cfgPath->cltPort);
+            path->iSrc       =  BE32(cfgPath->caddr32);
+            path->iDst       =  BE32(cfgPath->saddr32);
+            path->uSrc       =  BE16(cfgPath->cport);
             path->uDst       =  BE16(PORT(nid, pid));
 #endif
             path->uSize      =  BE16(0); // WILL BE COMPUTED ON ENCAPSULATION
