@@ -135,8 +135,7 @@ static void flows_gen (xtun_node_s* const node) {
         for (uint q = ((((uintll)node->paths[pid].myBand) << 16) * FLOWS_N) / total; q; q--)
             node->flows[flow++] = pid;
 
-    while (flow != FLOWS_N)
-        node->flows[flow++] = pid++ % PATHS_N;
+    ASSERT(flow == FLOWS_N);
 }
 
 /*
