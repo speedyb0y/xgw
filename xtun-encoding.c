@@ -1,4 +1,6 @@
 
+#define XTUN_KEYS_N XGW_XTUN_KEYS_N
+
 #define XTUN_ENCODING_A_ADD XGW_XTUN_ENCODING_A_ADD
 #define XTUN_ENCODING_B_ADD XGW_XTUN_ENCODING_B_ADD
 #define XTUN_ENCODING_C_ADD XGW_XTUN_ENCODING_C_ADD
@@ -24,10 +26,8 @@
 #error "BAD XTUN_ENCODING_D_ADD"
 #endif
 
-#define XTUN_ENCODING_KEYS_N 4
-
-#if XTUN_ENCODING_KEYS_N != 4
-#error "BAD XTUN_ENCODING_KEYS_N"
+#if XTUN_KEYS_N != 4
+#error "BAD XTUN_KEYS_N"
 #endif
 
 #define popcount32(x) __builtin_popcount((uint)(x))
@@ -55,7 +55,7 @@ static inline u64 decrypt64 (u64 x, const u64 mask) {
 
 #if 1
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-static u16 xtun_encode (const u64 keys[XTUN_ENCODING_KEYS_N], void* data, uint size) {
+static u16 xtun_encode (const u64 keys[XTUN_KEYS_N], void* data, uint size) {
 
 	u64 a = keys[0] + XTUN_ENCODING_A_ADD;
 	u64 b = keys[1] + XTUN_ENCODING_B_ADD;
@@ -122,7 +122,7 @@ static u16 xtun_encode (const u64 keys[XTUN_ENCODING_KEYS_N], void* data, uint s
 }
 
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-static u16 xtun_decode (const u64 keys[XTUN_ENCODING_KEYS_N], void* data, uint size) {
+static u16 xtun_decode (const u64 keys[XTUN_KEYS_N], void* data, uint size) {
 
 	u64 a = keys[0] + XTUN_ENCODING_A_ADD;
 	u64 b = keys[1] + XTUN_ENCODING_B_ADD;

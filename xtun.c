@@ -57,6 +57,10 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define _MAC(x) __MAC((u8*)(x))
 #define _IP4(x) __IP4((u8*)(x))
 
+#define MAC__(a,b,c) a ## b ## c
+#define MAC_(x) MAC__(0x,x,U)
+#define MAC(a,b,c,d,e,f) { MAC_(a), MAC_(b), MAC_(c), MAC_(d), MAC_(e), MAC_(f) }
+
 #define ARRAY_COUNT(a) (sizeof(a)/sizeof((a)[0]))
 
 #define XTUN_NODES_N XGW_XTUN_NODES_N
@@ -151,18 +155,24 @@ typedef struct xtun_path_s {
     u16 uCksum;
 } xtun_path_s;
 
-#define FLOWS_N 32
+#define FLOWS_N 64
+
+// EXPECTED SIZE
+#define XTUN_NODE_SIZE ((2 + XTUN_PATHS_N)*CACHE_LINE_SIZE)
 
 // HÁ UM FLOW PARA CADA PATH.
 // ELES NUNCA VÃO PELO MESMO PATH; DESLOCA TODOS AO MESMO TEMPO.
-// pid = (flowCounter + (flowHash % XTUN_PATHS_N)) % XTUN_PATHS_N
+// pid = (flowShift + (flowHash % XTUN_PATHS_N)) % XTUN_PATHS_N
 typedef struct xtun_node_s {
     net_device_s* dev;
     u64 keys[XTUN_KEYS_N];
-    u32 flowPackets; // A CADA N PACKETS INCREMENTA O FLOW COUNTER
+    u16 iHash;
+    u16 flowShift; // if (flowRemaining == 0) { flowRemaining = flowPackets; flowShift++ ; } else flowRemaining--;
     u32 flowRemaining; // VAI COUNTDOWN DE flowPackets ATÉ 0
-    u32 flowCounter; // if (flowRemaining == 0) { flowRemaining = flowPackets; flowCounter++ ; } else flowRemaining--;
-    u8  flows[FLOWS_N]; // node->paths[node->flows[node->flowCounter + (hash % FLOWS_N)]]
+    u32 flowPackets; // A CADA N PACKETS INCREMENTA O FLOW COUNTER
+    u32 reserved;
+    u64 reserved2;
+    u8  flows[FLOWS_N]; // node->paths[node->flows[node->flowShift + (hash % FLOWS_N)]]
     xtun_path_s paths[XTUN_PATHS_N];
 } xtun_node_s;
 
@@ -184,10 +194,6 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     XTUN_ASSERT(flow == FLOWS_N);
 }
 
-#define MAC__(a,b,c) a ## b ## c
-#define MAC_(x) MAC__(0x,x,U)
-#define MAC(a,b,c,d,e,f) { MAC_(a), MAC_(b), MAC_(c), MAC_(d), MAC_(e), MAC_(f) }
-
 typedef struct xtun_cfg_path_s {
     u64 tband; // TOTAL DE PACOTES A CADA CIRCULADA
     u32 cband;
@@ -195,8 +201,8 @@ typedef struct xtun_cfg_path_s {
     char itfc[IFNAMSIZ];
     union { u8 cmac[ETH_ALEN]; u16 cmac16[ETH_ALEN/sizeof(u16)]; };
     union { u8 smac[ETH_ALEN]; u16 smac16[ETH_ALEN/sizeof(u16)]; };
-    u32 caddr;
-    u32 saddr;
+    union { u8 caddr[sizeof(u32)]; u32 caddr32; };
+    union { u8 saddr[sizeof(u32)]; u32 saddr32; };
     u16 cport;
     u8 tos;
     u8 ttl;
@@ -204,6 +210,7 @@ typedef struct xtun_cfg_path_s {
 
 typedef struct xtun_cfg_node_s {
     const char name[IFNAMSIZ];
+    u16 iHash;
     u32 flowPackets;
     u64 keys[XTUN_KEYS_N];
     xtun_cfg_path_s paths[XTUN_PATHS_N];
@@ -229,7 +236,7 @@ static const xtun_cfg_node_s cfgs[XTUN_NODES_N] =
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
-    { .name = "xgw-0", .secret = 0, .key = 0xE45503465064ULL, .paths = {
+    { .name = "xgw-0", .iHash = 0x2562, .keys = { 0, 0, 0, 0 }, .paths = {
         { .itfc = "isp-0", .cband = 200*1000*1000, .sband = 500*1000*1000, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,10,10,10), .caddr = {192,168,0,20},    .cport = 2000,
             .smac = MAC(54,9F,06,F4,C7,A0), .saddr = {200,200,200,200}
@@ -333,7 +340,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         printk("XTUN: TUNNEL %s: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u"
             " CLT MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
             " SRV MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
-            node->name, pid, (uintll)path->hash, path->itfc, BE8(path->iTOS), BE8(path->iTTL),
+            node->dev->name, pid, (uintll)path->hash, path->itfc->name, BE8(path->iTOS), BE8(path->iTTL),
             _MAC(path->eSrc), _IP4((u8*)&path->iSrc), BE16(path->uSrc),
             _MAC(path->eDst), _IP4((u8*)&path->iDst), BE16(path->uDst)
         );
@@ -465,6 +472,7 @@ static int __init xtun_init(void) {
 
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE_ALL);
+    BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
 
     // HOOK INTERFACES
     for (uint i = 0; i != ARRAY_COUNT(itfcs); i++) {
@@ -516,7 +524,7 @@ static int __init xtun_init(void) {
         printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH"
             " IHASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX"
             "\n",
-            cfgNode->name, nid, cfg->iHash,
+            cfgNode->name, nid, cfgNode->iHash,
             (uintll)cfgNode->keys[0],
             (uintll)cfgNode->keys[1],
             (uintll)cfgNode->keys[2],
@@ -594,8 +602,8 @@ static int __init xtun_init(void) {
             path->uSrc       =  BE16(PORT(nid, pid));
             path->uDst       =  BE16(0);
 #else
-            path->iSrc       =  BE32(cfgPath->caddr);
-            path->iDst       =  BE32(cfgPath->saddr);
+            path->iSrc       =  BE32(cfgPath->caddr32);
+            path->iDst       =  BE32(cfgPath->saddr32);
             path->uSrc       =  BE16(cfgPath->cport);
             path->uDst       =  BE16(PORT(nid, pid));
 #endif
@@ -611,7 +619,7 @@ static int __init xtun_init(void) {
         node->keys[3]        =  cfgNode->keys[3];
         node->flowPackets    =  cfgNode->flowPackets;
         node->flowRemaining  =  0;
-        node->flowCounter    =  0;
+        node->flowShift    =  0;
 
         xtun_node_flows_update(node);
 
