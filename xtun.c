@@ -155,44 +155,23 @@ typedef struct xtun_path_s {
     u16 uCksum;
 } xtun_path_s;
 
-#define FLOWS_N 64
+#define XTUN_FLOWS_N 64
 
 // EXPECTED SIZE
 #define XTUN_NODE_SIZE ((2 + XTUN_PATHS_N)*CACHE_LINE_SIZE)
 
-// HÁ UM FLOW PARA CADA PATH.
-// ELES NUNCA VÃO PELO MESMO PATH; DESLOCA TODOS AO MESMO TEMPO.
-// pid = (flowShift + (flowHash % XTUN_PATHS_N)) % XTUN_PATHS_N
 typedef struct xtun_node_s {
     net_device_s* dev;
     u64 keys[XTUN_KEYS_N];
     u64 reserved2;
     u32 reserved;
     u16 iHash;
-    u16 flowShift; // if (flowRemaining == 0) { flowRemaining = flowPackets; flowShift++ ; } else flowRemaining--;
-    u32 flowRemaining; // VAI COUNTDOWN DE flowPackets ATÉ 0
-    u32 flowPackets; // A CADA N PACKETS INCREMENTA O FLOW COUNTER
-    u8  flows[FLOWS_N]; // node->paths[node->flows[node->flowShift + (hash % FLOWS_N)]]
+    u16 flowShift; // SHIFTA TODOS OS FLOW IDS AO MESMO TEMPO, AO SELECIONAR O PATH
+    u32 flowRemaining; // QUANTOS PACOTES ENVIAR ATÉ AVANÇAR O FLOW SHIFT
+    u32 flowPackets; // O QUE USAR COMO FLOW REMAINING
+    u8  flows[XTUN_FLOWS_N]; // MAPA FLOW ID -> PATH ID
     xtun_path_s paths[XTUN_PATHS_N];
 } xtun_node_s;
-
-static void xtun_node_flows_update (xtun_node_s* const node) {
-
-    const uintll total =
-        (uintll)node->paths[0].mband +
-        (uintll)node->paths[1].mband +
-        (uintll)node->paths[2].mband +
-        (uintll)node->paths[3].mband
-    ;
-
-    uint flow = 0;
-
-    for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
-        for (uint q = (((uintll)node->paths[pid].mband) * FLOWS_N) / total; q; q--)
-            node->flows[flow++] = pid;
-
-    XTUN_ASSERT(flow == FLOWS_N);
-}
 
 typedef struct xtun_cfg_path_s {
     u32 cband;
@@ -216,11 +195,13 @@ typedef struct xtun_cfg_node_s {
 } xtun_cfg_node_s;
 
 #if XTUN_SERVER_IS
-#define __NODE_CFG(nid) const xtun_cfg_node_s* const cfgNode = &cfgs[nid];
-#define __NODE(nid) xtun_node_s* const node = &nodes[nid];
+#define _NODE_ID(nid) (nid)
+#define _NODE_CFG(nid) const xtun_cfg_node_s* const cfgNode = &cfgs[nid];
+#define _NODE(nid) xtun_node_s* const node = &nodes[nid];
 #else
-#define __NODE_CFG(nid)
-#define __NODE(nid)
+#define _NODE_ID(nid) XTUN_NODE_ID
+#define _NODE_CFG(nid)
+#define _NODE(nid)
 #endif
 
 #if XTUN_SERVER_IS
@@ -251,6 +232,24 @@ static const xtun_cfg_node_s cfgNode[1] =
     }},
 };
 
+static void xtun_node_flows_update (xtun_node_s* const node) {
+
+    const uintll total =
+        (uintll)node->paths[0].mband +
+        (uintll)node->paths[1].mband +
+        (uintll)node->paths[2].mband +
+        (uintll)node->paths[3].mband
+    ;
+
+    uint flow = 0;
+
+    for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
+        for (uint q = (((uintll)node->paths[pid].mband) * XTUN_FLOWS_N) / total; q; q--)
+            node->flows[flow++] = pid;
+
+    XTUN_ASSERT(flow == XTUN_FLOWS_N);
+}
+
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
@@ -277,7 +276,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     const uint nid = PORT_NID(port);
     const uint pid = PORT_PID(port);
 
-    __NODE(nid)
+    _NODE(nid)
 
     if (skb->len < XTUN_PATH_SIZE_ETH
      || hdr->eType     != BE16(ETH_P_IP)
@@ -376,12 +375,44 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: skb->len <= xtun->dev->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->path->itfc->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
 
-    // ENCAPSULATE
-    xtun_path_s* const pkt = PTR(skb->data) - sizeof(xtun_path_s);
-
+    void* const payload = PTR(skb->data)
+    xtun_path_s* const pkt = PTR(payload) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
-    const uint pid = 0;
+	// ENVIA flowPackets, E AÍ AVANCA flowShift
+	if (node->flowRemaining == 0) {
+		node->flowRemaining = node->flowPackets;
+		node->flowShift++;
+	} else
+		node->flowRemaining--;
+
+	// FLOW HASH
+	u64 flowHash = *(u8*)payload & 0xF0;
+
+	if (flowHash == 0x40) {
+		// IPv4
+		flowHash = *(u8*)(payload + 10);
+		if (flowHash == IPPROTO_TCP
+		 || flowHash == IPPROTO_UDP
+		 || flowHash == IPPROTO_SCTP
+		 || flowHash == IPPROTO_DCCP)
+			flowHash += *(u32*)(payload + 20);
+		flowHash += *(u64*)(payload + 12);
+	} elif (flowHash == 0x60) {
+		// IPv6
+		flowHash = *(u8*)(payload + );
+		if (flowHash == IPPROTO_TCP
+		 || flowHash == IPPROTO_UDP
+		 || flowHash == IPPROTO_SCTP
+		 || flowHash == IPPROTO_DCCP)
+			flowHash += *(u32*)(payload + 40);
+		flowHash += *(u64*)(payload +  8);
+		flowHash += *(u64*)(payload + 16);
+		flowHash += *(u64*)(payload + 24);
+		flowHash += *(u64*)(payload + 32);
+	}
+	
+	const uint pid = node->flows[(node->flowShift + flowHash) % XTUN_FLOWS_N];
 
     xtun_path_s* const path = &node->paths[pid]; // TODO: FIXME:
 
@@ -389,6 +420,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: PTR(skb_network_header(skb)) == PTR(skb->data)
     // ASSERT: PTR(pkt) >= PTR(skb->head)
 
+    // ENCAPSULATE
     memcpy(pkt, path, sizeof(xtun_path_s));
 
     pkt->uSize  = BE16(skb->len + XTUN_PATH_SIZE_UDP);
@@ -515,15 +547,18 @@ static int __init xtun_init(void) {
     memset(node, 0, sizeof(node));
 #endif
 
+#if XTUN_SERVER_IS
     for (uint nid = 0; nid != XTUN_NODES_N; nid++) {
-
-        __NODE_CFG(nid)
-        __NODE(nid)
+#else
+    do {
+#endif
+        _NODE_CFG(nid)
+        _NODE(nid)
 
         printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH"
             " IHASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX"
             "\n",
-            cfgNode->name, nid, cfgNode->iHash,
+            cfgNode->name, _NODE_ID(nid), cfgNode->iHash,
             (uintll)cfgNode->keys[0],
             (uintll)cfgNode->keys[1],
             (uintll)cfgNode->keys[2],
@@ -539,7 +574,7 @@ static int __init xtun_init(void) {
                 " SRV BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
                 cfgNode->name, pid, cfgPath->itfc, cfgPath->tos, cfgPath->ttl,
                 cfgPath->cband, _MAC(cfgPath->cmac), _IP4(&cfgPath->caddr), cfgPath->cport,
-                cfgPath->sband, _MAC(cfgPath->smac), _IP4(&cfgPath->saddr), PORT(nid, pid)
+                cfgPath->sband, _MAC(cfgPath->smac), _IP4(&cfgPath->saddr), PORT(_NODE_ID(nid), pid)
             );
 
 #if XTUN_SERVER_IS
@@ -604,7 +639,7 @@ static int __init xtun_init(void) {
             path->iSrc       =  BE32(cfgPath->caddr32);
             path->iDst       =  BE32(cfgPath->saddr32);
             path->uSrc       =  BE16(cfgPath->cport);
-            path->uDst       =  BE16(PORT(nid, pid));
+            path->uDst       =  BE16(PORT(_NODE_ID(nid), pid));
 #endif
             path->uSize      =  BE16(0);
             path->uCksum     =  BE16(0);
@@ -640,7 +675,11 @@ static int __init xtun_init(void) {
             free_netdev(dev);
             continue;
         }
+#if XTUN_SERVER_IS
     }
+#else
+    } while (0);
+#endif
 
     return 0;
 }
