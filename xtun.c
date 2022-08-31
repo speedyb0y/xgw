@@ -103,16 +103,47 @@ typedef struct xtun_path_s {
     u16 uCksum;
 } xtun_path_s;
 
-#define FLOWS_N 16
+#define FLOWS_N 32
 
 typedef struct xtun_node_s {
-    net_device_s* dev; // TUNNEL VIRTUAL INTERFACE DEVICE
-    u64 remaining;
-    u64 secret; // COMUM ENTRE AMBAS AS PARTES, NUNCA REPASSADO
-    u64 key; // DINAMICO, GERADO PELO CLIENTE
+    net_device_s* dev;
+    u64 secret;
+    u64 key;
+    u64 flow;
     u8 flows[FLOWS_N];
     xtun_path_s paths[PATHS_N];
 } xtun_node_s;
+
+#if XGW_XTUN_SERVER_IS
+#define myBand sband
+#else
+#define myBand cband
+#endif
+
+static void flows_gen (xtun_node_s* const node) {
+
+    const uint total = (
+        node->paths[0].myBand +
+        node->paths[1].myBand +
+        node->paths[2].myBand +
+        node->paths[3].myBand
+        ) << 16;
+
+    uint flow = 0;
+
+    for (uint pid = 0; pid != PATHS_N; pid++)
+        while (uint c = ((((u64)node->paths[pid].myBand) << 16) * FLOWS_N) / total; c; c--)
+            node->flows[flow++] = pid;
+
+    ASSERT(flow <= FLOWS_N);
+
+    while (flow != FLOWS_N)
+        node->flows[flow++] = pid++ % PATHS_N;
+}
+
+/*
+[(((bands[i] << 8)*64)//(sum(bands) << 8)) for i in range(3)]
+*/
 
 #define __MAC(a,b,c) a ## b ## c
 #define _MAC(x) __MAC(0x,x,U)
@@ -134,13 +165,14 @@ typedef struct xtun_cfg_path_s {
 typedef struct xtun_cfg_node_s {
     const char name[IFNAMSIZ];
     u64 secret;
+    u64 key;
     xtun_cfg_path_s paths[PATHS_N];
 } xtun_cfg_node_s;
 
 static xtun_node_s nodes[NODES_N];
 
 static const xtun_cfg_node_s cfgs[NODES_N] = {
-    { .name = "xgw-0", .secret = 0, .paths = {
+    { .name = "xgw-0", .secret = 0x4506545646E640EFULL, .key = 0xE45503465064ULL, .paths = {
         { .itfc = "isp-0", .cband = 200*1000*1000, .sband = 500*1000*1000, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,10,10,10), .caddr = {192,168,0,20},    .cport = 2000,
             .smac = MAC(54,9F,06,F4,C7,A0), .saddr = {200,200,200,200}
@@ -547,10 +579,10 @@ static int __init xtun_init(void) {
         }
 
         // NOW REGISTER IT
-        node->dev       = dev;
-        node->secret    = cfgNode->secret; // COMMON
-        node->key       = 0; // CLIENT: WILL AUTO CHANGE LATER | SERVER: WILL BE DISCOVERED ON INPUT
-        node->remaining = 0;
+        node->dev     = dev;
+        node->secret  = cfgNode->secret;
+        node->key     = cfgNode->key;
+        node->flow    = 0;
     }
 
     return 0;
