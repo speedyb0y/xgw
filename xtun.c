@@ -399,12 +399,9 @@ drop:
 
 //
 typedef union flow_hdr_s {
+    u8 b[48];
     struct {
-        u8  version;
-        u8 _pad[47];
-    };
-    struct {
-        u64 version;
+        u64 _version;
         u8  _ttl;
         u8  protocol;
         u16 _checksum;
@@ -413,7 +410,7 @@ typedef union flow_hdr_s {
         u8  _pad[20];
     } ip4;
     struct {
-        u32 version;
+        u32 _version;
         u16 _size;
         u8  protocol;
         u8  _ttl;
@@ -424,7 +421,7 @@ typedef union flow_hdr_s {
 
 static u64 xtun_flow_hash (const flow_hdr_s* const flow) {
 
-    u64 hash = BE8(flow->version);
+    u64 hash = BE8(flow->b[0]);
 
     if (hash == 0x45) {
         // IPV4 WITHOUT OPTIONS
