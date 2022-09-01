@@ -265,10 +265,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     const uint nid = PORT_NID(port);
     const uint pid = PORT_PID(port);
 
-#if XTUN_SERVER
-    xtun_node_s* const node = &nodes[nid];
-#endif
-
     //XTUN_ASSERT(skb->dev != virt);
     XTUN_ASSERT(PTR(hdr->eDst) >= PTR(skb->head));
     // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
@@ -279,7 +275,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     // CONFIRM THIS IS ETHERNET/IPV4/UDP
     // VALIDATE NODE ID
     // VALIDATE PATH ID
-    // CONFIRM WE HAVE THIS TUNNEL
     if (skb->len <= XTUN_PATH_SIZE_ETH
      || hdr->eType     != BE16(ETH_P_IP)
      || hdr->iVersion  != BE8(0x45)
@@ -290,8 +285,16 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
      || nid != XTUN_NODE_ID
 #endif
      || pid >= XTUN_PATHS_N
-     || !node->dev)
+    )
         return RX_HANDLER_PASS;
+
+#if XTUN_SERVER
+    xtun_node_s* const node = &nodes[nid];
+#endif
+
+    // CONFIRM WE HAVE THIS TUNNEL
+    if (!node->dev)
+        goto drop;
 
     // TRIM PACKET AS IN IP_INPUT()
     //BE16(hdr->iSize)
