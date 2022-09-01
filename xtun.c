@@ -371,7 +371,10 @@ drop:
 typedef union flow_hdr_s {
     struct {
         u8  version;
-        u8  _x[7];
+        u8 _pad[47];
+    };
+    struct {
+        u64 version;
         u8  _ttl;
         u8  protocol;
         u16 _checksum;
@@ -380,8 +383,7 @@ typedef union flow_hdr_s {
         u8  _pad[20];
     } ip4;
     struct {
-        u8  version;
-        u8  _x[3];
+        u32 version;
         u16 _size;
         u8  protocol;
         u8  _ttl;
@@ -701,6 +703,7 @@ static int __init xtun_init(void) {
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE_ALL);
     BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
+    BUILD_BUG_ON(sizeof(((flow_hdr_s*)0)->ip4) != sizeof(flow_hdr_s));
     BUILD_BUG_ON(sizeof(((flow_hdr_s*)0)->ip4) !=
                  sizeof(((flow_hdr_s*)0)->ip6));
 
