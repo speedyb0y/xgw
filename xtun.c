@@ -228,16 +228,16 @@ static const xtun_cfg_node_s cfgNode[1] =
 #define mband cband
 #endif
 
-static void xtun_node_flows_print (xtun_node_s* const node) {
+static void xtun_node_flows_print (const xtun_node_s* const node) {
 	
-    char str[XTUN_FLOWS_N + 1];
-    
+    char flows[XTUN_FLOWS_N + 1];
+
     foreach (fid, XTUN_FLOWS_N)
-		str[fid] = '0' + node->flows[fid];
-	str[XTUN_FLOWS_N] = '\0';
+        flows[fid] = '0' + node->flows[fid];
+    flows[XTUN_FLOWS_N] = '\0';
 
     printk("XTUN: TUNNEL %s: FLOWS: %s\n",
-		node->dev->name, str);
+        node->name, flows);
 }
 
 static void xtun_node_flows_update (xtun_node_s* const node) {
@@ -247,16 +247,16 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     uintll maiorP = 0;
 
     foreach (pid, XTUN_PATHS_N) {
-		const uint b = node->paths[pid].mband;
-		// CALCULA O TOTAL
+        const uint b = node->paths[pid].mband;
+        // CALCULA O TOTAL
         total += b;
         // LEMBRA O PATH COM MAIOR BANDWIDTH
         // LEMBRA O BANDWIDTH DELE
-        if (maiorB < b) {			
-			maiorB = b;
-			maiorP = pid;
-		}
-	}
+        if (maiorB < b) {
+            maiorB = b;
+            maiorP = pid;
+        }
+    }
 
     u8* flows = node->flows;
     uint flowsR = XTUN_FLOWS_N;
@@ -265,13 +265,13 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     if (total) {
         do {
             uint q = (((uintll)node->paths[pid].mband) * XTUN_FLOWS_N) / total;
-            while (q--)
-                *flows++ = pid;                 
             flowsR -= q;
+            while (q--)
+                *flows++ = pid;
             pid = (pid + 1) % XTUN_PATHS_N;
         } while (flowsR && pid != maiorP);
     }
-    
+
     // O QUE SOBRAR DEIXA COM O MAIOR PATH
     while (flowsR--)
         *flows++ = pid;
