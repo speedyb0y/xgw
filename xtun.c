@@ -253,9 +253,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     void* const payload = PTR(hdr) + sizeof(*hdr);
 
-    // TODO: FIXME: VAI TER QUE CONSIDERAR AMBOS OS CABECALHOS E O SKB PORQUE PODE TER UM LIXO ALI
-    const uint payloadSize = SKB_TAIL(skb) - payload;
-
     // IDENTIFY NODE AND PATH IDS FROM SERVER PORT
 #if XTUN_SERVER
     const uint port = BE16(hdr->uDst);
@@ -265,11 +262,9 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     const uint nid = PORT_NID(port);
     const uint pid = PORT_PID(port);
 
-    //XTUN_ASSERT(skb->dev != virt);
     XTUN_ASSERT(PTR(hdr->eDst) >= PTR(skb->head));
     // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
     XTUN_ASSERT(skb->protocol == hdr->eType);
-    //XTUN_ASSERT(payload <= skb->end);
 
     // CONFIRM PACKET SIZE
     // CONFIRM THIS IS ETHERNET/IPV4/UDP
@@ -298,6 +293,9 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     // TRIM PACKET AS IN IP_INPUT()
     //BE16(hdr->iSize)
+    
+    // TODO: FIXME: VAI TER QUE CONSIDERAR AMBOS OS CABECALHOS E O SKB PORQUE PODE TER UM LIXO ALI
+    const uint payloadSize = SKB_TAIL(skb) - payload;
 
     // DECRYPT AND CONFIRM AUTHENTICITY
     if (node->iHash) {
