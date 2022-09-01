@@ -570,7 +570,6 @@ static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
     path->uSize      =  BE16(0);
     path->uCksum     =  BE16(0);
 
-    //
 #if XTUN_SERVER
     node->tband += path->sband;
 #else
@@ -626,18 +625,17 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
     XTUN_DEV_NODE((node->dev = dev)) = node;
 
-    // MAKE IT VISIBLE IN THE SYSTEM
-    if (register_netdev(dev)) {
-        printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->name);
-        node->dev = NULL;
-        free_netdev(dev);
-        return;
-    }
-
     for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
         xtun_path_init(node, nid, &node->paths[pid], pid, &cfg->paths[pid]);
 
     xtun_node_flows_update(node);
+
+    // MAKE IT VISIBLE IN THE SYSTEM
+    if (register_netdev(dev)) {
+        printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->name);
+        node->dev = NULL; // TODO: LEMBRAR O NOME DA INTERFACE
+        free_netdev(dev);
+    }
 }
 
 // INITIALIZE TUNNELS
