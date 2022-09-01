@@ -65,7 +65,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define XTUN_PATHS_N XGW_XTUN_PATHS_N
 
-#define XTUN_SERVER   XGW_XTUN_SERVER_IS
+#define XTUN_SERVER      XGW_XTUN_SERVER_IS
 #define XTUN_SERVER_PORT XGW_XTUN_SERVER_PORT
 
 #if XTUN_SERVER
@@ -78,33 +78,30 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #error "BAD XTUN_PATHS_N"
 #endif
 
+#if ! (1 <= XTUN_SERVER_PORT && XTUN_SERVER_PORT <= 0xFFFF)
+#error "BAD XTUN_SERVER_PORT"
+#endif
+
 #if XTUN_SERVER
-#if XTUN_NODES_N < 1 \
- || XTUN_NODES_N > 256
+#if ! (1 <= XTUN_NODES_N && XTUN_NODES_N <= 0xFFFF)
 #error "BAD XTUN_NODES_N"
 #endif
-#if  XTUN_SERVER_PORT < 1 \
- || (XTUN_SERVER_PORT + XTUN_NODES_N) > 0xFFFF
-#error "BAD XTUN_SERVER_PORT"
-#endif
-#else
-#if XTUN_NODE_ID < 0 \
- || XTUN_NODE_ID >= 0xFFFF
+#elif ! (0 <= XTUN_NODE_ID && XTUN_NODE_ID <= 0xFFFF)
 #error "BAD XTUN_NODE_ID"
-#endif
-#if  XTUN_SERVER_PORT < 1 \
- ||  XTUN_SERVER_PORT > 0xFFFF
-#error "BAD XTUN_SERVER_PORT"
-#endif
 #endif
 
 #include "xtun-encoding.c"
 
+//
 #define PORT(nid, pid) (XTUN_SERVER_PORT + (nid)*10 + (pid))
-
 // WILL UNSIGNED OVERFLOW IF LOWER
 #define PORT_NID(port) (((port) - XTUN_SERVER_PORT) / 10)
 #define PORT_PID(port) (((port) - XTUN_SERVER_PORT) % 10)
+
+//
+#if XTUN_SERVER && PORT(XTUN_NODES_N - 1, XTUN_PATHS_N - 1) > 0xFFFF
+#error "BAD XTUN_SERVER_PORT / XTUN_NODES_N / XTUN_PATHS_N"
+#endif
 
 //
 #if 0
