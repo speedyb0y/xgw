@@ -584,11 +584,11 @@ static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
         dev_put(itfc);
 
         if (itfc->rx_handler == xtun_in)
-            path->itfc  = itfc;        
+            path->itfc  = itfc;
         else
-            printk("XTUN: TUNNEL %s: PATH %u: CREATE FAILED - INTERFACE NOT HOOKED\n", node->dev->name, pid);        
+            printk("XTUN: TUNNEL %s: PATH %u: CREATE FAILED - INTERFACE NOT HOOKED\n", node->dev->name, pid);
     } else
-        printk("XTUN: TUNNEL %s: PATH %u: CREATE FAILED - INTERFACE NOT FOUND\n", node->dev->name, pid); 
+        printk("XTUN: TUNNEL %s: PATH %u: CREATE FAILED - INTERFACE NOT FOUND\n", node->dev->name, pid);
 #endif
 }
 
