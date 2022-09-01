@@ -229,7 +229,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
         printk("XTUN: TUNNEL %s: BAND %llu\n",
             node->dev->name, node->tband);
 
-        uint flow = 0;
+        uint fid = 0;
         uint pid = 0;
 
         do {
@@ -241,12 +241,12 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
             printk("XTUN: TUNNEL %s: PATH %u: HAS %u FLOWS\n",
                 node->dev->name, pid, q);
             while (q--)
-                node->flows[flow++] = pid;
+                node->flows[fid++] = pid;
             // SE NAO COMPLETOU TODOS VAI VOLTAR PARA O PRIMEIRO
             // ISSO VAI EXECUTAR NO MÁXIMO UMA VEZ
             if (++pid == XTUN_PATHS_N)
-                node->flows[flow++] = 0;
-        } while(flow != XTUN_FLOWS_N);
+                node->flows[fid++] = 0;
+        } while(fid != XTUN_FLOWS_N);
     } else
         printk("XTUN: TUNNEL %s: HAS NO BAND\n",
             node->dev->name);
