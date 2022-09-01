@@ -369,29 +369,22 @@ drop:
     return RX_HANDLER_CONSUMED;
 }
 
-// EXPECTED SIZE
-#define FLOW_HDR_SIZE CACHE_LINE_SIZE
-
+//
 typedef union flow_hdr_s {
     struct {
-        u64 ab;
-        u8 ttl;
-        u8 protocol;
-        u16 chk;
-        u64 addrs;
+        u64 _ab;
+        u8 _ttl;
+        u8  protocol;
+        u16 _checksum;
+        u32 addrs[2];
         u32 ports;
-        u8 _align[FLOW_HDR_SIZE
-            - 2*sizeof(u8)
-            - 1*sizeof(u16)
-            - 1*sizeof(u32)
-            - 2*sizeof(u64)
-            ];
+        u8 _pad[20];
     } ip4;
     struct {
-        u32 ab;
-        u16 size;
-        u8 protocol;
-        u8 ttl;
+        u32 _ab;
+        u16 _size;
+        u8  protocol;
+        u8  _ttl;
         u64 addrs[4];
         u32 ports;
     } ip6;
@@ -425,7 +418,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
          || fid == IPPROTO_SCTP
          || fid == IPPROTO_DCCP)
             fid += flow->ip4.ports;
-        fid += flow->ip4.addrs;
+        fid += flow->ip4.addrs[0];
+        fid += flow->ip4.addrs[1];
     } elif (fid == 6) {
         fid = flow->ip4.protocol;
         if (fid == IPPROTO_TCP
@@ -536,6 +530,8 @@ static int __init xtun_init(void) {
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE_ALL);
     BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
+    BUILD_BUG_ON(sizeof(((flow_hdr_s*)0)->ip4) !=
+                 sizeof(((flow_hdr_s*)0)->ip6));
 
     // HOOK INTERFACES
     for (uint i = 0; i != ARRAY_COUNT(itfcs); i++) {
