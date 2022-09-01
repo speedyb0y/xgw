@@ -242,11 +242,10 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
                 node->dev->name, pid, q);
             while (q--)
                 node->flows[fid++] = pid;
-            if (++pid == XTUN_PATHS_N) {
-                node->flows[fid++] = 0;
-                break;
-            }
-        } while(fid != XTUN_FLOWS_N);
+        } while (fid != XTUN_FLOWS_N && ++pid != XTUN_PATHS_N);
+        //
+        while (fid != XTUN_FLOWS_N)
+            node->flows[fid++] = 0;
     } else
         printk("XTUN: TUNNEL %s: HAS NO BAND\n",
             node->dev->name);
