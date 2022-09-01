@@ -275,7 +275,12 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     xtun_node_s* const node = &nodes[nid];
 #endif
 
-    if (skb->len < XTUN_PATH_SIZE_ETH
+    // CONFIRM PACKET SIZE
+    // CONFIRM THIS IS ETHERNET/IPV4/UDP
+    // VALIDATE NODE ID
+    // VALIDATE PATH ID
+    // CONFIRM WE HAVE THIS TUNNEL
+    if (skb->len <= XTUN_PATH_SIZE_ETH
      || hdr->eType     != BE16(ETH_P_IP)
      || hdr->iVersion  != BE8(0x45)
      || hdr->iProtocol != BE8(IPPROTO_UDP)
@@ -286,18 +291,13 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 #endif
      || pid >= XTUN_PATHS_N
      || !node->dev)
-        // NOT UDP/IPV4/ETHERNET
-        // WE DON'T HAVE THIS TUNNEL/PATH
-        // NODE ID IS NOT MINE
         goto pass;
 
-    if (node->iHash == 0) {
-        // ENCRYPTED COMMUNICATION
-        if (xtun_decode(node->keys, payload, payloadSize) != hdr->iHash)
-            // HASH MISMATCH
+    // DECRYPT AND CONFIRM AUTHENTICITY
+    if (node->iHash) {
+        if (node->iHash != hdr->iHash)
             goto drop;
-    } elif (node->iHash != hdr->iHash)
-        // HASH MISMATCH
+    } elif (xtun_decode(node->keys, payload, payloadSize) != hdr->iHash)
         goto drop;
 
 #if XTUN_SERVER
