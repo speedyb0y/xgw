@@ -225,7 +225,7 @@ static const xtun_cfg_node_s cfgNode[1] =
 static void xtun_node_flows_update (xtun_node_s* const node) {
 
     if (node->tband) {
-        
+
         printk("XTUN: TUNNEL %s: BAND %llu\n",
             node->dev->name, node->tband);
 
