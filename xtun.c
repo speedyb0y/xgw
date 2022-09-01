@@ -249,6 +249,9 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
+    XTUN_ASSERT(PTR(skb_mac_header(skb)) == skb->data);
+    // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
+
     const xtun_path_s* const hdr = PTR(skb_mac_header(skb)) - XTUN_PATH_SIZE_PRIVATE;
 
     void* const payload = PTR(hdr) + sizeof(*hdr);
@@ -261,10 +264,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 #endif
     const uint nid = PORT_NID(port);
     const uint pid = PORT_PID(port);
-
-    XTUN_ASSERT(PTR(hdr->eDst) >= PTR(skb->head));
-    // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
-    XTUN_ASSERT(skb->protocol == hdr->eType);
 
     // CONFIRM PACKET SIZE
     // CONFIRM THIS IS ETHERNET/IPV4/UDP
@@ -293,7 +292,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     // TRIM PACKET AS IN IP_INPUT()
     //BE16(hdr->iSize)
-    
+
     // TODO: FIXME: VAI TER QUE CONSIDERAR AMBOS OS CABECALHOS E O SKB PORQUE PODE TER UM LIXO ALI
     const uint payloadSize = SKB_TAIL(skb) - payload;
 
@@ -306,7 +305,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
 #if XTUN_SERVER
     // DETECT AND UPDATE PATH CHANGES
-
     xtun_path_s* const path = &node->paths[pid];
 
     net_device_s* const itfc = skb->dev;
@@ -392,14 +390,51 @@ typedef union flow_hdr_s {
     } ip6;
 } flow_hdr_s;
 
+static u64 xtun_dev_start_xmit_flow_hash (const flow_hdr_s* const flow) {
+
+    u64 hash = BE8(flow->version) >> 4;
+
+    if (hash == 4) {
+        hash = BE8(flow->ip4.protocol);
+        if (hash == IPPROTO_TCP
+         || hash == IPPROTO_UDP
+         || hash == IPPROTO_UDPLITE
+         || hash == IPPROTO_SCTP
+         || hash == IPPROTO_DCCP)
+            hash += flow->ip4.ports;
+        hash += flow->ip4.addrs[0];
+        hash += flow->ip4.addrs[1];
+    } elif (hash == 6) {
+        hash = BE8(flow->ip4.protocol);
+        if (hash == IPPROTO_TCP
+         || hash == IPPROTO_UDP
+         || hash == IPPROTO_UDPLITE
+         || hash == IPPROTO_SCTP
+         || hash == IPPROTO_DCCP)
+            hash += flow->ip6.ports;
+        hash += flow->ip6.addrs[0];
+        hash += flow->ip6.addrs[1];
+        hash += flow->ip6.addrs[2];
+        hash += flow->ip6.addrs[3];
+    }
+
+    hash += hash >> 32;
+    hash += hash >> 16;
+
+    return hash;
+}
+
 static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* const dev) {
 
     // ASSERT: skb->len <= xtun->mtu
     // ASSERT: skb->len <= xtun->dev->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->path->itfc->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
+    // ASSERT: PTR(skb_mac_header(skb)) == PTR(skb->data)
+    // ASSERT: PTR(skb_network_header(skb)) == PTR(skb->data)
+    // ASSERT: PTR(pkt) >= PTR(skb->head)
 
-    flow_hdr_s* const fhdr = PTR(skb->data);
-    xtun_path_s* const pkt = PTR(fhdr) - sizeof(xtun_path_s);
+    const flow_hdr_s* const flow = PTR(skb->data);
+    xtun_path_s* const pkt = PTR(skb->data) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
     // ENVIA flowPackets, E AÍ AVANCA flowShift
@@ -409,44 +444,12 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     } else
         node->flowRemaining--;
 
-    // FLOW ID
-    u64 fid = BE8(fhdr->version) >> 4;
-
-    if (fid == 4) {
-        fid = BE8(fhdr->ip4.protocol);
-        if (fid == IPPROTO_TCP
-         || fid == IPPROTO_UDP
-         || fid == IPPROTO_UDPLITE
-         || fid == IPPROTO_SCTP
-         || fid == IPPROTO_DCCP)
-            fid += fhdr->ip4.ports;
-        fid += fhdr->ip4.addrs[0];
-        fid += fhdr->ip4.addrs[1];
-    } elif (fid == 6) {
-        fid = BE8(fhdr->ip4.protocol);
-        if (fid == IPPROTO_TCP
-         || fid == IPPROTO_UDP
-         || fid == IPPROTO_UDPLITE
-         || fid == IPPROTO_SCTP
-         || fid == IPPROTO_DCCP)
-            fid += fhdr->ip6.ports;
-        fid += fhdr->ip6.addrs[0];
-        fid += fhdr->ip6.addrs[1];
-        fid += fhdr->ip6.addrs[2];
-        fid += fhdr->ip6.addrs[3];
-    }
-
-    fid += fid >> 32;
-    fid += fid >> 16;
-    fid += node->flowShift;
-    fid %= XTUN_FLOWS_N;
-
-    // FLOW ID -> PATH ID
-    xtun_path_s* const path = &node->paths[node->flows[fid]];
-
-    // ASSERT: PTR(skb_mac_header(skb)) == PTR(skb->data)
-    // ASSERT: PTR(skb_network_header(skb)) == PTR(skb->data)
-    // ASSERT: PTR(pkt) >= PTR(skb->head)
+    // PATH
+    xtun_path_s* const path = &node->paths[
+            node->flows[
+                (node->flowShift + xtun_dev_start_xmit_flow_hash(flow)) % XTUN_FLOWS_N
+            ]
+        ];
 
     // ENCAPSULATE
     memcpy(pkt, path, sizeof(xtun_path_s));
