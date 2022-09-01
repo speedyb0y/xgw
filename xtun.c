@@ -195,6 +195,8 @@ typedef struct xtun_cfg_node_s {
     xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
 
+static const char* const itfcs[] = { "isp-0", "isp-1", };
+
 #if XTUN_SERVER
 static xtun_node_s nodes[XTUN_NODES_N];
 #else
@@ -520,8 +522,6 @@ static void xtun_dev_setup (net_device_s* const dev) {
         ;
 }
 
-static const char* const itfcs[] = { "eth0" };
-
 static void xtun_path_init (xtun_node_s* const node, xtun_path_s* const path, const xtun_cfg_path_s* const cfg) {
 
     printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u"
@@ -646,17 +646,20 @@ static void xtun_node_init (xtun_node_s* const node, xtun_cfg_node_s* const cfg,
     }
 }
 
-static int __init xtun_init(void) {
+// INITIALIZE TUNNELS
+static void xtun_nodes_init (void) {
 
-    printk("XTUN: INIT\n");
+#if XTUN_SERVER
+    for (uint nid = 0; nid != XTUN_NODES_N; nid++)
+        xtun_node_init(&nodes[nid], &cfgs[nid]);
+#else
+    xtun_node_init(node, XTUN_NODE_ID);
+#endif
+}
 
-    BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
-    BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE_ALL);
-    BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
-    BUILD_BUG_ON(sizeof(((flow_hdr_s*)0)->ip4) !=
-                 sizeof(((flow_hdr_s*)0)->ip6));
-
-    // HOOK INTERFACES
+// HOOK INTERFACES
+static void xtun_itfcs_hook (void) {
+    
     for (uint i = 0; i != ARRAY_COUNT(itfcs); i++) {
 
         const char* const itfc = itfcs[i];
@@ -690,20 +693,21 @@ static int __init xtun_init(void) {
         if (dev)
             dev_put(dev);
     }
+}
 
-    // INITIALIZE TUNNELS
-#if XTUN_SERVER
-    memset(nodes, 0, sizeof(nodes));
-#else
-    memset(node, 0, sizeof(node));
-#endif
+static int __init xtun_init(void) {
 
-#if XTUN_SERVER
-    for (uint nid = 0; nid != XTUN_NODES_N; nid++)
-        xtun_node_init(&nodes[nid], &cfgs[nid]);
-#else
-    xtun_node_init(node, XTUN_NODE_ID);
-#endif
+    printk("XTUN: INIT\n");
+
+    BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
+    BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE_ALL);
+    BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
+    BUILD_BUG_ON(sizeof(((flow_hdr_s*)0)->ip4) !=
+                 sizeof(((flow_hdr_s*)0)->ip6));
+
+    xtun_itfcs_hook();
+
+    xtun_nodes_init();
 
     return 0;
 }
