@@ -575,9 +575,7 @@ static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
     node->tband += path->sband;
 #else
     node->tband += path->cband;
-#endif
 
-#if !XTUN_SERVER
     net_device_s* const itfc = dev_get_by_name(&init_net, cfg->itfc);
 
     if (itfc) {
