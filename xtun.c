@@ -224,26 +224,47 @@ static const xtun_cfg_node_s cfgNode[1] =
 
 static void xtun_node_flows_update (xtun_node_s* const node) {
 
-    printk("XTUN: TUNNEL %s: TODAL BAND %llu\n",
-        node->dev->name, node->tband);
+    if (node->tband) {
+        
+        printk("XTUN: TUNNEL %s: BAND %llu\n",
+            node->dev->name, node->tband);
 
-    uint flow = 0;
+        uint flow = 0;
+        uint pid = 0;
 
-    foreach (pid, XTUN_PATHS_N) {
+        do {
 #if XTUN_SERVER
-        for (uint q = (((uintll)node->paths[pid].sband) * XTUN_FLOWS_N) / node->tband; q; q--)
+            uint q = (((uintll)node->paths[pid].sband) * XTUN_FLOWS_N) / node->tband;
 #else
-        for (uint q = (((uintll)node->paths[pid].cband) * XTUN_FLOWS_N) / node->tband; q; q--)
+            uint q = (((uintll)node->paths[pid].cband) * XTUN_FLOWS_N) / node->tband;
 #endif
-        {
-            printk("XTUN: TUNNEL %s: FLOW %u -> PATH %u\n",
-                node->dev->name, flow, pid);
-            node->flows[flow++] = pid;
-        }
-    }
-
-    XTUN_ASSERT(flow == XTUN_FLOWS_N);
+            printk("XTUN: TUNNEL %s: PATH %u: HAS %u FLOWS\n",
+                node->dev->name, pid, q);
+            while (q--)
+                node->flows[flow++] = pid;
+            // SE NAO COMPLETOU TODOS VAI VOLTAR PARA O PRIMEIRO
+            // ISSO VAI EXECUTAR NO MÁXIMO UMA VEZ
+            if (++pid == XTUN_PATHS_N)
+                node->flows[flow++] = 0;
+        } while(flow != XTUN_FLOWS_N);
+    } else
+        printk("XTUN: TUNNEL %s: HAS NO BAND\n",
+            node->dev->name);
 }
+
+/*
+for XTUN_FLOWS_N in (8, 32, 64):
+    for XTUN_PATHS_N in (1, 2, 3, 4):
+        for a in (0, 1, 5, 10, 5000, 5001, 5002, 5500):
+            for b in (0, 10):
+                for c in (1, 5000):
+                    for d in (0, 1000, 5000):
+                        paths = [a, b, c, d]
+                        tband = sum(paths)
+                        qs = sum((pband * XTUN_FLOWS_N)//tband for pband in paths)
+                        print(XTUN_PATHS_N, XTUN_FLOWS_N, qs, paths)
+                        assert XTUN_FLOWS_N == qs
+*/
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
@@ -390,11 +411,12 @@ typedef union flow_hdr_s {
     } ip6;
 } flow_hdr_s;
 
-static u64 xtun_dev_start_xmit_flow_hash (const flow_hdr_s* const flow) {
+static u64 xtun_flow_hash (const flow_hdr_s* const flow) {
 
-    u64 hash = BE8(flow->version) >> 4;
+    u64 hash = BE8(flow->version);
 
-    if (hash == 4) {
+    if (hash == 0x45) {
+        // IPV4 WITHOUT OPTIONS
         hash = BE8(flow->ip4.protocol);
         if (hash == IPPROTO_TCP
          || hash == IPPROTO_UDP
@@ -404,7 +426,13 @@ static u64 xtun_dev_start_xmit_flow_hash (const flow_hdr_s* const flow) {
             hash += flow->ip4.ports;
         hash += flow->ip4.addrs[0];
         hash += flow->ip4.addrs[1];
+    } elif ((hash >>= 4) == 4) {
+        // IPV6 WITH OPTIONS
+        hash += flow->ip4.protocol;
+        hash += flow->ip4.addrs[0];
+        hash += flow->ip4.addrs[1];
     } elif (hash == 6) {
+        // IPV6
         hash = BE8(flow->ip4.protocol);
         if (hash == IPPROTO_TCP
          || hash == IPPROTO_UDP
@@ -416,7 +444,9 @@ static u64 xtun_dev_start_xmit_flow_hash (const flow_hdr_s* const flow) {
         hash += flow->ip6.addrs[1];
         hash += flow->ip6.addrs[2];
         hash += flow->ip6.addrs[3];
-    }
+    } else
+        // UNKNOWN
+        hash = 0;
 
     hash += hash >> 32;
     hash += hash >> 16;
@@ -447,7 +477,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // PATH
     xtun_path_s* const path = &node->paths[
             node->flows[
-                (node->flowShift + xtun_dev_start_xmit_flow_hash(flow)) % XTUN_FLOWS_N
+                (node->flowShift + xtun_flow_hash(flow)) % XTUN_FLOWS_N
             ]
         ];
 
