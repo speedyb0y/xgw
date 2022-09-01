@@ -119,13 +119,6 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XTUN_PATH_SIZE_IP        (               IP4_HDR_SIZE + UDP_HDR_SIZE)
 #define XTUN_PATH_SIZE_UDP       (                              UDP_HDR_SIZE)
 
-// MY BAND
-#if XTUN_SERVER
-#define mband sband
-#else
-#define mband cband
-#endif
-
 typedef struct xtun_path_s {
     net_device_s* itfc;
 #if XTUN_SERVER
@@ -234,12 +227,18 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
 
     uint flow = 0;
 
-    for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
-        for (uint q = (((uintll)node->paths[pid].mband) * XTUN_FLOWS_N) / node->tband; q; q--) {
+    for (uint pid = 0; pid != XTUN_PATHS_N; pid++) {
+#if XTUN_SERVER
+        for (uint q = (((uintll)node->paths[pid].sband) * XTUN_FLOWS_N) / node->tband; q; q--)
+#else
+        for (uint q = (((uintll)node->paths[pid].cband) * XTUN_FLOWS_N) / node->tband; q; q--)
+#endif
+        {
             printk("XTUN: TUNNEL %s: FLOW %u -> PATH %u\n",
                 node->dev->name, flow, pid);
             node->flows[flow++] = pid;
         }
+    }
 
     XTUN_ASSERT(flow == XTUN_FLOWS_N);
 }
@@ -572,7 +571,11 @@ static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
     path->uCksum     =  BE16(0);
 
     //
-    node->tband += path->mband;
+#if XTUN_SERVER
+    node->tband += path->sband;
+#else
+    node->tband += path->cband;
+#endif
 
 #if !XTUN_SERVER
     net_device_s* const itfc = dev_get_by_name(&init_net, cfg->itfc);
