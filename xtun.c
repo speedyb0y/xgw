@@ -242,29 +242,15 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
                 node->dev->name, pid, q);
             while (q--)
                 node->flows[fid++] = pid;
-            // SE NAO COMPLETOU TODOS VAI VOLTAR PARA O PRIMEIRO
-            // ISSO VAI EXECUTAR NO MÁXIMO UMA VEZ
-            if (++pid == XTUN_PATHS_N)
+            if (++pid == XTUN_PATHS_N) {
                 node->flows[fid++] = 0;
+                break;
+            }
         } while(fid != XTUN_FLOWS_N);
     } else
         printk("XTUN: TUNNEL %s: HAS NO BAND\n",
             node->dev->name);
 }
-
-/*
-for XTUN_FLOWS_N in (8, 32, 64):
-    for XTUN_PATHS_N in (1, 2, 3, 4):
-        for a in (0, 1, 5, 10, 5000, 5001, 5002, 5500):
-            for b in (0, 10):
-                for c in (1, 5000):
-                    for d in (0, 1000, 5000):
-                        paths = [a, b, c, d]
-                        tband = sum(paths)
-                        qs = sum((pband * XTUN_FLOWS_N)//tband for pband in paths)
-                        print(XTUN_PATHS_N, XTUN_FLOWS_N, qs, paths)
-                        assert XTUN_FLOWS_N == qs
-*/
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
