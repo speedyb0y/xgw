@@ -517,7 +517,7 @@ static void xtun_dev_setup (net_device_s* const dev) {
         ;
 }
 
-static uint xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
+static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
 
     printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u"
         " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
@@ -571,6 +571,9 @@ static uint xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
     path->uSize      =  BE16(0);
     path->uCksum     =  BE16(0);
 
+    //
+    node->tband += path->mband;
+
 #if !XTUN_SERVER
     net_device_s* const itfc = dev_get_by_name(&init_net, cfg->itfc);
 
@@ -589,9 +592,6 @@ static uint xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
 
     path->itfc  = itfc;
 #endif
-
-    //
-    return path->mband;
 }
 
 static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
@@ -637,7 +637,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     }
 
     for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
-        node->tband += xtun_path_init(node, nid, &node->paths[pid], pid, &cfg->paths[pid]);
+        xtun_path_init(node, nid, &node->paths[pid], pid, &cfg->paths[pid]);
 
     xtun_node_flows_update(node);
 }
