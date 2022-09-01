@@ -166,7 +166,7 @@ typedef struct xtun_path_s {
 typedef struct xtun_node_s {
     net_device_s* dev;
     u64 keys[XTUN_KEYS_N];
-    u64 reserved2;
+    u64 tband;
     u32 reserved;
     u16 iHash;
     u16 flowShift; // SHIFTA TODOS OS FLOW IDS AO MESMO TEMPO, AO SELECIONAR O PATH
@@ -229,20 +229,13 @@ static const xtun_cfg_node_s cfgNode[1] =
 
 static void xtun_node_flows_update (xtun_node_s* const node) {
 
-    const uintll total =
-        (uintll)node->paths[0].mband +
-        (uintll)node->paths[1].mband +
-        (uintll)node->paths[2].mband +
-        (uintll)node->paths[3].mband
-    ;
-
     printk("XTUN: TUNNEL %s: TODAL BAND %llu\n",
-        node->dev->name, total);
+        node->dev->name, node->tband);
 
     uint flow = 0;
 
     for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
-        for (uint q = (((uintll)node->paths[pid].mband) * XTUN_FLOWS_N) / total; q; q--) {
+        for (uint q = (((uintll)node->paths[pid].mband) * XTUN_FLOWS_N) / node->tband; q; q--) {
             printk("XTUN: TUNNEL %s: FLOW %u -> PATH %u\n",
                 node->dev->name, flow, pid);
             node->flows[flow++] = pid;
@@ -599,34 +592,33 @@ static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
 
     path->itfc  = itfc;
 #endif
+
+    //
+    node->tband += path->mband;
 }
 
 static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
 
     printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH"
-        " IHASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX"
+        " IHASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX FLOW PACKETS %llu"
         "\n",
         cfg->name, nid, cfg->iHash,
         (uintll)cfg->keys[0],
         (uintll)cfg->keys[1],
         (uintll)cfg->keys[2],
-        (uintll)cfg->keys[3]
+        (uintll)cfg->keys[3],
+        (uintll)cfg->flowPackets
     );
 
-    for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
-        xtun_path_init(node, nid, &node->paths[pid], pid, &cfg->paths[pid]);
-
-    // INITIALIZE IT
-    node->iHash          =  cfg->iHash;
-    node->keys[0]        =  cfg->keys[0];
-    node->keys[1]        =  cfg->keys[1];
-    node->keys[2]        =  cfg->keys[2];
-    node->keys[3]        =  cfg->keys[3];
-    node->flowPackets    =  cfg->flowPackets;
-    node->flowRemaining  =  0;
-    node->flowShift      =  0;
-
-    xtun_node_flows_update(node);
+    node->iHash         = cfg->iHash;
+    node->keys[0]       = cfg->keys[0];
+    node->keys[1]       = cfg->keys[1];
+    node->keys[2]       = cfg->keys[2];
+    node->keys[3]       = cfg->keys[3];
+    node->flowPackets   = cfg->flowPackets;
+    node->flowRemaining = 0;
+    node->flowShift     = 0;
+    node->tband         = 0;
 
     // CREATE THE VIRTUAL INTERFACE
     net_device_s* const dev = alloc_netdev(sizeof(xtun_node_s*), cfg->name, NET_NAME_USER, xtun_dev_setup);
@@ -644,7 +636,13 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
         printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->name);
         node->dev = NULL;
         free_netdev(dev);
+        return;
     }
+
+    for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
+        xtun_path_init(node, nid, &node->paths[pid], pid, &cfg->paths[pid]);
+
+    xtun_node_flows_update(node);
 }
 
 // INITIALIZE TUNNELS
