@@ -291,7 +291,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 #endif
      || pid >= XTUN_PATHS_N
      || !node->dev)
-        goto pass;
+        return RX_HANDLER_PASS;
 
     // TRIM PACKET AS IN IP_INPUT()
     //BE16(hdr->iSize)
@@ -359,9 +359,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
             BE16(ETH_P_IPV6);
 
     return RX_HANDLER_ANOTHER;
-
-pass:
-    return RX_HANDLER_PASS;
 
 drop:
     kfree_skb(skb);
