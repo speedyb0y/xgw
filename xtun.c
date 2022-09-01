@@ -44,6 +44,8 @@ typedef struct net_device_ops net_device_ops_s;
 
 #define elif(c) else if(c)
 
+#define foreach(i, t) for (uint i = 0; i != (t); i++)
+
 static inline u8  BE8 (u8  x) { return                   x;  }
 static inline u16 BE16(u16 x) { return __builtin_bswap16(x); }
 static inline u32 BE32(u32 x) { return __builtin_bswap32(x); }
@@ -227,7 +229,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
 
     uint flow = 0;
 
-    for (uint pid = 0; pid != XTUN_PATHS_N; pid++) {
+    foreach (pid, XTUN_PATHS_N) {
 #if XTUN_SERVER
         for (uint q = (((uintll)node->paths[pid].sband) * XTUN_FLOWS_N) / node->tband; q; q--)
 #else
@@ -625,7 +627,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
     XTUN_DEV_NODE((node->dev = dev)) = node;
 
-    for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
+    foreach (pid, XTUN_PATHS_N)
         xtun_path_init(node, nid,
             &node->paths[pid], pid,
              &cfg->paths[pid]);
@@ -644,7 +646,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
 static void xtun_nodes_init (void) {
 
 #if XTUN_SERVER
-    for (uint nid = 0; nid != XTUN_NODES_N; nid++)
+    foreach (nid, XTUN_NODES_N)
         xtun_node_init(&nodes[nid], nid, &cfgNodes[nid]);
 #else
         xtun_node_init(node, XTUN_NODE_ID, cfgNode);
@@ -654,7 +656,7 @@ static void xtun_nodes_init (void) {
 // HOOK INTERFACES
 static void xtun_itfcs_hook (void) {
 
-    for (uint i = 0; i != ARRAY_COUNT(itfcs); i++) {
+    foreach (i, ARRAY_COUNT(itfcs)) {
 
         const char* const itfc = itfcs[i];
 
