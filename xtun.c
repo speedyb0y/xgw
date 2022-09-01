@@ -76,7 +76,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XTUN_NODE_ID XGW_XTUN_NODE_ID
 #endif
 
-#if XTUN_PATHS_N != 4
+#if ! (1 <= XTUN_PATHS_N && XTUN_PATHS_N <= 4)
 #error "BAD XTUN_PATHS_N"
 #endif
 
@@ -161,7 +161,7 @@ typedef struct xtun_path_s {
 typedef struct xtun_node_s {
     net_device_s* dev;
     u64 keys[XTUN_KEYS_N];
-    u64 tband;
+    u64 reserved2;
     u32 reserved;
     u16 iHash;
     u16 flowShift; // SHIFTA TODOS OS FLOW IDS AO MESMO TEMPO, AO SELECIONAR O PATH
@@ -192,7 +192,7 @@ typedef struct xtun_cfg_node_s {
     xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
 
-static const char* const itfcs[] = { "isp-0", "isp-1", };
+static const char* const itfcs[] = { "isp-0", "isp-1", "isp-2" };
 
 #if XTUN_SERVER
 static xtun_node_s nodes[XTUN_NODES_N];
@@ -206,16 +206,16 @@ static const xtun_cfg_node_s cfgNodes[XTUN_NODES_N] =
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
-    { .name = "xgw-0", .iHash = 0x2562, .keys = { 0, 0, 0, 0 }, .paths = {
-        { .itfc = "isp-0", .cband = 200*1000*1000, .sband = 500*1000*1000, .tos = 0, .ttl = 64,
+    { .name = "xgw-0", .iHash = 0x2562, .keys = { 0, 0, 0, 0 }, .flowPackets = 32*1000, .paths = {
+        { .itfc = "isp-0", .cband = 60, .sband = 480, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,10,10,10), .caddr = {192,168,0,20},    .cport = 2000,
             .smac = MAC(54,9F,06,F4,C7,A0), .saddr = {200,200,200,200}
         },
-        { .itfc = "isp-1", .cband = 10*1000*1000, .sband = 90*1000*1000, .tos = 0, .ttl = 64,
+        { .itfc = "isp-1", .cband = 40, .sband = 80, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,11,11,11), .caddr = {192,168,100,20},  .cport = 2111,
             .smac = MAC(CC,ED,21,96,99,C0), .saddr = {200,200,200,200}
         },
-        { .itfc = "isp-2", .cband = 250*1000*1000, .sband = 600*1000*1000, .tos = 0, .ttl = 64,
+        { .itfc = "isp-2", .cband = 90, .sband = 590, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,12,12,12), .caddr = {192,168,1,20},    .cport = 2222,
             .smac = MAC(90,55,DE,A1,CD,F0), .saddr = {200,200,200,200}
         },
@@ -229,7 +229,7 @@ static const xtun_cfg_node_s cfgNode[1] =
 #endif
 
 static void xtun_node_flows_print (const xtun_node_s* const node) {
-	
+
     char flows[XTUN_FLOWS_N + 1];
 
     foreach (fid, XTUN_FLOWS_N)
@@ -237,7 +237,7 @@ static void xtun_node_flows_print (const xtun_node_s* const node) {
     flows[XTUN_FLOWS_N] = '\0';
 
     printk("XTUN: TUNNEL %s: FLOWS: %s\n",
-        node->name, flows);
+        node->dev->name, flows);
 }
 
 static void xtun_node_flows_update (xtun_node_s* const node) {
@@ -281,6 +281,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
+    printk("MAC %p DATA %p LEN %u\n", skb_mac_header(skb), skb->data, skb->len);
     XTUN_ASSERT(PTR(skb_mac_header(skb)) == skb->data);
     // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
 
@@ -397,61 +398,33 @@ drop:
     return RX_HANDLER_CONSUMED;
 }
 
-//
-typedef union flow_hdr_s {
-    u8 b[48];
-    struct {
-        u64 _version;
-        u8  _ttl;
-        u8  protocol;
-        u16 _checksum;
-        u32 addrs[2];
-        u32 ports;
-        u8  _pad[20];
-    } ip4;
-    struct {
-        u32 _version;
-        u16 _size;
-        u8  protocol;
-        u8  _ttl;
-        u64 addrs[4];
-        u32 ports;
-    } ip6;
-} flow_hdr_s;
+static u64 xtun_flow_hash (const void* const flow) {
 
-static u64 xtun_flow_hash (const flow_hdr_s* const flow) {
+    u64 hash = BE8(*(u8*)flow);
 
-    u64 hash = BE8(flow->b[0]);
-
-    if (hash == 0x45) {
+    if ((hash & 0xF0) == 0x40) {
         // IPV4 WITHOUT OPTIONS
-        hash = BE8(flow->ip4.protocol);
+        hash = BE8(*(u64*)(flow + 9));
         if (hash == IPPROTO_TCP
          || hash == IPPROTO_UDP
          || hash == IPPROTO_UDPLITE
          || hash == IPPROTO_SCTP
          || hash == IPPROTO_DCCP)
-            hash += flow->ip4.ports;
-        hash += flow->ip4.addrs[0];
-        hash += flow->ip4.addrs[1];
-    } elif ((hash >>= 4) == 4) {
-        // IPV6 WITH OPTIONS
-        hash += flow->ip4.protocol;
-        hash += flow->ip4.addrs[0];
-        hash += flow->ip4.addrs[1];
-    } elif (hash == 6) {
+            hash += *(u32*)(flow + (BE8(*(u8*)flow) & 0x0F)*4);
+        hash += *(u64*)(flow + 12);
+    } elif ((hash & 0xF0) == 0x60) {
         // IPV6
-        hash = BE8(flow->ip4.protocol);
+        hash = BE8(*(u64*)(flow + 6));
         if (hash == IPPROTO_TCP
          || hash == IPPROTO_UDP
          || hash == IPPROTO_UDPLITE
          || hash == IPPROTO_SCTP
          || hash == IPPROTO_DCCP)
-            hash += flow->ip6.ports;
-        hash += flow->ip6.addrs[0];
-        hash += flow->ip6.addrs[1];
-        hash += flow->ip6.addrs[2];
-        hash += flow->ip6.addrs[3];
+            hash += *(u32*)(flow + 40);
+        hash += *(u64*)(flow + 8);
+        hash += *(u64*)(flow + 16);
+        hash += *(u64*)(flow + 24);
+        hash += *(u64*)(flow + 32);
     } else
         // UNKNOWN
         hash = 0;
@@ -471,7 +444,6 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: PTR(skb_network_header(skb)) == PTR(skb->data)
     // ASSERT: PTR(pkt) >= PTR(skb->head)
 
-    const flow_hdr_s* const flow = PTR(skb->data);
     xtun_path_s* const pkt = PTR(skb->data) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
@@ -485,7 +457,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // PATH
     xtun_path_s* const path = &node->paths[
             node->flows[
-                (node->flowShift + xtun_flow_hash(flow)) % XTUN_FLOWS_N
+                ((u64)node->flowShift + xtun_flow_hash(skb->data)) % XTUN_FLOWS_N
             ]
         ];
 
@@ -564,7 +536,7 @@ static void xtun_dev_setup (net_device_s* const dev) {
         ;
 }
 
-static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
+static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
 
     printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u"
         " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
@@ -618,18 +590,13 @@ static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
     path->uSize      =  BE16(0);
     path->uCksum     =  BE16(0);
 
-#if XTUN_SERVER
-    node->tband += path->sband;
-#else
-    node->tband += path->cband;
-
+#if !XTUN_SERVER
     net_device_s* const itfc = dev_get_by_name(&init_net, cfg->itfc);
 
     if (itfc) {
-
         // THE HOOK OWNS IT
         dev_put(itfc);
-
+        //
         if (itfc->rx_handler == xtun_in)
             path->itfc  = itfc;
         else
@@ -660,7 +627,6 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     node->flowPackets   = cfg->flowPackets;
     node->flowRemaining = 0;
     node->flowShift     = 0;
-    node->tband         = 0;
 
     // CREATE THE VIRTUAL INTERFACE
     net_device_s* const dev = alloc_netdev(sizeof(xtun_node_s*), cfg->name, NET_NAME_USER, xtun_dev_setup);
@@ -679,6 +645,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
              &cfg->paths[pid]);
 
     xtun_node_flows_update(node);
+    xtun_node_flows_print(node);
 
     // MAKE IT VISIBLE IN THE SYSTEM
     if (register_netdev(dev)) {
@@ -709,7 +676,7 @@ static void xtun_itfcs_hook (void) {
         net_device_s* dev;
 
         if (!(dev = dev_get_by_name(&init_net, itfc))) {
-            printk("XTUN: INTERFACE %s: COULD NOT FIND\n", itfc);
+            printk("XTUN: INTERFACE %s: HOOK: COULD NOT FIND\n", itfc);
             continue;
         }
 
@@ -721,14 +688,16 @@ static void xtun_itfcs_hook (void) {
             if (!netdev_rx_handler_register(dev, xtun_in, NULL)) {
                 // NOW IT'S HOOKED
                 // TODO: FIXME: TEM QUE FAZER ISSO EM TODAS AS INTERFACES OU NAO VAI PODER CONSIDERAR O SKB COMO xtun_path_s
-                printk("XTUN: INTERFACE %s: HOOKED\n", itfc);
+                printk("XTUN: INTERFACE %s: HOOK: SUCCESS\n", itfc);
                 dev->hard_header_len += sizeof(xtun_path_s) - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
                 dev->min_header_len  += sizeof(xtun_path_s) - ETH_HLEN;
                 dev = NULL;
-            }
-        } else
-            // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
+            } else
+                printk("XTUN: INTERFACE %s: HOOK: FAILED\n", itfc);
+        } else { // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
+            printk("XTUN: INTERFACE %s: HOOK: ALREADY\n", itfc);
             dev = NULL;
+        }
 
         rtnl_unlock();
 
@@ -744,9 +713,6 @@ static int __init xtun_init(void) {
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE_ALL);
     BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
-    BUILD_BUG_ON(sizeof(((flow_hdr_s*)0)->ip4) != sizeof(flow_hdr_s));
-    BUILD_BUG_ON(sizeof(((flow_hdr_s*)0)->ip4) !=
-                 sizeof(((flow_hdr_s*)0)->ip6));
 
     xtun_itfcs_hook();
 
