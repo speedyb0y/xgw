@@ -351,7 +351,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     skb->len             -= XTUN_PATH_SIZE_ETH;
     skb->dev              = node->dev;
     skb->protocol         =
-        ((hdr->iVersion & 0xF0) == 0x40) ?
+        ((hdr->iVersion >> 4) == 4) ?
             BE16(ETH_P_IP) :
             BE16(ETH_P_IPV6);
 
