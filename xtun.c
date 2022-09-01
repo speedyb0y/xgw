@@ -74,11 +74,6 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XTUN_NODE_ID XGW_XTUN_NODE_ID
 #endif
 
-#if  XTUN_SERVER_PORT < 1 \
- || (XTUN_SERVER_PORT + XTUN_NODES_N) > 0xFFFF
-#error "BAD XTUN_SERVER_PORT"
-#endif
-
 #if XTUN_PATHS_N != 4
 #error "BAD XTUN_PATHS_N"
 #endif
@@ -88,9 +83,19 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
  || XTUN_NODES_N > 256
 #error "BAD XTUN_NODES_N"
 #endif
-#elif XTUN_NODE_ID < 0 \
-   || XTUN_NODE_ID >= XTUN_NODES_N
+#if  XTUN_SERVER_PORT < 1 \
+ || (XTUN_SERVER_PORT + XTUN_NODES_N) > 0xFFFF
+#error "BAD XTUN_SERVER_PORT"
+#endif
+#else
+#if XTUN_NODE_ID < 0 \
+ || XTUN_NODE_ID >= 0xFFFF
 #error "BAD XTUN_NODE_ID"
+#endif
+#if  XTUN_SERVER_PORT < 1 \
+ ||  XTUN_SERVER_PORT > 0xFFFF
+#error "BAD XTUN_SERVER_PORT"
+#endif
 #endif
 
 #include "xtun-encoding.c"
@@ -204,7 +209,7 @@ static xtun_node_s node[1];
 #endif
 
 #if XTUN_SERVER
-static const xtun_cfg_node_s cfgs[XTUN_NODES_N] =
+static const xtun_cfg_node_s cfgNodes[XTUN_NODES_N] =
 #else
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
@@ -522,7 +527,7 @@ static void xtun_dev_setup (net_device_s* const dev) {
         ;
 }
 
-static void xtun_path_init (xtun_node_s* const node, xtun_path_s* const path, const xtun_cfg_path_s* const cfg) {
+static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
 
     printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u"
         " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
@@ -591,7 +596,7 @@ static void xtun_path_init (xtun_node_s* const node, xtun_path_s* const path, co
     dev_put(itfc);
 
     if (itfc->rx_handler != xtun_in) {
-        printk("XTUN: TUNNEL %s: CREATE FAILED - INTERFACE NOT HOOKED\n", node-dev->name);
+        printk("XTUN: TUNNEL %s: CREATE FAILED - INTERFACE NOT HOOKED\n", node->dev->name);
         return;
     }
 
@@ -599,7 +604,7 @@ static void xtun_path_init (xtun_node_s* const node, xtun_path_s* const path, co
 #endif
 }
 
-static void xtun_node_init (xtun_node_s* const node, xtun_cfg_node_s* const cfg, const uint nid) {
+static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
 
     printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH"
         " IHASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX"
@@ -612,7 +617,7 @@ static void xtun_node_init (xtun_node_s* const node, xtun_cfg_node_s* const cfg,
     );
 
     for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
-        xtun_path_init(node, &node->paths[pid], &cfg->paths[pid]);
+        xtun_path_init(node, nid, &node->paths[pid], pid, &cfg->paths[pid]);
 
     // INITIALIZE IT
     node->iHash          =  cfg->iHash;
@@ -631,7 +636,7 @@ static void xtun_node_init (xtun_node_s* const node, xtun_cfg_node_s* const cfg,
 
     if (!dev) {
         printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT ALLOCATE\n", cfg->name);
-        continue;
+        return;
     }
 
     // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
@@ -642,7 +647,6 @@ static void xtun_node_init (xtun_node_s* const node, xtun_cfg_node_s* const cfg,
         printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->name);
         node->dev = NULL;
         free_netdev(dev);
-        continue;
     }
 }
 
@@ -651,15 +655,15 @@ static void xtun_nodes_init (void) {
 
 #if XTUN_SERVER
     for (uint nid = 0; nid != XTUN_NODES_N; nid++)
-        xtun_node_init(&nodes[nid], &cfgs[nid]);
+        xtun_node_init(&nodes[nid], nid, &cfgNodes[nid]);
 #else
-    xtun_node_init(node, XTUN_NODE_ID);
+        xtun_node_init(node, XTUN_NODE_ID, cfgNode);
 #endif
 }
 
 // HOOK INTERFACES
 static void xtun_itfcs_hook (void) {
-    
+
     for (uint i = 0; i != ARRAY_COUNT(itfcs); i++) {
 
         const char* const itfc = itfcs[i];
