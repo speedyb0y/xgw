@@ -18,7 +18,7 @@
 #include <linux/module.h>
 
 #if XGW_XTUN_ASSERT
-#define XTUN_ASSERT(c) if (!(c)) { printk("ASSERT FAILED: " #c "\n"); }
+#define XTUN_ASSERT(c) ({ if (!(c)) printk("ASSERT FAILED: " #c "\n"); })
 #else
 #define XTUN_ASSERT(c) ({})
 #endif
