@@ -281,13 +281,12 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
-    printk("MAC %p DATA %p LEN %u\n", skb_mac_header(skb), skb->data, skb->len);
-    XTUN_ASSERT(PTR(skb_mac_header(skb)) == skb->data);
-    // ASSERT: (PTR(skb_mac_header(skb)) + skb->len) == skb->tail
+    XTUN_ASSERT(PTR(skb_network_header(skb)) == skb->data);
+    XTUN_ASSERT((PTR(skb_network_header(skb)) + skb->len) == SKB_TAIL(skb));
 
-    const xtun_path_s* const hdr = PTR(skb_mac_header(skb)) - XTUN_PATH_SIZE_PRIVATE;
+    const xtun_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xtun_path_s);
 
-    void* const payload = PTR(hdr) + sizeof(*hdr);
+    void* const payload = PTR(hdr) + sizeof(xtun_path_s);
 
     // IDENTIFY NODE AND PATH IDS FROM SERVER PORT
 #if XTUN_SERVER
@@ -395,16 +394,18 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 drop:
     kfree_skb(skb);
 
+	*pskb = NULL;
+
     return RX_HANDLER_CONSUMED;
 }
 
 static u64 xtun_flow_hash (const void* const flow) {
 
-    u64 hash = BE8(*(u8*)flow);
+    u64 hash = BE8(*(u8*)flow) >> 4;
 
-    if ((hash & 0xF0) == 0x40) {
-        // IPV4 WITHOUT OPTIONS
-        hash = BE8(*(u64*)(flow + 9));
+    if (hash == 4) {
+        // IPV4
+        hash = BE8(*(u8*)(flow + 9));
         if (hash == IPPROTO_TCP
          || hash == IPPROTO_UDP
          || hash == IPPROTO_UDPLITE
@@ -412,9 +413,9 @@ static u64 xtun_flow_hash (const void* const flow) {
          || hash == IPPROTO_DCCP)
             hash += *(u32*)(flow + (BE8(*(u8*)flow) & 0x0F)*4);
         hash += *(u64*)(flow + 12);
-    } elif ((hash & 0xF0) == 0x60) {
+    } elif (hash == 6) {
         // IPV6
-        hash = BE8(*(u64*)(flow + 6));
+        hash = BE8(*(u8*)(flow + 6));
         if (hash == IPPROTO_TCP
          || hash == IPPROTO_UDP
          || hash == IPPROTO_UDPLITE
@@ -488,6 +489,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     return NETDEV_TX_OK;
 }
 
+#if 0
 static int xtun_dev_up (net_device_s* const dev) {
 
     return 0;
@@ -506,11 +508,14 @@ static int xtun_dev_header_create (sk_buff_s *skb, net_device_s *dev, unsigned s
 static const header_ops_s xtunHeaderOps = {
     .create = xtun_dev_header_create,
 };
+#endif
 
 static const net_device_ops_s xtunDevOps = {
     .ndo_init             =  NULL,
+#if 0
     .ndo_open             =  xtun_dev_up,
     .ndo_stop             =  xtun_dev_down,
+#endif
     .ndo_start_xmit       =  xtun_dev_start_xmit,
     .ndo_set_mac_address  =  NULL,
     // TODO: SET MTU - NAO PODE SER MAIOR QUE A INTERFACE DE CIMA
@@ -519,7 +524,9 @@ static const net_device_ops_s xtunDevOps = {
 static void xtun_dev_setup (net_device_s* const dev) {
 
     dev->netdev_ops      = &xtunDevOps;
+#if 0
     dev->header_ops      = &xtunHeaderOps;
+#endif
     dev->type            = ARPHRD_NONE;
     dev->hard_header_len = XTUN_PATH_SIZE_ETH; // ETH_HLEN
     dev->min_header_len  = XTUN_PATH_SIZE_ETH;
@@ -683,7 +690,7 @@ static void xtun_itfcs_hook (void) {
         rtnl_lock();
 
         // NOTE: WE ARE SUPPORTING SAME INTERFACE MULTIPLE TIMES
-        if (dev->rx_handler != xtun_in) {
+        if (rcu_dereference(dev->rx_handler) != xtun_in) {
             // NOT HOOKED YET
             if (!netdev_rx_handler_register(dev, xtun_in, NULL)) {
                 // NOW IT'S HOOKED
