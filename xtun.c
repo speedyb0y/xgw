@@ -527,16 +527,10 @@ static uint xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
         cfg->sband, _MAC(cfg->smac), _IP4(&cfg->saddr), PORT(nid, pid)
     );
 
+    path->itfc       =  NULL;
 #if XTUN_SERVER
     path->hash       =  0;
     path->sband      =  cfg->sband;
-#else
-    path->seila      =  0;
-    path->cband      =  cfg->cband;
-    path->sband      =  cfg->sband;
-#endif
-    path->itfc       =  NULL;
-#if XTUN_SERVER
     path->eDst[0]    =  BE16(0);
     path->eDst[1]    =  BE16(0);
     path->eDst[2]    =  BE16(0);
@@ -544,6 +538,9 @@ static uint xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
     path->eSrc[1]    =  BE16(0);
     path->eSrc[2]    =  BE16(0);
 #else
+    path->seila      =  0;
+    path->cband      =  cfg->cband;
+    path->sband      =  cfg->sband;
     path->eDst[0]    =  BE16(cfg->smac16[0]);
     path->eDst[1]    =  BE16(cfg->smac16[1]);
     path->eDst[2]    =  BE16(cfg->smac16[2]);
