@@ -626,7 +626,9 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     XTUN_DEV_NODE((node->dev = dev)) = node;
 
     for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
-        xtun_path_init(node, nid, &node->paths[pid], pid, &cfg->paths[pid]);
+        xtun_path_init(node, nid,
+            &node->paths[pid], pid,
+             &cfg->paths[pid]);
 
     xtun_node_flows_update(node);
 
