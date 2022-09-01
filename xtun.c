@@ -63,17 +63,15 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define ARRAY_COUNT(a) (sizeof(a)/sizeof((a)[0]))
 
-#define XTUN_NODES_N XGW_XTUN_NODES_N
 #define XTUN_PATHS_N XGW_XTUN_PATHS_N
 
-#define XTUN_SERVER_IS   XGW_XTUN_SERVER_IS
+#define XTUN_SERVER   XGW_XTUN_SERVER_IS
 #define XTUN_SERVER_PORT XGW_XTUN_SERVER_PORT
 
+#if XTUN_SERVER
+#define XTUN_NODES_N XGW_XTUN_NODES_N
+#else
 #define XTUN_NODE_ID XGW_XTUN_NODE_ID
-
-#if XTUN_NODES_N < 1 \
- || XTUN_NODES_N > 256
-#error "BAD XTUN_NODES_N"
 #endif
 
 #if  XTUN_SERVER_PORT < 1 \
@@ -85,11 +83,14 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #error "BAD XTUN_PATHS_N"
 #endif
 
-#if !XTUN_SERVER_IS
-#if XTUN_NODE_ID < 0 \
- || XTUN_NODE_ID >= XTUN_NODES_N
-#error "BAD XTUN_NODE_ID"
+#if XTUN_SERVER
+#if XTUN_NODES_N < 1 \
+ || XTUN_NODES_N > 256
+#error "BAD XTUN_NODES_N"
 #endif
+#elif XTUN_NODE_ID < 0 \
+   || XTUN_NODE_ID >= XTUN_NODES_N
+#error "BAD XTUN_NODE_ID"
 #endif
 
 #include "xtun-encoding.c"
@@ -117,7 +118,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XTUN_PATH_SIZE_UDP       (                              UDP_HDR_SIZE)
 
 // MY BAND
-#if XTUN_SERVER_IS
+#if XTUN_SERVER
 #define mband sband
 #else
 #define mband cband
@@ -125,7 +126,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 typedef struct xtun_path_s {
     net_device_s* itfc;
-#if XTUN_SERVER_IS
+#if XTUN_SERVER
     u64 hash; // THE PATH HASH
 #else
     u32 seila;
@@ -150,7 +151,7 @@ typedef struct xtun_path_s {
     u32 iDst;
 #define UDP_HDR_SIZE 8
     u16 uSrc;
-    u16 uDst; // THE XTUN_SERVER_IS PORT WILL DETERMINE THE NODE AND PATH
+    u16 uDst; // THE XTUN_SERVER PORT WILL DETERMINE THE NODE AND PATH
     u16 uSize;
     u16 uCksum;
 } xtun_path_s;
@@ -194,23 +195,13 @@ typedef struct xtun_cfg_node_s {
     xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
 
-#if XTUN_SERVER_IS
-#define _NODE_ID(nid) (nid)
-#define _NODE_CFG(nid) const xtun_cfg_node_s* const cfgNode = &cfgs[nid];
-#define _NODE(nid) xtun_node_s* const node = &nodes[nid];
-#else
-#define _NODE_ID(nid) XTUN_NODE_ID
-#define _NODE_CFG(nid)
-#define _NODE(nid)
-#endif
-
-#if XTUN_SERVER_IS
+#if XTUN_SERVER
 static xtun_node_s nodes[XTUN_NODES_N];
 #else
 static xtun_node_s node[1];
 #endif
 
-#if XTUN_SERVER_IS
+#if XTUN_SERVER
 static const xtun_cfg_node_s cfgs[XTUN_NODES_N] =
 #else
 static const xtun_cfg_node_s cfgNode[1] =
@@ -241,11 +232,17 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
         (uintll)node->paths[3].mband
     ;
 
+    printk("XTUN: TUNNEL %s: TODAL BAND %llu\n",
+        node->dev->name, total);
+
     uint flow = 0;
 
     for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
-        for (uint q = (((uintll)node->paths[pid].mband) * XTUN_FLOWS_N) / total; q; q--)
+        for (uint q = (((uintll)node->paths[pid].mband) * XTUN_FLOWS_N) / total; q; q--) {
+            printk("XTUN: TUNNEL %s: FLOW %u -> PATH %u\n",
+                node->dev->name, flow, pid);
             node->flows[flow++] = pid;
+        }
 
     XTUN_ASSERT(flow == XTUN_FLOWS_N);
 }
@@ -268,7 +265,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     const uint payloadSize = SKB_TAIL(skb) - payload;
 
     // IDENTIFY NODE AND PATH IDS FROM SERVER PORT
-#if XTUN_SERVER_IS
+#if XTUN_SERVER
     const uint port = BE16(hdr->uDst);
 #else
     const uint port = BE16(hdr->uSrc);
@@ -276,13 +273,15 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     const uint nid = PORT_NID(port);
     const uint pid = PORT_PID(port);
 
-    _NODE(nid)
+#if XTUN_SERVER
+    xtun_node_s* const node = &nodes[nid];
+#endif
 
     if (skb->len < XTUN_PATH_SIZE_ETH
      || hdr->eType     != BE16(ETH_P_IP)
      || hdr->iVersion  != BE8(0x45)
      || hdr->iProtocol != BE8(IPPROTO_UDP)
-#if XTUN_SERVER_IS
+#if XTUN_SERVER
      || nid >= XTUN_NODES_N
 #else
      || nid != XTUN_NODE_ID
@@ -303,7 +302,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         // HASH MISMATCH
         goto drop;
 
-#if XTUN_SERVER_IS
+#if XTUN_SERVER
     // DETECT AND UPDATE PATH CHANGES
 
     xtun_path_s* const path = &node->paths[pid];
@@ -523,6 +522,130 @@ static void xtun_dev_setup (net_device_s* const dev) {
 
 static const char* const itfcs[] = { "eth0" };
 
+static void xtun_path_init (xtun_node_s* const node, xtun_path_s* const path, const xtun_cfg_path_s* const cfg) {
+
+    printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u"
+        " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
+        " SRV BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
+        node->dev->name, pid, cfg->itfc, cfg->tos, cfg->ttl,
+        cfg->cband, _MAC(cfg->cmac), _IP4(&cfg->caddr), cfg->cport,
+        cfg->sband, _MAC(cfg->smac), _IP4(&cfg->saddr), PORT(nid, pid)
+    );
+
+#if XTUN_SERVER
+    path->hash       =  0;
+    path->sband      =  cfg->sband;
+#else
+    path->seila      =  0;
+    path->cband      =  cfg->cband;
+    path->sband      =  cfg->sband;
+#endif
+    path->itfc       =  NULL;
+#if XTUN_SERVER
+    path->eDst[0]    =  BE16(0);
+    path->eDst[1]    =  BE16(0);
+    path->eDst[2]    =  BE16(0);
+    path->eSrc[0]    =  BE16(0);
+    path->eSrc[1]    =  BE16(0);
+    path->eSrc[2]    =  BE16(0);
+#else
+    path->eDst[0]    =  BE16(cfg->smac16[0]);
+    path->eDst[1]    =  BE16(cfg->smac16[1]);
+    path->eDst[2]    =  BE16(cfg->smac16[2]);
+    path->eSrc[0]    =  BE16(cfg->cmac16[0]);
+    path->eSrc[1]    =  BE16(cfg->cmac16[1]);
+    path->eSrc[2]    =  BE16(cfg->cmac16[2]);
+#endif
+    path->eType      =  BE16(ETH_P_IP);
+    path->iVersion   =  BE8(0x45);
+    path->iTOS       =  BE8(cfg->tos);
+    path->iSize      =  BE16(0);
+    path->iHash      =  BE16(0);
+    path->iFrag      =  BE16(0);
+    path->iTTL       =  BE8(cfg->ttl);
+    path->iProtocol  =  BE8(IPPROTO_UDP);
+    path->iCksum     =  BE16(0);
+#if XTUN_SERVER
+    path->iSrc       =  BE32(0);
+    path->iDst       =  BE32(0);
+    path->uSrc       =  BE16(PORT(nid, pid));
+    path->uDst       =  BE16(0);
+#else
+    path->iSrc       =  BE32(cfg->caddr32);
+    path->iDst       =  BE32(cfg->saddr32);
+    path->uSrc       =  BE16(cfg->cport);
+    path->uDst       =  BE16(PORT(nid, pid));
+#endif
+    path->uSize      =  BE16(0);
+    path->uCksum     =  BE16(0);
+
+#if !XTUN_SERVER
+    net_device_s* const itfc = dev_get_by_name(&init_net, cfg->itfc);
+
+    if (!itfc) {
+        printk("XTUN: TUNNEL %s: CREATE FAILED - INTERFACE NOT FOUND\n", node->dev->name);
+        return;
+    }
+
+    // THE HOOK OWNS IT
+    dev_put(itfc);
+
+    if (itfc->rx_handler != xtun_in) {
+        printk("XTUN: TUNNEL %s: CREATE FAILED - INTERFACE NOT HOOKED\n", node-dev->name);
+        return;
+    }
+
+    path->itfc  = itfc;
+#endif
+}
+
+static void xtun_node_init (xtun_node_s* const node, xtun_cfg_node_s* const cfg, const uint nid) {
+
+    printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH"
+        " IHASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX"
+        "\n",
+        cfg->name, nid, cfg->iHash,
+        (uintll)cfg->keys[0],
+        (uintll)cfg->keys[1],
+        (uintll)cfg->keys[2],
+        (uintll)cfg->keys[3]
+    );
+
+    for (uint pid = 0; pid != XTUN_PATHS_N; pid++)
+        xtun_path_init(node, &node->paths[pid], &cfg->paths[pid]);
+
+    // INITIALIZE IT
+    node->iHash          =  cfg->iHash;
+    node->keys[0]        =  cfg->keys[0];
+    node->keys[1]        =  cfg->keys[1];
+    node->keys[2]        =  cfg->keys[2];
+    node->keys[3]        =  cfg->keys[3];
+    node->flowPackets    =  cfg->flowPackets;
+    node->flowRemaining  =  0;
+    node->flowShift      =  0;
+
+    xtun_node_flows_update(node);
+
+    // CREATE THE VIRTUAL INTERFACE
+    net_device_s* const dev = alloc_netdev(sizeof(xtun_node_s*), cfg->name, NET_NAME_USER, xtun_dev_setup);
+
+    if (!dev) {
+        printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT ALLOCATE\n", cfg->name);
+        continue;
+    }
+
+    // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
+    XTUN_DEV_NODE((node->dev = dev)) = node;
+
+    // MAKE IT VISIBLE IN THE SYSTEM
+    if (register_netdev(dev)) {
+        printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->name);
+        node->dev = NULL;
+        free_netdev(dev);
+        continue;
+    }
+}
+
 static int __init xtun_init(void) {
 
     printk("XTUN: INIT\n");
@@ -569,144 +692,17 @@ static int __init xtun_init(void) {
     }
 
     // INITIALIZE TUNNELS
-#if XTUN_SERVER_IS
+#if XTUN_SERVER
     memset(nodes, 0, sizeof(nodes));
 #else
     memset(node, 0, sizeof(node));
 #endif
 
-#if XTUN_SERVER_IS
-    for (uint nid = 0; nid != XTUN_NODES_N; nid++) {
+#if XTUN_SERVER
+    for (uint nid = 0; nid != XTUN_NODES_N; nid++)
+        xtun_node_init(&nodes[nid], &cfgs[nid]);
 #else
-    do {
-#endif
-        _NODE_CFG(nid)
-        _NODE(nid)
-
-        printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH"
-            " IHASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX"
-            "\n",
-            cfgNode->name, _NODE_ID(nid), cfgNode->iHash,
-            (uintll)cfgNode->keys[0],
-            (uintll)cfgNode->keys[1],
-            (uintll)cfgNode->keys[2],
-            (uintll)cfgNode->keys[3]
-        );
-
-        for (uint pid = 0; pid != XTUN_PATHS_N; pid++) {
-
-            const xtun_cfg_path_s* const cfgPath = &cfgNode->paths[pid];
-
-            printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u"
-                " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
-                " SRV BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
-                cfgNode->name, pid, cfgPath->itfc, cfgPath->tos, cfgPath->ttl,
-                cfgPath->cband, _MAC(cfgPath->cmac), _IP4(&cfgPath->caddr), cfgPath->cport,
-                cfgPath->sband, _MAC(cfgPath->smac), _IP4(&cfgPath->saddr), PORT(_NODE_ID(nid), pid)
-            );
-
-#if XTUN_SERVER_IS
-            net_device_s* const itfc = NULL;
-#else
-            net_device_s* const itfc = dev_get_by_name(&init_net, cfgPath->itfc);
-
-            if (!itfc) {
-                printk("XTUN: TUNNEL %s: CREATE FAILED - INTERFACE NOT FOUND\n", cfgNode->name);
-                continue;
-            }
-
-            // THE HOOK OWNS IT
-            dev_put(itfc);
-
-            if (itfc->rx_handler != xtun_in) {
-                printk("XTUN: TUNNEL %s: CREATE FAILED - INTERFACE NOT HOOKED\n", cfgNode->name);
-                continue;
-            }
-#endif
-            xtun_path_s* const path = &node->paths[pid];
-
-#if XTUN_SERVER_IS
-            path->hash       =  0;
-            path->sband      =  cfgPath->sband;
-#else
-            path->seila      =  0;
-            path->cband      =  cfgPath->cband;
-            path->sband      =  cfgPath->sband;
-#endif
-            path->itfc       =  itfc;
-#if XTUN_SERVER_IS
-            path->eDst[0]    =  BE16(0);
-            path->eDst[1]    =  BE16(0);
-            path->eDst[2]    =  BE16(0);
-            path->eSrc[0]    =  BE16(0);
-            path->eSrc[1]    =  BE16(0);
-            path->eSrc[2]    =  BE16(0);
-#else
-            path->eDst[0]    =  BE16(cfgPath->smac16[0]);
-            path->eDst[1]    =  BE16(cfgPath->smac16[1]);
-            path->eDst[2]    =  BE16(cfgPath->smac16[2]);
-            path->eSrc[0]    =  BE16(cfgPath->cmac16[0]);
-            path->eSrc[1]    =  BE16(cfgPath->cmac16[1]);
-            path->eSrc[2]    =  BE16(cfgPath->cmac16[2]);
-#endif
-            path->eType      =  BE16(ETH_P_IP);
-            path->iVersion   =  BE8(0x45);
-            path->iTOS       =  BE8(cfgPath->tos);
-            path->iSize      =  BE16(0);
-            path->iHash      =  BE16(0);
-            path->iFrag      =  BE16(0);
-            path->iTTL       =  BE8(cfgPath->ttl);
-            path->iProtocol  =  BE8(IPPROTO_UDP);
-            path->iCksum     =  BE16(0);
-#if XTUN_SERVER_IS
-            path->iSrc       =  BE32(0);
-            path->iDst       =  BE32(0);
-            path->uSrc       =  BE16(PORT(nid, pid));
-            path->uDst       =  BE16(0);
-#else
-            path->iSrc       =  BE32(cfgPath->caddr32);
-            path->iDst       =  BE32(cfgPath->saddr32);
-            path->uSrc       =  BE16(cfgPath->cport);
-            path->uDst       =  BE16(PORT(_NODE_ID(nid), pid));
-#endif
-            path->uSize      =  BE16(0);
-            path->uCksum     =  BE16(0);
-        }
-
-        // INITIALIZE IT
-        node->iHash          =  cfgNode->iHash;
-        node->keys[0]        =  cfgNode->keys[0];
-        node->keys[1]        =  cfgNode->keys[1];
-        node->keys[2]        =  cfgNode->keys[2];
-        node->keys[3]        =  cfgNode->keys[3];
-        node->flowPackets    =  cfgNode->flowPackets;
-        node->flowRemaining  =  0;
-        node->flowShift      =  0;
-
-        xtun_node_flows_update(node);
-
-        // CREATE THE VIRTUAL INTERFACE
-        net_device_s* const dev = alloc_netdev(sizeof(xtun_node_s*), cfgNode->name, NET_NAME_USER, xtun_dev_setup);
-
-        if (!dev) {
-            printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT ALLOCATE\n", cfgNode->name);
-            continue;
-        }
-
-        // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
-        XTUN_DEV_NODE((node->dev = dev)) = node;
-
-        // MAKE IT VISIBLE IN THE SYSTEM
-        if (register_netdev(dev)) {
-            printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfgNode->name);
-            node->dev = NULL;
-            free_netdev(dev);
-            continue;
-        }
-#if XTUN_SERVER_IS
-    }
-#else
-    } while (0);
+    xtun_node_init(node, XTUN_NODE_ID);
 #endif
 
     return 0;
