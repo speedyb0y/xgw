@@ -222,33 +222,59 @@ static const xtun_cfg_node_s cfgNode[1] =
     }},
 };
 
+#if XTUN_SERVER
+#define mband sband
+#else
+#define mband cband
+#endif
+
+static void xtun_node_flows_print (xtun_node_s* const node) {
+	
+    char str[XTUN_FLOWS_N + 1];
+    
+    foreach (fid, XTUN_FLOWS_N)
+		str[fid] = '0' + node->flows[fid];
+	str[XTUN_FLOWS_N] = '\0';
+
+    printk("XTUN: TUNNEL %s: FLOWS: %s\n",
+		node->dev->name, str);
+}
+
 static void xtun_node_flows_update (xtun_node_s* const node) {
 
-    if (node->tband) {
+    uintll total = 0;
+    uintll maiorB = 0;
+    uintll maiorP = 0;
 
-        printk("XTUN: TUNNEL %s: BAND %llu\n",
-            node->dev->name, node->tband);
+    foreach (pid, XTUN_PATHS_N) {
+		const uint b = node->paths[pid].mband;
+		// CALCULA O TOTAL
+        total += b;
+        // LEMBRA O PATH COM MAIOR BANDWIDTH
+        // LEMBRA O BANDWIDTH DELE
+        if (maiorB < b) {			
+			maiorB = b;
+			maiorP = pid;
+		}
+	}
 
-        uint fid = 0;
-        uint pid = 0;
+    u8* flows = node->flows;
+    uint flowsR = XTUN_FLOWS_N;
+    uint pid = maiorP;
 
+    if (total) {
         do {
-#if XTUN_SERVER
-            uint q = (((uintll)node->paths[pid].sband) * XTUN_FLOWS_N) / node->tband;
-#else
-            uint q = (((uintll)node->paths[pid].cband) * XTUN_FLOWS_N) / node->tband;
-#endif
-            printk("XTUN: TUNNEL %s: PATH %u: HAS %u FLOWS\n",
-                node->dev->name, pid, q);
+            uint q = (((uintll)node->paths[pid].mband) * XTUN_FLOWS_N) / total;
             while (q--)
-                node->flows[fid++] = pid;
-        } while (fid != XTUN_FLOWS_N && ++pid != XTUN_PATHS_N);
-        //
-        while (fid != XTUN_FLOWS_N)
-            node->flows[fid++] = 0;
-    } else
-        printk("XTUN: TUNNEL %s: HAS NO BAND\n",
-            node->dev->name);
+                *flows++ = pid;                 
+            flowsR -= q;
+            pid = (pid + 1) % XTUN_PATHS_N;
+        } while (flowsR && pid != maiorP);
+    }
+    
+    // O QUE SOBRAR DEIXA COM O MAIOR PATH
+    while (flowsR--)
+        *flows++ = pid;
 }
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
