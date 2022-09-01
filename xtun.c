@@ -370,16 +370,18 @@ drop:
 //
 typedef union flow_hdr_s {
     struct {
-        u64 _ab;
-        u8 _ttl;
+        u8  version;
+        u8  _x[7];
+        u8  _ttl;
         u8  protocol;
         u16 _checksum;
         u32 addrs[2];
         u32 ports;
-        u8 _pad[20];
+        u8  _pad[20];
     } ip4;
     struct {
-        u32 _ab;
+        u8  version;
+        u8  _x[3];
         u16 _size;
         u8  protocol;
         u8  _ttl;
@@ -394,8 +396,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: skb->len <= xtun->dev->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->path->itfc->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
 
-    flow_hdr_s* const flow = PTR(skb->data);
-    xtun_path_s* const pkt = PTR(flow) - sizeof(xtun_path_s);
+    flow_hdr_s* const fhdr = PTR(skb->data);
+    xtun_path_s* const pkt = PTR(fhdr) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
     // ENVIA flowPackets, E AÍ AVANCA flowShift
@@ -406,30 +408,30 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
         node->flowRemaining--;
 
     // FLOW ID
-    u64 fid = *(u8*)flow >> 4;
+    u64 fid = BE8(fhdr->version) >> 4;
 
     if (fid == 4) {
-        fid = flow->ip4.protocol;
+        fid = BE8(fhdr->ip4.protocol);
         if (fid == IPPROTO_TCP
          || fid == IPPROTO_UDP
          || fid == IPPROTO_UDPLITE
          || fid == IPPROTO_SCTP
          || fid == IPPROTO_DCCP)
-            fid += flow->ip4.ports;
-        fid += flow->ip4.addrs[0];
-        fid += flow->ip4.addrs[1];
+            fid += fhdr->ip4.ports;
+        fid += fhdr->ip4.addrs[0];
+        fid += fhdr->ip4.addrs[1];
     } elif (fid == 6) {
-        fid = flow->ip4.protocol;
+        fid = BE8(fhdr->ip4.protocol);
         if (fid == IPPROTO_TCP
          || fid == IPPROTO_UDP
          || fid == IPPROTO_UDPLITE
          || fid == IPPROTO_SCTP
          || fid == IPPROTO_DCCP)
-            fid += flow->ip6.ports;
-        fid += flow->ip6.addrs[0];
-        fid += flow->ip6.addrs[1];
-        fid += flow->ip6.addrs[2];
-        fid += flow->ip6.addrs[3];
+            fid += fhdr->ip6.ports;
+        fid += fhdr->ip6.addrs[0];
+        fid += fhdr->ip6.addrs[1];
+        fid += fhdr->ip6.addrs[2];
+        fid += fhdr->ip6.addrs[3];
     }
 
     fid += fid >> 32;
