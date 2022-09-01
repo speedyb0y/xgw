@@ -580,20 +580,17 @@ static void xtun_path_init (xtun_node_s* const node, const uint nid, xtun_path_s
 #if !XTUN_SERVER
     net_device_s* const itfc = dev_get_by_name(&init_net, cfg->itfc);
 
-    if (!itfc) {
-        printk("XTUN: TUNNEL %s: CREATE FAILED - INTERFACE NOT FOUND\n", node->dev->name);
-        return;
-    }
+    if (itfc) {
 
-    // THE HOOK OWNS IT
-    dev_put(itfc);
+        // THE HOOK OWNS IT
+        dev_put(itfc);
 
-    if (itfc->rx_handler != xtun_in) {
-        printk("XTUN: TUNNEL %s: CREATE FAILED - INTERFACE NOT HOOKED\n", node->dev->name);
-        return;
-    }
-
-    path->itfc  = itfc;
+        if (itfc->rx_handler == xtun_in)
+            path->itfc  = itfc;        
+        else
+            printk("XTUN: TUNNEL %s: PATH %u: CREATE FAILED - INTERFACE NOT HOOKED\n", node->dev->name, pid);        
+    } else
+        printk("XTUN: TUNNEL %s: PATH %u: CREATE FAILED - INTERFACE NOT FOUND\n", node->dev->name, pid); 
 #endif
 }
 
