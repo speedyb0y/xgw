@@ -377,8 +377,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 #endif
 
     // TRIM PACKET AS IN ip_rcv_core()
-    if (1)
-        pskb_trim(skb, payloadSize);
+    pskb_trim(skb, payloadSize);
 
     // DESENCAPSULA
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
