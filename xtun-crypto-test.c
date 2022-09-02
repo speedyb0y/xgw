@@ -50,8 +50,12 @@ typedef uint64_t u64;
 #define CHUNK_SIZE_MAX 1500
 #endif
 
-#ifndef DECODE
-#define DECODE 1
+#ifndef TEST_ENCODE
+#define TEST_ENCODE 1
+#endif
+
+#ifndef TEST_DECODE
+#define TEST_DECODE 1
 #endif
 
 #ifndef PRINT
@@ -60,6 +64,35 @@ typedef uint64_t u64;
 
 #ifndef COUNT
 #define COUNT 1
+#endif
+
+#ifndef TEST_SPEED
+#define TEST_SPEED 0
+#endif
+
+#ifndef TEST_CRYPTO_ALGO_NULL0
+#define TEST_CRYPTO_ALGO_NULL0 0
+#endif
+#ifndef TEST_CRYPTO_ALGO_NULLX
+#define TEST_CRYPTO_ALGO_NULLX 0
+#endif
+#ifndef TEST_CRYPTO_ALGO_SUM32
+#define TEST_CRYPTO_ALGO_SUM32 0
+#endif
+#ifndef TEST_CRYPTO_ALGO_SUM64
+#define TEST_CRYPTO_ALGO_SUM64 0
+#endif
+#ifndef TEST_CRYPTO_ALGO_SHIFT64_1
+#define TEST_CRYPTO_ALGO_SHIFT64_1 0
+#endif
+#ifndef TEST_CRYPTO_ALGO_SHIFT64_2
+#define TEST_CRYPTO_ALGO_SHIFT64_2 0
+#endif
+#ifndef TEST_CRYPTO_ALGO_SHIFT64_3
+#define TEST_CRYPTO_ALGO_SHIFT64_3 0
+#endif
+#ifndef TEST_CRYPTO_ALGO_SHIFT64_4
+#define TEST_CRYPTO_ALGO_SHIFT64_4 0
 #endif
 
 static inline u64 myrandom (void) {
@@ -72,14 +105,30 @@ static inline u64 myrandom (void) {
     return x;
 }
 
-int main (void) {
+static const xtun_crypto_algo_e cryptoAlgo = XTUN_CRYPTO_ALGO;
 
-	u64 keys[4] = {
-		0x464564456ULL,
-		0xE34232045ULL,
-		0x004560464ULL,
-		0x352532532ULL,
-	};
+static xtun_crypto_params_s cryptoParams = {
+#if   TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULL0
+
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULLX
+    .nullx = {
+        .x = 0x1234,
+    }
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_4
+    .shift64_4 = {
+        .k = {
+            0x464564456ULL,
+            0xE34232045ULL,
+            0x004560464ULL,
+            0x352532532ULL,
+        }
+    }
+#else
+#error
+#endif
+};
+
+int main (void) {
 
     u8 chunk[CHUNK_SIZE_MAX];
     u8 chunkRW[CHUNK_SIZE_MAX];
@@ -90,24 +139,34 @@ int main (void) {
 #if PRINT
         fprintf(stderr, "SIZE %u\n", chunkSize);
 #endif
-#if 1
+#if TEST_SPEED
             // USA ESSE ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
 #endif
         for (uint c = COUNT; c; c--) {
 
-#if 0
+#if !TEST_SPEED
             memcpy(chunkRW, chunk, chunkSize);
 #endif
 
-            keys[0] += (u64)myrandom();
-            keys[1] += (u64)myrandom();
-            keys[2] += (u64)myrandom();
-            keys[3] += (u64)myrandom();
+#if   TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULL0
+			// NOTHING
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULLX
+            cryptoParams.nullx.x++;
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_3
+            cryptoParams.shift64_3.keys[0] += (u64)myrandom();
+            cryptoParams.shift64_3.keys[1] += (u64)myrandom();
+            cryptoParams.shift64_3.keys[2] += (u64)myrandom();
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_4
+            cryptoParams.shift64_4.keys[0] += (u64)myrandom();
+            cryptoParams.shift64_4.keys[1] += (u64)myrandom();
+            cryptoParams.shift64_4.keys[2] += (u64)myrandom();
+            cryptoParams.shift64_4.keys[3] += (u64)myrandom();
+#endif
 
             // ENCODE
-#if !TEST
-            const u16 hashOriginal = xtun_encode(keys, chunkRW, chunkSize);
+#if TEST_ENCODE
+            const u16 hashOriginal = xtun_crypto_encode[cryptoAlgo](&cryptoParams, chunkRW, chunkSize);
 #else
             const u16 hashOriginal = 0;
 #endif
@@ -126,16 +185,16 @@ int main (void) {
 
 #if PRINT
             fprintf(stderr, "\n -- KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX  = HASH 0x%04X \n",
-                (uintll)keys[0],
-                (uintll)keys[1],
-                (uintll)keys[2],
-                (uintll)keys[3],
+                (uintll)cryptoParams.shift64_4.keys[0],
+                (uintll)cryptoParams.shift64_4.keys[1],
+                (uintll)cryptoParams.shift64_4.keys[2],
+                (uintll)cryptoParams.shift64_4.keys[3],
                 hashOriginal);
 #endif
-#if DECODE
+#if TEST_DECODE
             // DECODE
 #if !TEST
-            const u64 hashNew = xtun_decode(keys, chunkRW, chunkSize);
+            const u64 hashNew = xtun_crypto_decode[cryptoAlgo](&cryptoParams, keys, chunkRW, chunkSize);
 #else
             const u64 hashNew = hashOriginal;
 #endif
