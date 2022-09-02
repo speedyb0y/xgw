@@ -46,7 +46,7 @@ static inline u64 decrypt64 (u64 x, const u64 mask) {
 
 typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
 #if XGW_XTUN_CRYPTO_ALGO_NULL0
-	// NOTHING
+    // NOTHING
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_NULLX
     struct xtun_crypto_params_nullx_s {
@@ -55,27 +55,33 @@ typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
     struct xtun_crypto_params_shift32_1_s {
-        u32 k[1];
+        u32 k;
     } shift32_1;
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
     struct xtun_crypto_params_shift64_1_s {
-        u64 k[1];
+        u64 k;
     } shift64_1;
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
     struct xtun_crypto_params_shift64_2_s {
-        u64 k[2];
+        u64 a;
+        u64 b;
     } shift64_2;
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
     struct xtun_crypto_params_shift64_3_s {
-        u64 k[3];
+        u64 a;
+        u64 b;
+        u64 c;
     } shift64_3;
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
     struct xtun_crypto_params_shift64_4_s {
-        u64 k[4];
+        u64 a;
+        u64 b;
+        u64 c;
+        u64 d;
     } shift64_4;
 #endif
 } xtun_crypto_params_s;
@@ -83,9 +89,9 @@ typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
 static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u32 k0 = params->shift32_1.k[0];
+    u32 k = params->shift32_1.k;
 
-    k0 += encrypt32(k0, size);
+    k += encrypt32(k, size);
 
     data += size;
 
@@ -95,10 +101,10 @@ static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restr
         const u32 orig = BE32(*(u32*)data);
         u32 value = orig;
         value = encrypt32(value, size);
-        value = encrypt32(value, k0);
+        value = encrypt32(value, k);
         *(u32*)data = BE32(value);
-        k0 += encrypt32(orig, size);
-        k0 += encrypt32(size, size);
+        k += encrypt32(k, orig);
+        k += encrypt32(orig, k);
     }
 
     while (size) {
@@ -106,24 +112,24 @@ static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restr
         data -= sizeof(u8);
         const u8 orig = BE8(*(u8*)data);
         u32 value = orig;
-        value += encrypt32(k0, size);
+        value += encrypt32(k, size);
         value &= 0xFFU;
         *(u8*)data = BE8(value);
-        k0 += encrypt32(orig, size);
-        k0 += encrypt32(size, size);
+        k += encrypt32(k, orig);
+        k += encrypt32(orig, k);
     }
 
-    k0 += k0 >> 16;
-    k0 &= 0xFFFFULL;
+    k += k >> 16;
+    k &= 0xFFFFULL;
 
-    return (u16)k0;
+    return (u16)k;
 }
 
 static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u32 k0 = params->shift32_1.k[0];
+    u32 k = params->shift32_1.k;
 
-    k0 += encrypt32(k0, size);
+    k += encrypt32(k, size);
 
     data += size;
 
@@ -131,28 +137,28 @@ static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restr
         size -= sizeof(u32);
         data -= sizeof(u32);
         u32 orig = BE32(*(u32*)data);
-        orig = decrypt32(orig, k0);
+        orig = decrypt32(orig, k);
         orig = decrypt32(orig, size);
         *(u32*)data = BE32(orig);
-        k0 += encrypt32(orig, size);
-        k0 += encrypt32(size, size);
+        k += encrypt32(k, orig);
+        k += encrypt32(orig, k);
     }
 
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
         u32 orig = BE8(*(u8*)data);
-        orig -= encrypt32(k0, size);
+        orig -= encrypt32(k, size);
         orig &= 0xFFU;
         *(u8*)data = BE8(orig);
-        k0 += encrypt32(orig, size);
-        k0 += encrypt32(size, size);
+        k += encrypt32(k, orig);
+        k += encrypt32(orig, k);
     }
 
-    k0 += k0 >> 16;
-    k0 &= 0xFFFFULL;
+    k += k >> 16;
+    k &= 0xFFFFULL;
 
-    return (u16)k0;
+    return (u16)k;
 }
 #endif
 
@@ -160,234 +166,190 @@ static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restr
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
 static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k0 = params->shift64_1.k[0];
+    u64 k = params->shift64_1.k;
 
-    k0 += encrypt64(k0, size);
+    k += encrypt64(k, size);
 
     data += size;
 
     while (size >= sizeof(u64)) {
-
         size -= sizeof(u64);
         data -= sizeof(u64);
-
         const u64 orig = BE64(*(u64*)data);
-
         u64 value = orig;
-
         value = encrypt64(value, size);
-        value = encrypt64(value, k0);
-
+        value = encrypt64(value, k);
         *(u64*)data = BE64(value);
-
-        k0 += encrypt64(orig, size);
-        k0 += encrypt64(size, size);
+        k += encrypt64(orig, k);
+        k += encrypt64(k, orig);
     }
 
     while (size) {
-
         size -= sizeof(u8);
         data -= sizeof(u8);
-
         const u8 orig = BE8(*(u8*)data);
-
         u64 value = orig;
-
-        value += encrypt64(k0, size);
+        value += encrypt64(k, size);
         value &= 0xFFU;
-
         *(u8*)data = BE8(value);
-
-        k0 += encrypt64(orig, size);
-        k0 += encrypt64(size, size);
+        k += encrypt64(orig, k);
+        k += encrypt64(k, orig);
     }
 
-    k0 += k0 >> 32;
-    k0 += k0 >> 16;
-    k0 &= 0xFFFFULL;
+    k += k >> 32;
+    k += k >> 16;
+    k &= 0xFFFFULL;
 
-    return (u16)k0;
+    return (u16)k;
 }
 
 static u16 xtun_crypto_shift64_1_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k0 = params->shift64_1.k[0];
+    u64 k = params->shift64_1.k;
 
-    k0 += encrypt64(k0, size);
+    k += encrypt64(k, size);
 
     data += size;
 
     while (size >= sizeof(u64)) {
-
         size -= sizeof(u64);
         data -= sizeof(u64);
-
         u64 orig = BE64(*(u64*)data);
-
-        orig = decrypt64(orig, k0);
+        orig = decrypt64(orig, k);
         orig = decrypt64(orig, size);
-
         *(u64*)data = BE64(orig);
-
-        k0 += encrypt64(orig, size);
-        k0 += encrypt64(size, size);
+        k += encrypt64(orig, k);
+        k += encrypt64(k, orig);
     }
 
     while (size) {
-
         size -= sizeof(u8);
         data -= sizeof(u8);
-
         u64 orig = BE8(*(u8*)data);
-
-        orig -= encrypt64(k0, size);
+        orig -= encrypt64(k, size);
         orig &= 0xFFU;
-
         *(u8*)data = BE8(orig);
-
-        k0 += encrypt64(orig, size);
-        k0 += encrypt64(size, size);
+        k += encrypt64(orig, k);
+        k += encrypt64(k, orig);
     }
 
-    k0 += k0 >> 32;
-    k0 += k0 >> 16;
-    k0 &= 0xFFFFULL;
+    k += k >> 32;
+    k += k >> 16;
+    k &= 0xFFFFULL;
 
-    return (u16)k0;
+    return (u16)k;
 }
 #endif
 
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
 static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k0 = params->shift64_4.k[0];
-    u64 k1 = params->shift64_4.k[1];
-    u64 k2 = params->shift64_4.k[2];
-    u64 k3 = params->shift64_4.k[3];
+    u64 a = params->shift64_4.a;
+    u64 b = params->shift64_4.b;
+    u64 c = params->shift64_4.c;
+    u64 d = params->shift64_4.d;
 
-    k0 += encrypt64(k3, size);
-    k1 += encrypt64(k2, size);
-    k2 += encrypt64(k1, size);
-    k3 += encrypt64(k0, size);
+    a += encrypt64(d, size);
+    b += encrypt64(c, size);
+    c += encrypt64(b, size);
+    d += encrypt64(a, size);
 
     data += size;
 
     while (size >= sizeof(u64)) {
-
         size -= sizeof(u64);
         data -= sizeof(u64);
-
         const u64 orig = BE64(*(u64*)data);
-
         u64 value = orig;
-
         value = encrypt64(value, size);
-        value = encrypt64(value, k0);
-        value = encrypt64(value, k1);
-        value = encrypt64(value, k2);
-        value = encrypt64(value, k3);
-
+        value = encrypt64(value, a);
+        value = encrypt64(value, b);
+        value = encrypt64(value, c);
+        value = encrypt64(value, d);
         *(u64*)data = BE64(value);
-
-        k0 += encrypt64(k3, orig);
-        k1 += encrypt64(k0, size);
-        k2 += encrypt64(orig, k1);
-        k3 += encrypt64(orig, k2);
+        a += encrypt64(orig, size);
+        b += encrypt64(a, orig);
+        c += encrypt64(b, orig);
+        d += encrypt64(c, orig);
     }
 
     while (size) {
-
         size -= sizeof(u8);
         data -= sizeof(u8);
-
         const u8 orig = BE8(*(u8*)data);
-
         u64 value = orig;
-
-        value += encrypt64(k0, size);
-        value += encrypt64(k1, size);
-        value += encrypt64(k2, size);
-        value += encrypt64(k3, size);
+        value += encrypt64(a, size);
+        value += encrypt64(b, size);
+        value += encrypt64(c, size);
+        value += encrypt64(d, size);
         value &= 0xFFU;
-
         *(u8*)data = BE8(value);
-
-        k0 += encrypt64(k1, orig);
-        k1 += encrypt64(orig, k0);
+        a += encrypt64(b, orig);
+        b += encrypt64(orig, a);
     }
 
-    k0 += k1;
-    k0 += k2;
-    k0 += k3;
-    k0 += k0 >> 32;
-    k0 += k0 >> 16;
-    k0 &= 0xFFFFULL;
+    a += b;
+    a += c;
+    a += d;
+    a += a >> 32;
+    a += a >> 16;
+    a &= 0xFFFFULL;
 
-    return (u16)k0;
+    return (u16)a;
 }
 
 static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k0 = params->shift64_4.k[0];
-    u64 k1 = params->shift64_4.k[1];
-    u64 k2 = params->shift64_4.k[2];
-    u64 k3 = params->shift64_4.k[3];
+    u64 a = params->shift64_4.a;
+    u64 b = params->shift64_4.b;
+    u64 c = params->shift64_4.c;
+    u64 d = params->shift64_4.d;
 
-    k0 += encrypt64(k3, size);
-    k1 += encrypt64(k2, size);
-    k2 += encrypt64(k1, size);
-    k3 += encrypt64(k0, size);
+    a += encrypt64(d, size);
+    b += encrypt64(c, size);
+    c += encrypt64(b, size);
+    d += encrypt64(a, size);
 
     data += size;
 
     while (size >= sizeof(u64)) {
-
         size -= sizeof(u64);
         data -= sizeof(u64);
-
         u64 orig = BE64(*(u64*)data);
-
-        orig = decrypt64(orig, k3);
-        orig = decrypt64(orig, k2);
-        orig = decrypt64(orig, k1);
-        orig = decrypt64(orig, k0);
+        orig = decrypt64(orig, d);
+        orig = decrypt64(orig, c);
+        orig = decrypt64(orig, b);
+        orig = decrypt64(orig, a);
         orig = decrypt64(orig, size);
-
         *(u64*)data = BE64(orig);
-
-        k0 += encrypt64(k3, orig);
-        k1 += encrypt64(k0, size);
-        k2 += encrypt64(orig, k1);
-        k3 += encrypt64(orig, k2);
+        a += encrypt64(orig, size);
+        b += encrypt64(a, orig);
+        c += encrypt64(b, orig);
+        d += encrypt64(c, orig);
     }
 
     while (size) {
-
         size -= sizeof(u8);
         data -= sizeof(u8);
-
         u64 orig = BE8(*(u8*)data);
-
-        orig -= encrypt64(k3, size);
-        orig -= encrypt64(k2, size);
-        orig -= encrypt64(k1, size);
-        orig -= encrypt64(k0, size);
+        orig -= encrypt64(d, size);
+        orig -= encrypt64(c, size);
+        orig -= encrypt64(b, size);
+        orig -= encrypt64(a, size);
         orig &= 0xFFU;
-
         *(u8*)data = BE8(orig);
-
-        k0 += encrypt64(k1, orig);
-        k1 += encrypt64(orig, k0);
+        a += encrypt64(b, orig);
+        b += encrypt64(orig, a);
     }
 
-    k0 += k1;
-    k0 += k2;
-    k0 += k3;
-    k0 += k0 >> 32;
-    k0 += k0 >> 16;
-    k0 &= 0xFFFFULL;
+    a += b;
+    a += c;
+    a += d;
+    a += a >> 32;
+    a += a >> 16;
+    a &= 0xFFFFULL;
 
-    return (u16)k0;
+    return (u16)a;
 }
 #endif
 
