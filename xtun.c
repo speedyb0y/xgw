@@ -283,6 +283,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     const xtun_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xtun_path_s);
 
+    XTUN_ASSERT(!skb->data_len);
     XTUN_ASSERT(PTR(skb_network_header(skb)) == skb->data);
     XTUN_ASSERT((PTR(skb_network_header(skb)) + skb->len) == SKB_TAIL(skb));
     XTUN_ASSERT(PTR(hdr) >= PTR(skb->head));
@@ -466,6 +467,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     xtun_path_s* const hdr = PTR(payload) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
+    XTUN_ASSERT(!skb->data_len);
+    XTUN_ASSERT(!skb->mac_len);
     XTUN_ASSERT(PTR(payload) == PTR(skb_mac_header(skb)));
     XTUN_ASSERT(PTR(payload) == PTR(skb_network_header(skb)));
     XTUN_ASSERT((PTR(payload) + payloadSize) == SKB_TAIL(skb));
@@ -498,11 +501,11 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     hdr->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
     hdr->iCksum = ip_fast_csum(PTR(&hdr->iVersion), 5);
 
+    skb->len              = payloadSize + XTUN_PATH_SIZE_WIRE;
     skb->transport_header = PATH_UDP(hdr) - PTR(skb->head);
     skb->network_header   = PATH_IP(hdr)  - PTR(skb->head);
     skb->mac_header       = PATH_ETH(hdr) - PTR(skb->head);
     skb->data             = PATH_ETH(hdr);
-    skb->len              = payloadSize + XTUN_PATH_SIZE_WIRE;
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
