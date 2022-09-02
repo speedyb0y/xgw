@@ -114,12 +114,8 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 // EXPECTED SIZE
 #define XTUN_PATH_SIZE CACHE_LINE_SIZE
-
-#define XTUN_PATH_SIZE_ALL (XTUN_PATH_SIZE_PRIVATE + XTUN_PATH_SIZE_ETH)
-#define XTUN_PATH_SIZE_PRIVATE   (sizeof(net_device_s*) + sizeof(u64) + sizeof(u32) + sizeof(u16))
-#define XTUN_PATH_SIZE_ETH       (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE)
-#define XTUN_PATH_SIZE_IP        (               IP4_HDR_SIZE + UDP_HDR_SIZE)
-#define XTUN_PATH_SIZE_UDP       (                              UDP_HDR_SIZE)
+#define XTUN_PATH_SIZE_PRIVATE (XTUN_PATH_SIZE - XTUN_PATH_SIZE_WIRE)
+#define XTUN_PATH_SIZE_WIRE (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE)
 
 typedef struct xtun_path_s {
     net_device_s* itfc;
@@ -281,10 +277,12 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
+    const xtun_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xtun_path_s);
+
     XTUN_ASSERT(PTR(skb_network_header(skb)) == skb->data);
     XTUN_ASSERT((PTR(skb_network_header(skb)) + skb->len) == SKB_TAIL(skb));
-
-    const xtun_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xtun_path_s);
+    XTUN_ASSERT(PTR(hdr) >= PTR(skb->head));
+    XTUN_ASSERT((PTR(hdr) + sizeof(xtun_path_s)) <= SKB_TAIL(skb));
 
     // IDENTIFY NODE AND PATH IDS FROM SERVER PORT
 #if XTUN_SERVER
@@ -299,7 +297,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     // CONFIRM THIS IS ETHERNET/IPV4/UDP
     // VALIDATE NODE ID
     // VALIDATE PATH ID
-    if (skb->len <= XTUN_PATH_SIZE_ETH
+    if (skb->len <= XTUN_PATH_SIZE_WIRE
      || hdr->eType     != BE16(ETH_P_IP)
      || hdr->iVersion  != BE8(0x45)
      || hdr->iProtocol != BE8(IPPROTO_UDP)
@@ -320,15 +318,18 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     if (!node->dev)
         goto drop;
 
-    // TRIM PACKET AS IN IP_INPUT()
-    //BE16(hdr->iSize)
-
-    // TODO: FIXME: VAI TER QUE CONSIDERAR AMBOS OS CABECALHOS E O SKB PORQUE PODE TER UM LIXO ALI
+    // THE PAYLOAD IS JUST AFTER OUR ENCAPSULATION
     void* const payload = PTR(hdr) + sizeof(xtun_path_s);
-    const uint payloadSize = SKB_TAIL(skb) - payload;
+    // THE PAYLOAD SIZE IS EVERYTHING EXCEPT OUR ENCAPSULATION
+    const uint payloadSize = BE16(hdr->iSize) - IP4_HDR_SIZE - UDP_HDR_SIZE;
+
+    // DROP EMPTY PAYLOADS
+    // DROP INCOMPLETE PAYLOADS
+    if ((payloadSize == 0) || (payload + payloadSize) > SKB_TAIL(skb))
+        goto drop;
 
     // DECRYPT AND CONFIRM AUTHENTICITY
-    if (node->iHash) {
+    if (node->iHash) { // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
         if (node->iHash != hdr->iHash)
             goto drop;
     } elif (xtun_decode(node->keys, payload, payloadSize) != hdr->iHash)
@@ -375,7 +376,12 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     }
 #endif
 
+    // TRIM PACKET AS IN ip_rcv_core()
+    if (1)
+        pskb_trim(skb, payloadSize);
+
     // DESENCAPSULA
+    skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = 0;
     skb->len              = payloadSize;
     skb->data             = payload;
@@ -393,7 +399,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 drop:
     kfree_skb(skb);
 
-	*pskb = NULL;
+    *pskb = NULL;
 
     return RX_HANDLER_CONSUMED;
 }
@@ -470,15 +476,15 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ENCAPSULATE
     memcpy(pkt, path, sizeof(xtun_path_s));
 
-    pkt->uSize  = BE16(skb->len + XTUN_PATH_SIZE_UDP);
-    pkt->iSize  = BE16(skb->len + XTUN_PATH_SIZE_IP);
+    pkt->uSize  = BE16(skb->len + UDP_HDR_SIZE);
+    pkt->iSize  = BE16(skb->len + UDP_HDR_SIZE + IP4_HDR_SIZE);
     pkt->iCksum = ip_fast_csum((void*)pkt, 5);
 
     skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
     skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
     skb->mac_header       = PTR(&pkt->eDst)     - PTR(skb->head);
     skb->data             = PTR(&pkt->eDst);
-    skb->len             += XTUN_PATH_SIZE_ETH;
+    skb->len             += XTUN_PATH_SIZE_WIRE;
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
@@ -533,11 +539,11 @@ static void xtun_dev_setup (net_device_s* const dev) {
     dev->header_ops      = &xtunHeaderOps;
 #endif
     dev->type            = ARPHRD_NONE;
-    dev->hard_header_len = XTUN_PATH_SIZE_ETH; // ETH_HLEN
-    dev->min_header_len  = XTUN_PATH_SIZE_ETH;
-    dev->mtu             = 1500 - 28 - XTUN_PATH_SIZE_ETH; // ETH_DATA_LEN
-    dev->min_mtu         = 1500 - 28 - XTUN_PATH_SIZE_ETH; // ETH_MIN_MTU
-    dev->max_mtu         = 1500 - 28 - XTUN_PATH_SIZE_ETH; // ETH_MAX_MTU
+    dev->hard_header_len = XTUN_PATH_SIZE_WIRE; // ETH_HLEN
+    dev->min_header_len  = XTUN_PATH_SIZE_WIRE;
+    dev->mtu             = 1500 - 28 - XTUN_PATH_SIZE_WIRE; // ETH_DATA_LEN
+    dev->min_mtu         = 1500 - 28 - XTUN_PATH_SIZE_WIRE; // ETH_MIN_MTU
+    dev->max_mtu         = 1500 - 28 - XTUN_PATH_SIZE_WIRE; // ETH_MAX_MTU
     dev->addr_len        = 0;
     dev->tx_queue_len    = 0; // EFAULT_TX_QUEUE_LEN
     dev->flags           = IFF_NOARP; // IFF_BROADCAST | IFF_MULTICAST
@@ -723,7 +729,6 @@ static int __init xtun_init(void) {
     printk("XTUN: INIT\n");
 
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
-    BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE_ALL);
     BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
 
     xtun_itfcs_hook();
