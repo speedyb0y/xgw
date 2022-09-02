@@ -160,10 +160,10 @@ typedef struct xtun_path_s {
 
 typedef struct xtun_node_s {
     net_device_s* dev;
-    u64 keys[XTUN_KEYS_N];
+    xtun_crypto_s cryptoParams;
     u64 reserved2;
     u32 reserved;
-    u16 iHash;
+    u16 cryptoAlgo;
     u16 flowShift; // SHIFTA TODOS OS FLOW IDS AO MESMO TEMPO, AO SELECIONAR O PATH
     u32 flowRemaining; // QUANTOS PACOTES ENVIAR ATÉ AVANÇAR O FLOW SHIFT
     u32 flowPackets; // O QUE USAR COMO FLOW REMAINING
@@ -336,10 +336,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         goto drop;
 
     // DECRYPT AND CONFIRM AUTHENTICITY
-    if (node->iHash) { // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
-        if (node->iHash != hdr->iHash)
-            goto drop;
-    } elif (xtun_decode(node->keys, payload, payloadSize) != hdr->iHash)
+    if (xtun_crypto_decode[node->cryptoAlgo](&node->cryptoData, payload, payloadSize) != hdr->iHash)
         goto drop;
 
 #if XTUN_SERVER
@@ -485,11 +482,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     memcpy(hdr, &node->paths[node->flows[((u64)node->flowShift + xtun_flow_hash(skb->data)) % XTUN_FLOWS_N]], sizeof(xtun_path_s));
 
     // ENCRYPT AND AUTHENTIFY
-    if (node->iHash)
-        hdr->iHash = node->iHash;
-    else
-        hdr->iHash = xtun_encode(node->keys, payload, payloadSize);
-
+    hdr->iHash = xtun_crypto_encode[node->cryptoAlgo](&node->cryptoData, payload, payloadSize);
     hdr->uSize  = BE16(payloadSize + UDP_HDR_SIZE);
     hdr->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
     hdr->iCksum = ip_fast_csum(PATH_IP(hdr), 5);
