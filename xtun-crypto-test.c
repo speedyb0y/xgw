@@ -121,8 +121,7 @@ int main (void) {
 
     switch ((cryptoAlgo = TEST_CRYPTO_ALGO)) {
 #if      XGW_XTUN_CRYPTO_ALGO_NULL0
-          // XTUN_CRYPTO_ALGO_NULL0
-        default:
+        case XTUN_CRYPTO_ALGO_NULL0:
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_NULLX
@@ -164,6 +163,7 @@ int main (void) {
             cryptoParams.shift64_4.k[3] = 0x352532532ULL;
             break;
 #endif
+        default:
     }
 
     u8 chunk  [TEST_CHUNK_SIZE_MAX];
@@ -185,8 +185,8 @@ int main (void) {
 #if TEST_PARAMS
             switch (cryptoAlgo) {
 #if              XGW_XTUN_CRYPTO_ALGO_NULL0
-                  // XTUN_CRYPTO_ALGO_NULL0
-                default:
+                case XTUN_CRYPTO_ALGO_NULL0:
+                    // NOTHING
                     break;
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_NULLX
@@ -254,8 +254,7 @@ int main (void) {
 
             switch (cryptoAlgo) {
 #if              XGW_XTUN_CRYPTO_ALGO_NULL0
-                  // XTUN_CRYPTO_ALGO_NULL0
-                default:
+                case XTUN_CRYPTO_ALGO_NULL0:
                     print(" -- HASH 0x%04X", hashOriginal);
                     break;
 #endif
