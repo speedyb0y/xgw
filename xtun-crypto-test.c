@@ -102,7 +102,7 @@ typedef uint64_t u64;
 #define print(...) ({})
 #endif
 
-#define err(fmt, ...) fprintf(stderr, "ERROR: " fmt "\n", ##__VA_ARGS__)
+#define err(fmt, ...) return fprintf(stderr, "ERROR: " fmt "\n", ##__VA_ARGS__)
 
 static inline u64 myrandom (void) {
 
@@ -243,15 +243,11 @@ int main (void) {
             // MOSTRA COMO FICA ENCODADO
             const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
 
-            if (written == -1) {
+            if (written == -1)
                 err("FAILED TO WRITE: %s", strerror(errno));
-                return 1;
-            }
 
-            if (written != chunkSize) {
+            if (written != chunkSize)
                 err("FAILED TO WRITE: INCOMPLETE");
-                return 1;
-            }
 
             switch (cryptoAlgo) {
 #if              XGW_XTUN_CRYPTO_ALGO_NULL0
@@ -314,26 +310,20 @@ int main (void) {
 #if TEST_DECODE
             // DECODE
             const u64 hashNew = xtun_crypto_decode[cryptoAlgo](&cryptoParams, chunkRW, chunkSize);
-
+#if TEST_ENCODE
             // COMPARE DATA
-            if (memcmp(chunk, chunkRW, chunkSize)) {
+            if (memcmp(chunk, chunkRW, chunkSize))
                 err("DATA MISMATCH");
-                return 1;
-            }
-
             // COMPARE HASH
-            if (hashNew != hashOriginal) {
+            if (hashNew != hashOriginal)
                 err("HASH MISMATCH");
-                return 1;
-            }
+#endif
 #endif
         }
     }
 
-    if (chunkSize == -1) {
+    if (chunkSize == -1)
         err("FAILED TO READ: %s", strerror(errno));
-        return 1;
-    }
 
     return 0;
 }
