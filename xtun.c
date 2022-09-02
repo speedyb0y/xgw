@@ -495,10 +495,10 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     hdr->iCksum = ip_fast_csum(PTR(&hdr->iVersion), 5);
 
     skb->len              = payloadSize + XTUN_PATH_SIZE_WIRE;
-    skb->transport_header = PATH_UDP(hdr) - PTR(skb->head);
-    skb->network_header   = PATH_IP(hdr)  - PTR(skb->head);
-    skb->mac_header       = PATH_ETH(hdr) - PTR(skb->head);
     skb->data             = PATH_ETH(hdr);
+    skb->mac_header       = PATH_ETH(hdr) - PTR(skb->head);
+    skb->network_header   = PATH_IP(hdr)  - PTR(skb->head);
+    skb->transport_header = PATH_UDP(hdr) - PTR(skb->head);
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
