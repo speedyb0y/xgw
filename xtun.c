@@ -175,8 +175,8 @@ typedef struct xtun_cfg_path_s {
     u32 cband;
     u32 sband;
     char itfc[IFNAMSIZ];
-    union { u8 cmac[ETH_ALEN]; u16 cmac16[ETH_ALEN/sizeof(u16)]; };
-    union { u8 smac[ETH_ALEN]; u16 smac16[ETH_ALEN/sizeof(u16)]; };
+    union { u8 cmac[8]; u16 cmac16[3]; };
+    union { u8 smac[8]; u16 smac16[3]; };
     union { u8 caddr[sizeof(u32)]; u32 caddr32; };
     union { u8 saddr[sizeof(u32)]; u32 saddr32; };
     u16 cport;
@@ -576,45 +576,45 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 #if XTUN_SERVER
     path->hash       =  0;
     path->sband      =  cfg->sband;
-    path->eDst[0]    =  BE16(0);
-    path->eDst[1]    =  BE16(0);
-    path->eDst[2]    =  BE16(0);
-    path->eSrc[0]    =  BE16(0);
-    path->eSrc[1]    =  BE16(0);
-    path->eSrc[2]    =  BE16(0);
+    path->eDst[0]    =  0;
+    path->eDst[1]    =  0;
+    path->eDst[2]    =  0;
+    path->eSrc[0]    =  0;
+    path->eSrc[1]    =  0;
+    path->eSrc[2]    =  0;
 #else
     path->seila      =  0;
     path->cband      =  cfg->cband;
     path->sband      =  cfg->sband;
-    path->eDst[0]    =  BE16(cfg->smac16[0]);
-    path->eDst[1]    =  BE16(cfg->smac16[1]);
-    path->eDst[2]    =  BE16(cfg->smac16[2]);
-    path->eSrc[0]    =  BE16(cfg->cmac16[0]);
-    path->eSrc[1]    =  BE16(cfg->cmac16[1]);
-    path->eSrc[2]    =  BE16(cfg->cmac16[2]);
+    path->eDst[0]    =  cfg->smac16[0];
+    path->eDst[1]    =  cfg->smac16[1];
+    path->eDst[2]    =  cfg->smac16[2];
+    path->eSrc[0]    =  cfg->cmac16[0];
+    path->eSrc[1]    =  cfg->cmac16[1];
+    path->eSrc[2]    =  cfg->cmac16[2];
 #endif
     path->eType      =  BE16(ETH_P_IP);
-    path->iVersion   =  BE8(0x45);
-    path->iTOS       =  BE8(cfg->tos);
-    path->iSize      =  BE16(0);
-    path->iHash      =  BE16(0);
-    path->iFrag      =  BE16(0);
-    path->iTTL       =  BE8(cfg->ttl);
-    path->iProtocol  =  BE8(IPPROTO_UDP);
-    path->iCksum     =  BE16(0);
+    path->iVersion   =  0x45;
+    path->iTOS       =  cfg->tos;
+    path->iSize      =  0;
+    path->iHash      =  0;
+    path->iFrag      =  0;
+    path->iTTL       =  cfg->ttl;
+    path->iProtocol  =  IPPROTO_UDP;
+    path->iCksum     =  0;
 #if XTUN_SERVER
-    path->iSrc       =  BE32(0);
-    path->iDst       =  BE32(0);
+    path->iSrc       =  0;
+    path->iDst       =  0;
     path->uSrc       =  BE16(PORT(nid, pid));
-    path->uDst       =  BE16(0);
+    path->uDst       =  0;
 #else
-    path->iSrc       =  BE32(cfg->caddr32);
-    path->iDst       =  BE32(cfg->saddr32);
+    path->iSrc       =  cfg->caddr32;
+    path->iDst       =  cfg->saddr32;
     path->uSrc       =  BE16(cfg->cport);
     path->uDst       =  BE16(PORT(nid, pid));
 #endif
-    path->uSize      =  BE16(0);
-    path->uCksum     =  BE16(0);
+    path->uSize      =  0;
+    path->uCksum     =  0;
 
 #if !XTUN_SERVER
     net_device_s* const itfc = dev_get_by_name(&init_net, cfg->itfc);
