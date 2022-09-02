@@ -115,6 +115,8 @@ typedef uint64_t u64;
 
 #define err(fmt, ...) ({ fprintf(stderr, "ERROR: " fmt "\n", ##__VA_ARGS__); return 1; })
 
+#define __END
+
 static inline u64 myrandom (void) {
 
     static u64 x = 0x5564EB5A1465607ULL;
@@ -179,7 +181,7 @@ int main (void) {
             cryptoParams.shift64_4.d = 0x352532532ULL;
             break;
 #endif
-        default:
+        __END
     }
 
     u8 chunk  [TEST_CHUNK_SIZE_MAX];
@@ -251,7 +253,7 @@ int main (void) {
                     cryptoParams.shift64_4.d += (u64)myrandom();
                     break;
 #endif
-                default:
+                __END
             }
 #endif
 
@@ -325,7 +327,7 @@ int main (void) {
                         (uintll)cryptoParams.shift64_4.d);
                     break;
 #endif
-                default:
+                __END
             }
 
 #if TEST_DECODE

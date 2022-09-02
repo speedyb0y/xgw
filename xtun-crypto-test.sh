@@ -2,7 +2,11 @@
 
 ALGO=${1^^}
 
-if gcc -fwhole-program -Wall -Wextra -O2 -march=native xtun-crypto-test.c \
+if [[ ! -n ${CC} ]] ; then
+    CC=gcc
+fi
+
+if ${CC} -fwhole-program -Wall -Wextra -O2 -march=native xtun-crypto-test.c \
     -DTEST_CRYPTO_ALGO=XTUN_CRYPTO_ALGO_${ALGO} \
     -DTEST_CHUNK_SIZE_MIN=128 \
     -DTEST_CHUNK_SIZE_MAX=1500 \

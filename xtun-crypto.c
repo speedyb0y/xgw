@@ -2,9 +2,9 @@
 #define popcount32(x) __builtin_popcount((uint)(x))
 #define popcount64(x) __builtin_popcountll((uintll)(x))
 
-static inline u32 encrypt32 (u32 x, const u32 mask) {
+static inline u32 swap32 (u32 x, const u32 mask) {
 
-    uint q = popcount32(mask);
+    const uint q = popcount32(mask);
 
     x += mask;
     x = (x >> q) | (x << (32 - q));
@@ -12,9 +12,9 @@ static inline u32 encrypt32 (u32 x, const u32 mask) {
     return x;
 }
 
-static inline u32 decrypt32 (u32 x, const u32 mask) {
+static inline u32 unswap32 (u32 x, const u32 mask) {
 
-    uint q = popcount32(mask);
+    const uint q = popcount32(mask);
 
     x = (x << q) | (x >> (32 - q));
     x -= mask;
@@ -22,9 +22,9 @@ static inline u32 decrypt32 (u32 x, const u32 mask) {
     return x;
 }
 
-static inline u64 encrypt64 (u64 x, const u64 mask) {
+static inline u64 swap64 (u64 x, const u64 mask) {
 
-    uint q = popcount64(mask);
+    const uint q = popcount64(mask);
 
     x += mask;
     x = (x >> q) | (x << (64 - q));
@@ -32,9 +32,9 @@ static inline u64 encrypt64 (u64 x, const u64 mask) {
     return x;
 }
 
-static inline u64 decrypt64 (u64 x, const u64 mask) {
+static inline u64 unswap64 (u64 x, const u64 mask) {
 
-    uint q = popcount64(mask);
+    const uint q = popcount64(mask);
 
     x = (x << q) | (x >> (64 - q));
     x -= mask;
@@ -91,7 +91,7 @@ static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restr
 
     u32 k = params->shift32_1.k;
 
-    k += encrypt32(k, size);
+    k += swap32(k, size);
 
     data += size;
 
@@ -100,11 +100,11 @@ static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restr
         data -= sizeof(u32);
         const u32 orig = BE32(*(u32*)data);
         u32 value = orig;
-        value = encrypt32(value, size);
-        value = encrypt32(value, k);
+        value = swap32(value, size);
+        value = swap32(value, k);
         *(u32*)data = BE32(value);
-        k += encrypt32(k, orig);
-        k += encrypt32(orig, k);
+        k += swap32(k, orig);
+        k += swap32(orig, k);
     }
 
     while (size) {
@@ -112,11 +112,11 @@ static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restr
         data -= sizeof(u8);
         const u8 orig = BE8(*(u8*)data);
         u32 value = orig;
-        value += encrypt32(k, size);
+        value += swap32(k, size);
         value &= 0xFFU;
         *(u8*)data = BE8(value);
-        k += encrypt32(k, orig);
-        k += encrypt32(orig, k);
+        k += swap32(k, orig);
+        k += swap32(orig, k);
     }
 
     k += k >> 16;
@@ -129,7 +129,7 @@ static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restr
 
     u32 k = params->shift32_1.k;
 
-    k += encrypt32(k, size);
+    k += swap32(k, size);
 
     data += size;
 
@@ -137,22 +137,22 @@ static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restr
         size -= sizeof(u32);
         data -= sizeof(u32);
         u32 orig = BE32(*(u32*)data);
-        orig = decrypt32(orig, k);
-        orig = decrypt32(orig, size);
+        orig = unswap32(orig, k);
+        orig = unswap32(orig, size);
         *(u32*)data = BE32(orig);
-        k += encrypt32(k, orig);
-        k += encrypt32(orig, k);
+        k += swap32(k, orig);
+        k += swap32(orig, k);
     }
 
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
         u32 orig = BE8(*(u8*)data);
-        orig -= encrypt32(k, size);
+        orig -= swap32(k, size);
         orig &= 0xFFU;
         *(u8*)data = BE8(orig);
-        k += encrypt32(k, orig);
-        k += encrypt32(orig, k);
+        k += swap32(k, orig);
+        k += swap32(orig, k);
     }
 
     k += k >> 16;
@@ -168,7 +168,7 @@ static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restr
 
     u64 k = params->shift64_1.k;
 
-    k += encrypt64(k, size);
+    k += swap64(k, size);
 
     data += size;
 
@@ -177,11 +177,11 @@ static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restr
         data -= sizeof(u64);
         const u64 orig = BE64(*(u64*)data);
         u64 value = orig;
-        value = encrypt64(value, size);
-        value = encrypt64(value, k);
+        value = swap64(value, size);
+        value = swap64(value, k);
         *(u64*)data = BE64(value);
-        k += encrypt64(orig, k);
-        k += encrypt64(k, orig);
+        k += swap64(orig, k);
+        k += swap64(k, orig);
     }
 
     while (size) {
@@ -189,11 +189,11 @@ static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restr
         data -= sizeof(u8);
         const u8 orig = BE8(*(u8*)data);
         u64 value = orig;
-        value += encrypt64(k, size);
+        value += swap64(k, size);
         value &= 0xFFU;
         *(u8*)data = BE8(value);
-        k += encrypt64(orig, k);
-        k += encrypt64(k, orig);
+        k += swap64(orig, k);
+        k += swap64(k, orig);
     }
 
     k += k >> 32;
@@ -207,7 +207,7 @@ static u16 xtun_crypto_shift64_1_decode (const xtun_crypto_params_s* const restr
 
     u64 k = params->shift64_1.k;
 
-    k += encrypt64(k, size);
+    k += swap64(k, size);
 
     data += size;
 
@@ -215,22 +215,22 @@ static u16 xtun_crypto_shift64_1_decode (const xtun_crypto_params_s* const restr
         size -= sizeof(u64);
         data -= sizeof(u64);
         u64 orig = BE64(*(u64*)data);
-        orig = decrypt64(orig, k);
-        orig = decrypt64(orig, size);
+        orig = unswap64(orig, k);
+        orig = unswap64(orig, size);
         *(u64*)data = BE64(orig);
-        k += encrypt64(orig, k);
-        k += encrypt64(k, orig);
+        k += swap64(orig, k);
+        k += swap64(k, orig);
     }
 
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
         u64 orig = BE8(*(u8*)data);
-        orig -= encrypt64(k, size);
+        orig -= swap64(k, size);
         orig &= 0xFFU;
         *(u8*)data = BE8(orig);
-        k += encrypt64(orig, k);
-        k += encrypt64(k, orig);
+        k += swap64(orig, k);
+        k += swap64(k, orig);
     }
 
     k += k >> 32;
@@ -249,10 +249,10 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restr
     u64 c = params->shift64_4.c;
     u64 d = params->shift64_4.d;
 
-    a += encrypt64(d, size);
-    b += encrypt64(c, size);
-    c += encrypt64(b, size);
-    d += encrypt64(a, size);
+    a += swap64(d, size);
+    b += swap64(c, size);
+    c += swap64(b, size);
+    d += swap64(a, size);
 
     data += size;
 
@@ -261,16 +261,16 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restr
         data -= sizeof(u64);
         const u64 orig = BE64(*(u64*)data);
         u64 value = orig;
-        value = encrypt64(value, size);
-        value = encrypt64(value, a);
-        value = encrypt64(value, b);
-        value = encrypt64(value, c);
-        value = encrypt64(value, d);
+        value = swap64(value, size);
+        value = swap64(value, a);
+        value = swap64(value, b);
+        value = swap64(value, c);
+        value = swap64(value, d);
         *(u64*)data = BE64(value);
-        a += encrypt64(orig, size);
-        b += encrypt64(a, orig);
-        c += encrypt64(b, orig);
-        d += encrypt64(c, orig);
+        a += swap64(orig, size);
+        b += swap64(a, orig);
+        c += swap64(b, orig);
+        d += swap64(c, orig);
     }
 
     while (size) {
@@ -278,14 +278,14 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restr
         data -= sizeof(u8);
         const u8 orig = BE8(*(u8*)data);
         u64 value = orig;
-        value += encrypt64(a, size);
-        value += encrypt64(b, size);
-        value += encrypt64(c, size);
-        value += encrypt64(d, size);
+        value += swap64(a, size);
+        value += swap64(b, size);
+        value += swap64(c, size);
+        value += swap64(d, size);
         value &= 0xFFU;
         *(u8*)data = BE8(value);
-        a += encrypt64(b, orig);
-        b += encrypt64(orig, a);
+        a += swap64(b, orig);
+        b += swap64(orig, a);
     }
 
     a += b;
@@ -305,10 +305,10 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_params_s* const restr
     u64 c = params->shift64_4.c;
     u64 d = params->shift64_4.d;
 
-    a += encrypt64(d, size);
-    b += encrypt64(c, size);
-    c += encrypt64(b, size);
-    d += encrypt64(a, size);
+    a += swap64(d, size);
+    b += swap64(c, size);
+    c += swap64(b, size);
+    d += swap64(a, size);
 
     data += size;
 
@@ -316,30 +316,30 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_params_s* const restr
         size -= sizeof(u64);
         data -= sizeof(u64);
         u64 orig = BE64(*(u64*)data);
-        orig = decrypt64(orig, d);
-        orig = decrypt64(orig, c);
-        orig = decrypt64(orig, b);
-        orig = decrypt64(orig, a);
-        orig = decrypt64(orig, size);
+        orig = unswap64(orig, d);
+        orig = unswap64(orig, c);
+        orig = unswap64(orig, b);
+        orig = unswap64(orig, a);
+        orig = unswap64(orig, size);
         *(u64*)data = BE64(orig);
-        a += encrypt64(orig, size);
-        b += encrypt64(a, orig);
-        c += encrypt64(b, orig);
-        d += encrypt64(c, orig);
+        a += swap64(orig, size);
+        b += swap64(a, orig);
+        c += swap64(b, orig);
+        d += swap64(c, orig);
     }
 
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
         u64 orig = BE8(*(u8*)data);
-        orig -= encrypt64(d, size);
-        orig -= encrypt64(c, size);
-        orig -= encrypt64(b, size);
-        orig -= encrypt64(a, size);
+        orig -= swap64(d, size);
+        orig -= swap64(c, size);
+        orig -= swap64(b, size);
+        orig -= swap64(a, size);
         orig &= 0xFFU;
         *(u8*)data = BE8(orig);
-        a += encrypt64(b, orig);
-        b += encrypt64(orig, a);
+        a += swap64(b, orig);
+        b += swap64(orig, a);
     }
 
     a += b;
