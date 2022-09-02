@@ -487,7 +487,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
     pkt->uSize  = BE16(skb->len + UDP_HDR_SIZE);
     pkt->iSize  = BE16(skb->len + UDP_HDR_SIZE + IP4_HDR_SIZE);
-    pkt->iCksum = ip_fast_csum((void*)pkt, 5);
+    pkt->iCksum = ip_fast_csum(PTR(&pkt->iVersion), 5);
 
     skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
     skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
