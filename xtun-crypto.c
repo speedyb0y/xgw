@@ -1,56 +1,4 @@
 
-#define XTUN_KEYS_N XGW_XTUN_KEYS_N
-
-#define XTUN_CRYPTO_SHIFT32_KEY_0_ADD XGW_XTUN_CRYPTO_SHIFT32_KEY_0_ADD
-#define XTUN_CRYPTO_SHIFT32_KEY_1_ADD XGW_XTUN_CRYPTO_SHIFT32_KEY_1_ADD
-#define XTUN_CRYPTO_SHIFT32_KEY_2_ADD XGW_XTUN_CRYPTO_SHIFT32_KEY_2_ADD
-#define XTUN_CRYPTO_SHIFT32_KEY_3_ADD XGW_XTUN_CRYPTO_SHIFT32_KEY_3_ADD
-
-#define XTUN_CRYPTO_SHIFT64_KEY_0_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_0_ADD
-#define XTUN_CRYPTO_SHIFT64_KEY_1_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_1_ADD
-#define XTUN_CRYPTO_SHIFT64_KEY_2_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_2_ADD
-#define XTUN_CRYPTO_SHIFT64_KEY_3_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_3_ADD
-
-#if XTUN_CRYPTO_SHIFT32_KEY_0_ADD <= 0 \
- || XTUN_CRYPTO_SHIFT32_KEY_0_ADD > 0xFFFFFFFF
-#error "BAD XTUN_CRYPTO_SHIFT32_KEY_0_ADD"
-#endif
-
-#if XTUN_CRYPTO_SHIFT32_KEY_1_ADD <= 0 \
- || XTUN_CRYPTO_SHIFT32_KEY_1_ADD > 0xFFFFFFFF
-#error "BAD XTUN_CRYPTO_SHIFT32_KEY_1_ADD"
-#endif
-
-#if XTUN_CRYPTO_SHIFT32_KEY_2_ADD <= 0 \
- || XTUN_CRYPTO_SHIFT32_KEY_2_ADD > 0xFFFFFFFF
-#error "BAD XTUN_CRYPTO_SHIFT32_KEY_2_ADD"
-#endif
-
-#if XTUN_CRYPTO_SHIFT32_KEY_3_ADD <= 0 \
- || XTUN_CRYPTO_SHIFT32_KEY_3_ADD > 0xFFFFFFFF
-#error "BAD XTUN_CRYPTO_SHIFT32_KEY_3_ADD"
-#endif
-
-#if XTUN_CRYPTO_SHIFT64_KEY_0_ADD <= 0 \
- || XTUN_CRYPTO_SHIFT64_KEY_0_ADD > 0xFFFFFFFFFFFFFFFF
-#error "BAD XTUN_CRYPTO_SHIFT64_KEY_0_ADD"
-#endif
-
-#if XTUN_CRYPTO_SHIFT64_KEY_1_ADD <= 0 \
- || XTUN_CRYPTO_SHIFT64_KEY_1_ADD > 0xFFFFFFFFFFFFFFFF
-#error "BAD XTUN_CRYPTO_SHIFT64_KEY_1_ADD"
-#endif
-
-#if XTUN_CRYPTO_SHIFT64_KEY_2_ADD <= 0 \
- || XTUN_CRYPTO_SHIFT64_KEY_2_ADD > 0xFFFFFFFFFFFFFFFF
-#error "BAD XTUN_CRYPTO_SHIFT64_KEY_2_ADD"
-#endif
-
-#if XTUN_CRYPTO_SHIFT64_KEY_3_ADD <= 0 \
- || XTUN_CRYPTO_SHIFT64_KEY_3_ADD > 0xFFFFFFFFFFFFFFFF
-#error "BAD XTUN_CRYPTO_SHIFT64_KEY_3_ADD"
-#endif
-
 #define popcount32(x) __builtin_popcount((uint)(x))
 #define popcount64(x) __builtin_popcountll((uintll)(x))
 
@@ -135,44 +83,32 @@ typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
 static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u32 k0 = params->shift32_1.k[0] + XTUN_CRYPTO_SHIFT32_KEY_0_ADD;
+    u32 k0 = params->shift32_1.k[0];
 
-    k0 += encrypt32(0x3223232U, size);
+    k0 += encrypt32(k0, size);
 
     data += size;
 
     while (size >= sizeof(u32)) {
-
         size -= sizeof(u32);
         data -= sizeof(u32);
-
         const u32 orig = BE32(*(u32*)data);
-
         u32 value = orig;
-
         value = encrypt32(value, size);
         value = encrypt32(value, k0);
-
         *(u32*)data = BE32(value);
-
         k0 += encrypt32(orig, size);
         k0 += encrypt32(size, size);
     }
 
     while (size) {
-
         size -= sizeof(u8);
         data -= sizeof(u8);
-
         const u8 orig = BE8(*(u8*)data);
-
         u32 value = orig;
-
         value += encrypt32(k0, size);
         value &= 0xFFU;
-
         *(u8*)data = BE8(value);
-
         k0 += encrypt32(orig, size);
         k0 += encrypt32(size, size);
     }
@@ -185,40 +121,30 @@ static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restr
 
 static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u32 k0 = params->shift32_1.k[0] + XTUN_CRYPTO_SHIFT32_KEY_0_ADD;
+    u32 k0 = params->shift32_1.k[0];
 
-    k0 += encrypt32(0x3223232U, size);
+    k0 += encrypt32(k0, size);
 
     data += size;
 
     while (size >= sizeof(u32)) {
-
         size -= sizeof(u32);
         data -= sizeof(u32);
-
         u32 orig = BE32(*(u32*)data);
-
         orig = decrypt32(orig, k0);
         orig = decrypt32(orig, size);
-
         *(u32*)data = BE32(orig);
-
         k0 += encrypt32(orig, size);
         k0 += encrypt32(size, size);
     }
 
     while (size) {
-
         size -= sizeof(u8);
         data -= sizeof(u8);
-
         u32 orig = BE8(*(u8*)data);
-
         orig -= encrypt32(k0, size);
         orig &= 0xFFU;
-
         *(u8*)data = BE8(orig);
-
         k0 += encrypt32(orig, size);
         k0 += encrypt32(size, size);
     }
@@ -234,9 +160,9 @@ static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restr
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
 static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k0 = params->shift64_1.k[0] + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
+    u64 k0 = params->shift64_1.k[0];
 
-    k0 += encrypt64(0x32234235232ULL, size);
+    k0 += encrypt64(k0, size);
 
     data += size;
 
@@ -285,9 +211,9 @@ static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restr
 
 static u16 xtun_crypto_shift64_1_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k0 = params->shift64_1.k[0] + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
+    u64 k0 = params->shift64_1.k[0];
 
-    k0 += encrypt64(0x32234235232ULL, size);
+    k0 += encrypt64(k0, size);
 
     data += size;
 
@@ -334,10 +260,10 @@ static u16 xtun_crypto_shift64_1_decode (const xtun_crypto_params_s* const restr
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
 static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k0 = params->shift64_4.k[0] + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
-    u64 k1 = params->shift64_4.k[1] + XTUN_CRYPTO_SHIFT64_KEY_1_ADD;
-    u64 k2 = params->shift64_4.k[2] + XTUN_CRYPTO_SHIFT64_KEY_2_ADD;
-    u64 k3 = params->shift64_4.k[3] + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
+    u64 k0 = params->shift64_4.k[0];
+    u64 k1 = params->shift64_4.k[1];
+    u64 k2 = params->shift64_4.k[2];
+    u64 k3 = params->shift64_4.k[3];
 
     k0 += encrypt64(k3, size);
     k1 += encrypt64(k2, size);
@@ -402,10 +328,10 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restr
 
 static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k0 = params->shift64_4.k[0] + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
-    u64 k1 = params->shift64_4.k[1] + XTUN_CRYPTO_SHIFT64_KEY_1_ADD;
-    u64 k2 = params->shift64_4.k[2] + XTUN_CRYPTO_SHIFT64_KEY_2_ADD;
-    u64 k3 = params->shift64_4.k[3] + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
+    u64 k0 = params->shift64_4.k[0];
+    u64 k1 = params->shift64_4.k[1];
+    u64 k2 = params->shift64_4.k[2];
+    u64 k3 = params->shift64_4.k[3];
 
     k0 += encrypt64(k3, size);
     k1 += encrypt64(k2, size);
