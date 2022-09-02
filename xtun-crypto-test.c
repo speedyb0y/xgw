@@ -88,6 +88,10 @@ typedef uint64_t u64;
 #define TEST_ORIGINAL 1
 #endif
 
+#ifndef TEST_PARAMS
+#define TEST_PARAMS 1
+#endif
+
 #ifndef TEST_CRYPTO_ALGO
 #define TEST_CRYPTO_ALGO XTUN_CRYPTO_ALGO_NULL0
 #endif
@@ -171,24 +175,50 @@ int main (void) {
             memcpy(chunkRW, chunk, chunkSize);
 #endif
 
-#if   TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULL0
-			// NOTHING
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULLX
-            cryptoParams.nullx.x++;
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_1
-            cryptoParams.shift64_1.k[0] += (u64)myrandom();
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_2
-            cryptoParams.shift64_2.k[0] += (u64)myrandom();
-            cryptoParams.shift64_2.k[1] += (u64)myrandom();
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_3
-            cryptoParams.shift64_3.k[0] += (u64)myrandom();
-            cryptoParams.shift64_3.k[1] += (u64)myrandom();
-            cryptoParams.shift64_3.k[2] += (u64)myrandom();
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_4
-            cryptoParams.shift64_4.k[0] += (u64)myrandom();
-            cryptoParams.shift64_4.k[1] += (u64)myrandom();
-            cryptoParams.shift64_4.k[2] += (u64)myrandom();
-            cryptoParams.shift64_4.k[3] += (u64)myrandom();
+#if TEST_PARAMS
+            switch (cryptoAlgo) {
+#if              XGW_XTUN_CRYPTO_ALGO_NULL0
+                case XTUN_CRYPTO_ALGO_NULL0:
+                    // NOTHING
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_NULLX
+                case XTUN_CRYPTO_ALGO_NULLX:
+                    cryptoParams.nullx.x++;
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SUM64
+                case XTUN_CRYPTO_ALGO_SUM64:
+
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
+                case XTUN_CRYPTO_ALGO_SHIFT64_1:
+                    cryptoParams.shift64_1.k[0] += (u64)myrandom();
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
+                case XTUN_CRYPTO_ALGO_SHIFT64_2:
+                    cryptoParams.shift64_2.k[0] += (u64)myrandom();
+                    cryptoParams.shift64_2.k[1] += (u64)myrandom();
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
+                case XTUN_CRYPTO_ALGO_SHIFT64_3:
+                    cryptoParams.shift64_3.k[0] += (u64)myrandom();
+                    cryptoParams.shift64_3.k[1] += (u64)myrandom();
+                    cryptoParams.shift64_3.k[2] += (u64)myrandom();
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
+                case XTUN_CRYPTO_ALGO_SHIFT64_4:
+                    cryptoParams.shift64_4.k[0] += (u64)myrandom();
+                    cryptoParams.shift64_4.k[1] += (u64)myrandom();
+                    cryptoParams.shift64_4.k[2] += (u64)myrandom();
+                    cryptoParams.shift64_4.k[3] += (u64)myrandom();
+                    break;
+#endif
+            }
 #endif
 
             // ENCODE
@@ -210,31 +240,58 @@ int main (void) {
                 return 1;
             }
 
-#if   TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULL0
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULLX
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_1
-            print("\n -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
-                (uintll)cryptoParams.shift64_4.k[0]
-            );
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_2
-            print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX", hashOriginal,
-                (uintll)cryptoParams.shift64_2.k[0],
-                (uintll)cryptoParams.shift64_2.k[1]
-            );
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_3
-            print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
-                (uintll)cryptoParams.shift64_3.k[0],
-                (uintll)cryptoParams.shift64_3.k[1],
-                (uintll)cryptoParams.shift64_3.k[2]
-            );
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_4
-            print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
-                (uintll)cryptoParams.shift64_4.k[0],
-                (uintll)cryptoParams.shift64_4.k[1],
-                (uintll)cryptoParams.shift64_4.k[2],
-                (uintll)cryptoParams.shift64_4.k[3]
-            );
+            switch (cryptoAlgo) {
+#if              XGW_XTUN_CRYPTO_ALGO_NULL0
+                case XTUN_CRYPTO_ALGO_NULL0:
+                    break;
 #endif
+#if              XGW_XTUN_CRYPTO_ALGO_NULLX
+                case XTUN_CRYPTO_ALGO_NULLX:
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SUM32
+                case XTUN_CRYPTO_ALGO_SUM32:
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SUM64
+                case XTUN_CRYPTO_ALGO_SUM64:
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
+                case XTUN_CRYPTO_ALGO_SHIFT64_1:
+                    print("\n -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
+                        (uintll)cryptoParams.shift64_4.k[0]
+                    );
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
+                case XTUN_CRYPTO_ALGO_SHIFT64_2:
+                    print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX", hashOriginal,
+                        (uintll)cryptoParams.shift64_2.k[0],
+                        (uintll)cryptoParams.shift64_2.k[1]
+                    );
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
+                case XTUN_CRYPTO_ALGO_SHIFT64_3:
+                    print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+                        (uintll)cryptoParams.shift64_3.k[0],
+                        (uintll)cryptoParams.shift64_3.k[1],
+                        (uintll)cryptoParams.shift64_3.k[2]
+                    );
+                    break;
+#endif
+#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
+                case XTUN_CRYPTO_ALGO_SHIFT64_4:
+                    print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+                        (uintll)cryptoParams.shift64_4.k[0],
+                        (uintll)cryptoParams.shift64_4.k[1],
+                        (uintll)cryptoParams.shift64_4.k[2],
+                        (uintll)cryptoParams.shift64_4.k[3]
+                    );
+                    break;
+#endif
+            }
 
 #if TEST_DECODE
             // DECODE

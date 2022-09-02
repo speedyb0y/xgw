@@ -242,6 +242,8 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restr
     }
 
     k0 += k1;
+    k0 += k2;
+    k0 += k3;
     k0 += k0 >> 32;
     k0 += k0 >> 16;
     k0 &= 0xFFFFULL;
@@ -304,6 +306,8 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_params_s* const restr
     }
 
     k0 += k1;
+    k0 += k2;
+    k0 += k3;
     k0 += k0 >> 32;
     k0 += k0 >> 16;
     k0 &= 0xFFFFULL;
