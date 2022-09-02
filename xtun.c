@@ -492,7 +492,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
     hdr->uSize  = BE16(payloadSize + UDP_HDR_SIZE);
     hdr->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
-    hdr->iCksum = ip_fast_csum(PTR(&hdr->iVersion), 5);
+    hdr->iCksum = ip_fast_csum(PATH_IP(hdr), 5);
 
     skb->len              = payloadSize + XTUN_PATH_SIZE_WIRE;
     skb->data             = PATH_ETH(hdr);
