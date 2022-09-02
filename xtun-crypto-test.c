@@ -230,6 +230,7 @@ int main (void) {
                     cryptoParams.shift64_4.k[3] += (u64)myrandom();
                     break;
 #endif
+                default:
             }
 #endif
 
@@ -307,6 +308,7 @@ int main (void) {
                     );
                     break;
 #endif
+                default:
             }
 
 #if TEST_DECODE
