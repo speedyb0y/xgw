@@ -53,9 +53,8 @@ static inline u64 decrypt64 (u64 x, const u64 mask) {
     return x;
 }
 
-#if 1
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-static u16 xtun_encode (const u64 keys[XTUN_KEYS_N], void* data, uint size) {
+static u16 xtun_encode_64_4 (const u64 keys[4], void* data, uint size) {
 
 	u64 a = keys[0] + XTUN_ENCODING_A_ADD;
 	u64 b = keys[1] + XTUN_ENCODING_B_ADD;
@@ -122,7 +121,7 @@ static u16 xtun_encode (const u64 keys[XTUN_KEYS_N], void* data, uint size) {
 }
 
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-static u16 xtun_decode (const u64 keys[XTUN_KEYS_N], void* data, uint size) {
+static u16 xtun_decode_64_4 (const u64 keys[XTUN_KEYS_N], void* data, uint size) {
 
 	u64 a = keys[0] + XTUN_ENCODING_A_ADD;
 	u64 b = keys[1] + XTUN_ENCODING_B_ADD;
@@ -183,7 +182,37 @@ static u16 xtun_decode (const u64 keys[XTUN_KEYS_N], void* data, uint size) {
 
     return (u16)a;
 }
-#else
-#define xtun_encode(k, d, s) 1
-#define xtun_decode(k, d, s) 1
-#endif
+
+static u16 xtun_encode_0 (const void* const restrict keys, void* restrict data, uint size) {
+
+    (void)keys;
+    (void)data;
+    (void)size;
+
+    return (u16)0;
+}
+
+static u16 xtun_decode_0 (const void* const restrict keys, void* restrict data, uint size) {
+
+    (void)keys;
+    (void)data;
+    (void)size;
+
+    return (u16)0;
+}
+
+static u16 xtun_encode_x (const void* const restrict hash, void* restrict data, uint size) {
+
+    (void)data;
+    (void)size;
+
+    return *hash;
+}
+
+static u16 xtun_decode_x (const void* const restrict hash, void* restrict data, uint size) {
+
+    (void)data;
+    (void)size;
+
+    return *hash;
+}
