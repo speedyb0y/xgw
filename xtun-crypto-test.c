@@ -243,12 +243,12 @@ int main (void) {
             switch (cryptoAlgo) {
 #if              XGW_XTUN_CRYPTO_ALGO_NULL0
                 case XTUN_CRYPTO_ALGO_NULL0:
-                    print("\n -- HASH 0x%04X", hashOriginal);
+                    print(" -- HASH 0x%04X", hashOriginal);
                     break;
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_NULLX
                 case XTUN_CRYPTO_ALGO_NULLX:
-                    print("\n -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
+                    print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.nullx.x
                     );
                     break;
@@ -263,14 +263,14 @@ int main (void) {
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
                 case XTUN_CRYPTO_ALGO_SHIFT64_1:
-                    print("\n -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
+                    print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_4.k[0]
                     );
                     break;
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
                 case XTUN_CRYPTO_ALGO_SHIFT64_2:
-                    print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX", hashOriginal,
+                    print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_2.k[0],
                         (uintll)cryptoParams.shift64_2.k[1]
                     );
@@ -278,7 +278,7 @@ int main (void) {
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
                 case XTUN_CRYPTO_ALGO_SHIFT64_3:
-                    print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+                    print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_3.k[0],
                         (uintll)cryptoParams.shift64_3.k[1],
                         (uintll)cryptoParams.shift64_3.k[2]
@@ -287,7 +287,7 @@ int main (void) {
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
                 case XTUN_CRYPTO_ALGO_SHIFT64_4:
-                    print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+                    print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_4.k[0],
                         (uintll)cryptoParams.shift64_4.k[1],
                         (uintll)cryptoParams.shift64_4.k[2],
