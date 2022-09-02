@@ -11,6 +11,24 @@
 
 #include "config.h"
 
+#undef XGW_XTUN_CRYPTO_ALGO_NULL0
+#undef XGW_XTUN_CRYPTO_ALGO_NULLX
+#undef XGW_XTUN_CRYPTO_ALGO_SUM32
+#undef XGW_XTUN_CRYPTO_ALGO_SUM64
+#undef XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
+#undef XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
+#undef XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
+#undef XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
+
+#define XGW_XTUN_CRYPTO_ALGO_NULL0 1
+#define XGW_XTUN_CRYPTO_ALGO_NULLX 1
+#define XGW_XTUN_CRYPTO_ALGO_SUM32 1
+#define XGW_XTUN_CRYPTO_ALGO_SUM64 1
+#define XGW_XTUN_CRYPTO_ALGO_SHIFT64_1 1
+#define XGW_XTUN_CRYPTO_ALGO_SHIFT64_2 0
+#define XGW_XTUN_CRYPTO_ALGO_SHIFT64_3 0
+#define XGW_XTUN_CRYPTO_ALGO_SHIFT64_4 1
+
 #ifndef TEST
 #define TEST 0
 #endif
@@ -92,7 +110,7 @@ static inline u64 myrandom (void) {
     return x;
 }
 
-static const xtun_crypto_algo_e cryptoAlgo = XTUN_CRYPTO_ALGO;
+static const xtun_crypto_algo_e cryptoAlgo = TEST_CRYPTO_ALGO;
 
 static xtun_crypto_params_s cryptoParams = {
 #if   TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULL0
@@ -147,7 +165,7 @@ int main (void) {
 #if !TEST_ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
 #endif
-        for (uint c = COUNT; c; c--) {
+        for (uint c = TEST_COUNT; c; c--) {
 
 #if TEST_ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
@@ -157,15 +175,20 @@ int main (void) {
 			// NOTHING
 #elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULLX
             cryptoParams.nullx.x++;
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_1
+            cryptoParams.shift64_1.k[0] += (u64)myrandom();
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_2
+            cryptoParams.shift64_2.k[0] += (u64)myrandom();
+            cryptoParams.shift64_2.k[1] += (u64)myrandom();
 #elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_3
-            cryptoParams.shift64_3.keys[0] += (u64)myrandom();
-            cryptoParams.shift64_3.keys[1] += (u64)myrandom();
-            cryptoParams.shift64_3.keys[2] += (u64)myrandom();
+            cryptoParams.shift64_3.k[0] += (u64)myrandom();
+            cryptoParams.shift64_3.k[1] += (u64)myrandom();
+            cryptoParams.shift64_3.k[2] += (u64)myrandom();
 #elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_4
-            cryptoParams.shift64_4.keys[0] += (u64)myrandom();
-            cryptoParams.shift64_4.keys[1] += (u64)myrandom();
-            cryptoParams.shift64_4.keys[2] += (u64)myrandom();
-            cryptoParams.shift64_4.keys[3] += (u64)myrandom();
+            cryptoParams.shift64_4.k[0] += (u64)myrandom();
+            cryptoParams.shift64_4.k[1] += (u64)myrandom();
+            cryptoParams.shift64_4.k[2] += (u64)myrandom();
+            cryptoParams.shift64_4.k[3] += (u64)myrandom();
 #endif
 
             // ENCODE
@@ -187,16 +210,35 @@ int main (void) {
                 return 1;
             }
 
-            print("\n -- KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX  = HASH 0x%04X",
-                (uintll)cryptoParams.shift64_4.keys[0],
-                (uintll)cryptoParams.shift64_4.keys[1],
-                (uintll)cryptoParams.shift64_4.keys[2],
-                (uintll)cryptoParams.shift64_4.keys[3],
-                hashOriginal);
+#if   TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULL0
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULLX
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_1
+            print("\n -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
+                (uintll)cryptoParams.shift64_4.k[0]
+            );
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_2
+            print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX", hashOriginal,
+                (uintll)cryptoParams.shift64_2.k[0],
+                (uintll)cryptoParams.shift64_2.k[1]
+            );
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_3
+            print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+                (uintll)cryptoParams.shift64_3.k[0],
+                (uintll)cryptoParams.shift64_3.k[1],
+                (uintll)cryptoParams.shift64_3.k[2]
+            );
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_4
+            print("\n -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+                (uintll)cryptoParams.shift64_4.k[0],
+                (uintll)cryptoParams.shift64_4.k[1],
+                (uintll)cryptoParams.shift64_4.k[2],
+                (uintll)cryptoParams.shift64_4.k[3]
+            );
+#endif
 
 #if TEST_DECODE
             // DECODE
-            const u64 hashNew = xtun_crypto_decode[cryptoAlgo](&cryptoParams, keys, chunkRW, chunkSize);
+            const u64 hashNew = xtun_crypto_decode[cryptoAlgo](&cryptoParams, chunkRW, chunkSize);
 
             // COMPARE DATA
             if (memcmp(chunk, chunkRW, chunkSize)) {

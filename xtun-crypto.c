@@ -56,31 +56,131 @@ typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
 	// NOTHING
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_NULLX
-    struct {
+    struct xtun_crypto_params_nullx_s {
         u64 x;
     } nullx;
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
-    struct {
+    struct xtun_crypto_params_shift64_1_s {
         u64 k[1];
     } shift64_1;
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
-    struct {
+    struct xtun_crypto_params_shift64_2_s {
         u64 k[2];
     } shift64_2;
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
-    struct {
+    struct xtun_crypto_params_shift64_3_s {
         u64 k[3];
     } shift64_3;
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
-    struct {
+    struct xtun_crypto_params_shift64_4_s {
         u64 k[4];
     } shift64_4;
 #endif
 } xtun_crypto_params_s;
+
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
+static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+
+    u64 k0 = params->shift64_1.k[0] + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
+
+    k0 += encrypt64(0x32234235232ULL, size);
+
+    data += size;
+
+    while (size >= sizeof(u64)) {
+
+        size -= sizeof(u64);
+        data -= sizeof(u64);
+
+        const u64 orig = BE64(*(u64*)data);
+
+        u64 value = orig;
+
+        value = encrypt64(value, size);
+        value = encrypt64(value, k0);
+
+        *(u64*)data = BE64(value);
+
+        k0 += encrypt64(orig, size);
+        k0 += encrypt64(size, size);
+    }
+
+    while (size) {
+
+        size -= sizeof(u8);
+        data -= sizeof(u8);
+
+        const u8 orig = BE8(*(u8*)data);
+
+        u64 value = orig;
+
+        value += encrypt64(k0, size);
+        value &= 0xFFU;
+
+        *(u8*)data = BE8(value);
+
+        k0 += encrypt64(orig, size);
+        k0 += encrypt64(size, size);
+    }
+
+    k0 += k0 >> 32;
+    k0 += k0 >> 16;
+    k0 &= 0xFFFFULL;
+
+    return (u16)k0;
+}
+
+static u16 xtun_crypto_shift64_1_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+
+    u64 k0 = params->shift64_1.k[0] + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
+
+    k0 += encrypt64(0x32234235232ULL, size);
+
+    data += size;
+
+    while (size >= sizeof(u64)) {
+
+        size -= sizeof(u64);
+        data -= sizeof(u64);
+
+        u64 orig = BE64(*(u64*)data);
+
+        orig = decrypt64(orig, k0);
+        orig = decrypt64(orig, size);
+
+        *(u64*)data = BE64(orig);
+
+        k0 += encrypt64(orig, size);
+        k0 += encrypt64(size, size);
+    }
+
+    while (size) {
+
+        size -= sizeof(u8);
+        data -= sizeof(u8);
+
+        u64 orig = BE8(*(u8*)data);
+
+        orig -= encrypt64(k0, size);
+        orig &= 0xFFU;
+
+        *(u8*)data = BE8(orig);
+
+        k0 += encrypt64(orig, size);
+        k0 += encrypt64(size, size);
+    }
+
+    k0 += k0 >> 32;
+    k0 += k0 >> 16;
+    k0 &= 0xFFFFULL;
+
+    return (u16)k0;
+}
+#endif
 
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
 static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
@@ -233,7 +333,7 @@ static u16 xtun_crypto_null0_decode (const xtun_crypto_params_s* const restrict 
 #endif
 
 #if XGW_XTUN_CRYPTO_ALGO_NULLX
-static u16 xtun_crypto_x_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xtun_crypto_nullx_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -242,7 +342,47 @@ static u16 xtun_crypto_x_encode (const xtun_crypto_params_s* const restrict para
     return (u16)0;
 }
 
-static u16 xtun_crypto_x_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xtun_crypto_nullx_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+
+    (void)params;
+    (void)data;
+    (void)size;
+
+    return (u16)0;
+}
+#endif
+
+#if XGW_XTUN_CRYPTO_ALGO_SUM32
+static u16 xtun_crypto_sum32_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+
+    (void)params;
+    (void)data;
+    (void)size;
+
+    return (u16)0;
+}
+
+static u16 xtun_crypto_sum32_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+
+    (void)params;
+    (void)data;
+    (void)size;
+
+    return (u16)0;
+}
+#endif
+
+#if XGW_XTUN_CRYPTO_ALGO_SUM64
+static u16 xtun_crypto_sum64_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+
+    (void)params;
+    (void)data;
+    (void)size;
+
+    return (u16)0;
+}
+
+static u16 xtun_crypto_sum64_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -289,7 +429,7 @@ static const xtun_crypto_decode_f xtun_crypto_decode[XTUN_CRYPTO_ALGOS_N] = {
        [XTUN_CRYPTO_ALGO_NULL0]      = xtun_crypto_null0_decode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_NULLX
-       [XTUN_CRYPTO_ALGO_NULLX]      = xtun_crypto_x_decode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+       [XTUN_CRYPTO_ALGO_NULLX]      = xtun_crypto_nullx_decode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SUM32
        [XTUN_CRYPTO_ALGO_SUM32]      = xtun_crypto_sum32_decode,
@@ -316,7 +456,7 @@ static const xtun_crypto_encode_f xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
        [XTUN_CRYPTO_ALGO_NULL0]      = xtun_crypto_null0_encode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_NULLX
-       [XTUN_CRYPTO_ALGO_NULLX]      = xtun_crypto_x_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+       [XTUN_CRYPTO_ALGO_NULLX]      = xtun_crypto_nullx_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SUM32
        [XTUN_CRYPTO_ALGO_SUM32]      = xtun_crypto_sum32_encode,
