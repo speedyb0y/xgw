@@ -42,12 +42,12 @@ typedef uint64_t u64;
 
 #include "xtun-crypto.c"
 
-#ifndef CHUNK_SIZE_MIN
-#define CHUNK_SIZE_MIN 128
+#ifndef TEST_CHUNK_SIZE_MIN
+#define TEST_CHUNK_SIZE_MIN 128
 #endif
 
-#ifndef CHUNK_SIZE_MAX
-#define CHUNK_SIZE_MAX 1500
+#ifndef TEST_CHUNK_SIZE_MAX
+#define TEST_CHUNK_SIZE_MAX 1500
 #endif
 
 #ifndef TEST_ENCODE
@@ -58,41 +58,20 @@ typedef uint64_t u64;
 #define TEST_DECODE 1
 #endif
 
-#ifndef PRINT
-#define PRINT 1
+#ifndef TEST_PRINT
+#define TEST_PRINT 1
 #endif
 
-#ifndef COUNT
-#define COUNT 1
+#ifndef TEST_COUNT
+#define TEST_COUNT 1
 #endif
 
 #ifndef TEST_SPEED
 #define TEST_SPEED 0
 #endif
 
-#ifndef TEST_CRYPTO_ALGO_NULL0
-#define TEST_CRYPTO_ALGO_NULL0 0
-#endif
-#ifndef TEST_CRYPTO_ALGO_NULLX
-#define TEST_CRYPTO_ALGO_NULLX 0
-#endif
-#ifndef TEST_CRYPTO_ALGO_SUM32
-#define TEST_CRYPTO_ALGO_SUM32 0
-#endif
-#ifndef TEST_CRYPTO_ALGO_SUM64
-#define TEST_CRYPTO_ALGO_SUM64 0
-#endif
-#ifndef TEST_CRYPTO_ALGO_SHIFT64_1
-#define TEST_CRYPTO_ALGO_SHIFT64_1 0
-#endif
-#ifndef TEST_CRYPTO_ALGO_SHIFT64_2
-#define TEST_CRYPTO_ALGO_SHIFT64_2 0
-#endif
-#ifndef TEST_CRYPTO_ALGO_SHIFT64_3
-#define TEST_CRYPTO_ALGO_SHIFT64_3 0
-#endif
-#ifndef TEST_CRYPTO_ALGO_SHIFT64_4
-#define TEST_CRYPTO_ALGO_SHIFT64_4 0
+#ifndef TEST_CRYPTO_ALGO
+#define TEST_CRYPTO_ALGO XTUN_CRYPTO_ALGO_NULL0
 #endif
 
 static inline u64 myrandom (void) {
@@ -128,6 +107,14 @@ static xtun_crypto_params_s cryptoParams = {
 #endif
 };
 
+#if TEST_PRINT
+#define print(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
+#else
+#define print(...) ({})
+#endif
+
+#define err(fmt, ...) fprintf(stderr, "ERROR: " fmt "\n", ##__VA_ARGS__)
+
 int main (void) {
 
     u8 chunk[CHUNK_SIZE_MAX];
@@ -136,9 +123,7 @@ int main (void) {
 
     while ((chunkSize = read(STDIN_FILENO, chunk, (CHUNK_SIZE_MIN + (myrandom() % (CHUNK_SIZE_MAX - CHUNK_SIZE_MIN))))) > 0) {
 
-#if PRINT
-        fprintf(stderr, "SIZE %u\n", chunkSize);
-#endif
+            print("SIZE %u", chunkSize);
 #if TEST_SPEED
             // USA ESSE ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
@@ -174,40 +159,35 @@ int main (void) {
             const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
 
             if (written == -1) {
-                fprintf(stderr, "FAILED TO WRITE: %s\n", strerror(errno));
+                err("FAILED TO WRITE: %s", strerror(errno));
                 return 1;
             }
 
             if (written != chunkSize) {
-                fprintf(stderr, "FAILED TO WRITE: INCOMPLETE\n");
+                err("FAILED TO WRITE: INCOMPLETE");
                 return 1;
             }
 
-#if PRINT
-            fprintf(stderr, "\n -- KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX  = HASH 0x%04X \n",
+            print("\n -- KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX  = HASH 0x%04X",
                 (uintll)cryptoParams.shift64_4.keys[0],
                 (uintll)cryptoParams.shift64_4.keys[1],
                 (uintll)cryptoParams.shift64_4.keys[2],
                 (uintll)cryptoParams.shift64_4.keys[3],
                 hashOriginal);
-#endif
+
 #if TEST_DECODE
             // DECODE
-#if !TEST
             const u64 hashNew = xtun_crypto_decode[cryptoAlgo](&cryptoParams, keys, chunkRW, chunkSize);
-#else
-            const u64 hashNew = hashOriginal;
-#endif
 
             // COMPARE DATA
             if (memcmp(chunk, chunkRW, chunkSize)) {
-                fprintf(stderr, "ERROR: DATA MISMATCH\n");
+                err("DATA MISMATCH");
                 return 1;
             }
 
             // COMPARE HASH
             if (hashNew != hashOriginal) {
-                fprintf(stderr, "ERROR: HASH MISMATCH\n");
+                err("HASH MISMATCH");
                 return 1;
             }
 #endif
@@ -215,7 +195,7 @@ int main (void) {
     }
 
     if (chunkSize == -1) {
-        fprintf(stderr, "FAILED TO READ: %s\n", strerror(errno));
+        err("FAILED TO READ: %s", strerror(errno));
         return 1;
     }
 
