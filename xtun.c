@@ -192,7 +192,7 @@ typedef struct xtun_cfg_node_s {
     xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
 
-static const char* const itfcs[] = { "isp-0", "isp-1", "isp-2" };
+static const char* const itfcs[] = { "enp5s0" };
 
 #if XTUN_SERVER
 static xtun_node_s nodes[XTUN_NODES_N];
@@ -207,15 +207,15 @@ static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
     { .name = "xgw-0", .iHash = 0x2562, .keys = { 0, 0, 0, 0 }, .flowPackets = 32*1000, .paths = {
-        { .itfc = "isp-0", .cband = 60, .sband = 480, .tos = 0, .ttl = 64,
+        { .itfc = "enp5s0", .cband = 60, .sband = 480, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,10,10,10), .caddr = {192,168,0,20},    .cport = 2000,
             .smac = MAC(54,9F,06,F4,C7,A0), .saddr = {200,200,200,200}
         },
-        { .itfc = "isp-1", .cband = 40, .sband = 80, .tos = 0, .ttl = 64,
+        { .itfc = "enp5s0", .cband = 40, .sband = 80, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,11,11,11), .caddr = {192,168,100,20},  .cport = 2111,
             .smac = MAC(CC,ED,21,96,99,C0), .saddr = {200,200,200,200}
         },
-        { .itfc = "isp-2", .cband = 90, .sband = 590, .tos = 0, .ttl = 64,
+        { .itfc = "enp5s0", .cband = 90, .sband = 590, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,12,12,12), .caddr = {192,168,1,20},    .cport = 2222,
             .smac = MAC(90,55,DE,A1,CD,F0), .saddr = {200,200,200,200}
         },
