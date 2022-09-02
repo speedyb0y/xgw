@@ -76,6 +76,14 @@ typedef uint64_t u64;
 #define TEST_DECODE 1
 #endif
 
+#ifndef TEST_VERIFY_HASH
+#define TEST_VERIFY_HASH 1
+#endif
+
+#ifndef TEST_VERIFY_DATA
+#define TEST_VERIFY_DATA 1
+#endif
+
 #ifndef TEST_PRINT
 #define TEST_PRINT 1
 #endif
@@ -102,7 +110,7 @@ typedef uint64_t u64;
 #define print(...) ({})
 #endif
 
-#define err(fmt, ...) return fprintf(stderr, "ERROR: " fmt "\n", ##__VA_ARGS__)
+#define err(fmt, ...) ({ fprintf(stderr, "ERROR: " fmt "\n", ##__VA_ARGS__); return 1; })
 
 static inline u64 myrandom (void) {
 
@@ -240,7 +248,6 @@ int main (void) {
 #else
             const u16 hashOriginal = 0;
 #endif
-            // MOSTRA COMO FICA ENCODADO
             const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
 
             if (written == -1)
@@ -308,13 +315,12 @@ int main (void) {
             }
 
 #if TEST_DECODE
-            // DECODE
             const u64 hashNew = xtun_crypto_decode[cryptoAlgo](&cryptoParams, chunkRW, chunkSize);
-#if TEST_ENCODE
-            // COMPARE DATA
+#if TEST_VERIFY_DATA
             if (memcmp(chunk, chunkRW, chunkSize))
                 err("DATA MISMATCH");
-            // COMPARE HASH
+#endif
+#if TEST_VERIFY_HASH
             if (hashNew != hashOriginal)
                 err("HASH MISMATCH");
 #endif
