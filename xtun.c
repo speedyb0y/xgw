@@ -286,8 +286,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     const xtun_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xtun_path_s);
 
-    void* const payload = PTR(hdr) + sizeof(xtun_path_s);
-
     // IDENTIFY NODE AND PATH IDS FROM SERVER PORT
 #if XTUN_SERVER
     const uint port = BE16(hdr->uDst);
@@ -326,6 +324,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     //BE16(hdr->iSize)
 
     // TODO: FIXME: VAI TER QUE CONSIDERAR AMBOS OS CABECALHOS E O SKB PORQUE PODE TER UM LIXO ALI
+    void* const payload = PTR(hdr) + sizeof(xtun_path_s);
     const uint payloadSize = SKB_TAIL(skb) - payload;
 
     // DECRYPT AND CONFIRM AUTHENTICITY
@@ -378,11 +377,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     // DESENCAPSULA
     skb->mac_len          = 0;
+    skb->len              = payloadSize;
     skb->data             = payload;
     skb->mac_header       =
     skb->network_header   =
     skb->transport_header = payload - PTR(skb->head);
-    skb->len             -= XTUN_PATH_SIZE_ETH;
     skb->dev              = node->dev;
     skb->protocol         =
         ((hdr->iVersion >> 4) == 4) ?
@@ -441,18 +440,17 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: skb->len <= xtun->mtu
     // ASSERT: skb->len <= xtun->dev->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->path->itfc->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
-    // ASSERT(PTR(skb_mac_header(skb)) == PTR(skb->data)
-    // ASSERT: PTR(skb_network_header(skb)) == PTR(skb->data)
-    // ASSERT: PTR(pkt) >= PTR(skb->head)
-
-    printk("MAC %p NETWORK %p DATA %p LEN %u\n",
-        skb_mac_header(skb),
-        skb_network_header(skb),
-        skb->data,
-        skb->len);
 
     xtun_path_s* const pkt = PTR(skb->data) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
+
+    XTUN_ASSERT(PTR(skb_mac_header(skb)) == PTR(skb->data));
+    XTUN_ASSERT(PTR(skb_network_header(skb)) == PTR(skb->data));
+    XTUN_ASSERT((PTR(skb->data) + skb->len) == SKB_TAIL(skb));
+    XTUN_ASSERT(PTR(pkt) >= PTR(skb->head));
+    XTUN_ASSERT((PTR(pkt) + sizeof(xtun_path_s)) <= SKB_TAIL(skb));
+
+    dev_kfree_skb(skb);
     return NETDEV_TX_OK;
 
     // ENVIA flowPackets, E AÍ AVANCA flowShift
