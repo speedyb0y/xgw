@@ -265,8 +265,7 @@ int main (void) {
 #if              XGW_XTUN_CRYPTO_ALGO_NULLX
                 case XTUN_CRYPTO_ALGO_NULLX:
                     print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
-                        (uintll)cryptoParams.nullx.x
-                    );
+                        (uintll)cryptoParams.nullx.x);
                     break;
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_SUM32
@@ -280,16 +279,14 @@ int main (void) {
 #if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
                 case XTUN_CRYPTO_ALGO_SHIFT64_1:
                     print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
-                        (uintll)cryptoParams.shift64_4.k[0]
-                    );
+                        (uintll)cryptoParams.shift64_4.k[0]);
                     break;
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
                 case XTUN_CRYPTO_ALGO_SHIFT64_2:
                     print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_2.k[0],
-                        (uintll)cryptoParams.shift64_2.k[1]
-                    );
+                        (uintll)cryptoParams.shift64_2.k[1]);
                     break;
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
@@ -297,8 +294,7 @@ int main (void) {
                     print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_3.k[0],
                         (uintll)cryptoParams.shift64_3.k[1],
-                        (uintll)cryptoParams.shift64_3.k[2]
-                    );
+                        (uintll)cryptoParams.shift64_3.k[2]);
                     break;
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
@@ -307,8 +303,7 @@ int main (void) {
                         (uintll)cryptoParams.shift64_4.k[0],
                         (uintll)cryptoParams.shift64_4.k[1],
                         (uintll)cryptoParams.shift64_4.k[2],
-                        (uintll)cryptoParams.shift64_4.k[3]
-                    );
+                        (uintll)cryptoParams.shift64_4.k[3]);
                     break;
 #endif
                 default:
