@@ -40,7 +40,7 @@ typedef uint64_t u64;
 
 #define CACHE_LINE_SIZE 64
 
-#include "xtun-encoding.c"
+#include "xtun-crypto.c"
 
 #ifndef CHUNK_SIZE_MIN
 #define CHUNK_SIZE_MIN 128

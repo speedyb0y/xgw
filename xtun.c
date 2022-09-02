@@ -92,7 +92,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #error "BAD XTUN_NODE_ID"
 #endif
 
-#include "xtun-encoding.c"
+#include "xtun-crypto.c"
 
 //
 #define PORT(nid, pid) (XTUN_SERVER_PORT + (nid)*10 + (pid))
