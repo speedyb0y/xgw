@@ -463,16 +463,13 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     void* const payload = skb->data;
     const uint payloadSize = skb->len;
 
-    xtun_path_s* const pkt = PTR(payload) - sizeof(xtun_path_s);
+    xtun_path_s* const hdr = PTR(payload) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
     XTUN_ASSERT(PTR(payload) == PTR(skb_mac_header(skb)));
     XTUN_ASSERT(PTR(payload) == PTR(skb_network_header(skb)));
     XTUN_ASSERT((PTR(payload) + payloadSize) == SKB_TAIL(skb));
-    XTUN_ASSERT(PTR(pkt) >= PTR(skb->head));
-
-    dev_kfree_skb(skb);
-    return NETDEV_TX_OK;
+    XTUN_ASSERT(PTR(hdr) >= PTR(skb->head));
 
     // ENVIA flowPackets, E AÍ AVANCA flowShift
     if (node->flowRemaining == 0) {
@@ -489,29 +486,29 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
         ];
 
     // ENCAPSULATE
-    memcpy(pkt, path, sizeof(xtun_path_s));
+    memcpy(hdr, path, sizeof(xtun_path_s));
 
     // ENCRYPT AND AUTHENTIFY
     if (node->iHash)
-        pkt->iHash = node->iHash;
+        hdr->iHash = node->iHash;
     else
-        pkt->iHash = xtun_encode(node->keys, payload, payloadSize);
+        hdr->iHash = xtun_encode(node->keys, payload, payloadSize);
 
-    pkt->uSize  = BE16(payloadSize + UDP_HDR_SIZE);
-    pkt->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
-    pkt->iCksum = ip_fast_csum(PTR(&pkt->iVersion), 5);
+    hdr->uSize  = BE16(payloadSize + UDP_HDR_SIZE);
+    hdr->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
+    hdr->iCksum = ip_fast_csum(PTR(&hdr->iVersion), 5);
 
-    skb->transport_header = PATH_UDP(pkt) - PTR(skb->head);
-    skb->network_header   = PATH_IP(pkt)  - PTR(skb->head);
-    skb->mac_header       = PATH_ETH(pkt) - PTR(skb->head);
-    skb->data             = PATH_ETH(pkt);
+    skb->transport_header = PATH_UDP(hdr) - PTR(skb->head);
+    skb->network_header   = PATH_IP(hdr)  - PTR(skb->head);
+    skb->mac_header       = PATH_ETH(hdr) - PTR(skb->head);
+    skb->data             = PATH_ETH(hdr);
     skb->len              = payloadSize + XTUN_PATH_SIZE_WIRE;
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
 
-    if (pkt->itfc) {
-        skb->dev = pkt->itfc; // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
+    if (hdr->itfc) {
+        skb->dev = hdr->itfc; // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
         // THE FUNCTION CAN BE CALLED FROM AN INTERRUPT
         // WHEN CALLING THIS METHOD, INTERRUPTS MUST BE ENABLED
         dev_queue_xmit(skb);
