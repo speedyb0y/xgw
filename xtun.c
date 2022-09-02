@@ -481,15 +481,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     } else
         node->flowRemaining--;
 
-    // PATH
-    xtun_path_s* const path = &node->paths[
-            node->flows[
-                ((u64)node->flowShift + xtun_flow_hash(skb->data)) % XTUN_FLOWS_N
-            ]
-        ];
-
-    // ENCAPSULATE
-    memcpy(hdr, path, sizeof(xtun_path_s));
+    // CHOOSE PATH AND ENCAPSULATE
+    memcpy(hdr, &node->paths[node->flows[((u64)node->flowShift + xtun_flow_hash(skb->data)) % XTUN_FLOWS_N]], sizeof(xtun_path_s));
 
     // ENCRYPT AND AUTHENTIFY
     if (node->iHash)
