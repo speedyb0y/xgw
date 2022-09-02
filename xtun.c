@@ -294,10 +294,12 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     const uint pid = PORT_PID(port);
 
     // CONFIRM PACKET SIZE
+    // IGNORE NON-LINEAR SKB
     // CONFIRM THIS IS ETHERNET/IPV4/UDP
     // VALIDATE NODE ID
     // VALIDATE PATH ID
     if (skb->len <= XTUN_PATH_SIZE_WIRE
+     || skb->data_len
      || hdr->eType     != BE16(ETH_P_IP)
      || hdr->iVersion  != BE8(0x45)
      || hdr->iProtocol != BE8(IPPROTO_UDP)
@@ -376,17 +378,25 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     }
 #endif
 
-    // TRIM PACKET AS IN ip_rcv_core()
-    pskb_trim(skb, payloadSize);
+    // NOTE: MAKE SURE WE DO THE EQUIVALENT OF TRIM
+    // pskb_trim(skb, payloadSize);
 
     // DESENCAPSULA
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = 0;
     skb->len              = payloadSize;
     skb->data             = payload;
+#ifdef NET_SKBUFF_DATA_USES_OFFSET
     skb->mac_header       =
     skb->network_header   =
-    skb->transport_header = payload - PTR(skb->head);
+    skb->transport_header = PTR(payload) - PTR(skb->head);
+    skb->tail             = PTR(payload) - PTR(skb->head) + payloadSize;
+#else
+    skb->mac_header       =
+    skb->network_header   =
+    skb->transport_header = PTR(payload);
+    skb->tail             = PTR(payload) + payloadSize;
+#endif
     skb->dev              = node->dev;
     skb->protocol         =
         ((hdr->iVersion >> 4) == 4) ?
