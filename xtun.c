@@ -514,7 +514,6 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     return NETDEV_TX_OK;
 }
 
-#if 0
 static int xtun_dev_up (net_device_s* const dev) {
 
     return 0;
@@ -533,14 +532,11 @@ static int xtun_dev_header_create (sk_buff_s *skb, net_device_s *dev, unsigned s
 static const header_ops_s xtunHeaderOps = {
     .create = xtun_dev_header_create,
 };
-#endif
 
 static const net_device_ops_s xtunDevOps = {
     .ndo_init             =  NULL,
-#if 0
     .ndo_open             =  xtun_dev_up,
     .ndo_stop             =  xtun_dev_down,
-#endif
     .ndo_start_xmit       =  xtun_dev_start_xmit,
     .ndo_set_mac_address  =  NULL,
     // TODO: SET MTU - NAO PODE SER MAIOR QUE A INTERFACE DE CIMA
@@ -549,9 +545,7 @@ static const net_device_ops_s xtunDevOps = {
 static void xtun_dev_setup (net_device_s* const dev) {
 
     dev->netdev_ops      = &xtunDevOps;
-#if 0
     dev->header_ops      = &xtunHeaderOps;
-#endif
     dev->type            = ARPHRD_NONE;
     dev->hard_header_len = XTUN_PATH_SIZE_WIRE; // ETH_HLEN
     dev->min_header_len  = XTUN_PATH_SIZE_WIRE;
