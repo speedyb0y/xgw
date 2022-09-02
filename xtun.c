@@ -385,7 +385,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = 0;
     skb->len              = payloadSize;
-    skb->data             = payload;
+    skb->data             = PTR(payload);
 #ifdef NET_SKBUFF_DATA_USES_OFFSET
     skb->mac_header       =
     skb->network_header   =
@@ -399,9 +399,9 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 #endif
     skb->dev              = node->dev;
     skb->protocol         =
-        ((hdr->iVersion >> 4) == 4) ?
-            BE16(ETH_P_IP) :
-            BE16(ETH_P_IPV6);
+        (*(u8*)payload & 0b0100000U) ?
+            BE16(ETH_P_IPV6) :
+            BE16(ETH_P_IP);
 
     return RX_HANDLER_ANOTHER;
 
