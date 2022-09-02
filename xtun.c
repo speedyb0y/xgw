@@ -547,8 +547,8 @@ static void xtun_dev_setup (net_device_s* const dev) {
     dev->netdev_ops      = &xtunDevOps;
     dev->header_ops      = &xtunHeaderOps;
     dev->type            = ARPHRD_NONE;
-    dev->hard_header_len = XTUN_PATH_SIZE_WIRE; // ETH_HLEN
-    dev->min_header_len  = XTUN_PATH_SIZE_WIRE;
+    dev->hard_header_len = sizeof(xtun_path_s); // ETH_HLEN
+    dev->min_header_len  = sizeof(xtun_path_s);
     dev->mtu             = 1500 - 28 - XTUN_PATH_SIZE_WIRE; // ETH_DATA_LEN
     dev->min_mtu         = 1500 - 28 - XTUN_PATH_SIZE_WIRE; // ETH_MIN_MTU
     dev->max_mtu         = 1500 - 28 - XTUN_PATH_SIZE_WIRE; // ETH_MAX_MTU
