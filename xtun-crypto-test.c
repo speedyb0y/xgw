@@ -47,10 +47,17 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-#define BE8(x) (x)
+#if 0 // TODO: FIXME:
+#define BE8(x)  (x)
 #define BE16(x) (x)
 #define BE32(x) (x)
-#define BE64(x)(x) // TODO: FIXME:
+#define BE64(x) (x)
+#else
+#define BE8(x)                    ((u8)(x))
+#define BE16(x) __builtin_bswap16((u16)(x))
+#define BE32(x) __builtin_bswap32((u32)(x))
+#define BE64(x) __builtin_bswap64((u64)(x))
+#endif
 
 #define CACHE_LINE_SIZE 64
 
