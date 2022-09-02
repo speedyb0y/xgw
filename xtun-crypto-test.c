@@ -243,10 +243,14 @@ int main (void) {
             switch (cryptoAlgo) {
 #if              XGW_XTUN_CRYPTO_ALGO_NULL0
                 case XTUN_CRYPTO_ALGO_NULL0:
+                    print("\n -- HASH 0x%04X", hashOriginal);
                     break;
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_NULLX
                 case XTUN_CRYPTO_ALGO_NULLX:
+                    print("\n -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
+                        (uintll)cryptoParams.nullx.x
+                    );
                     break;
 #endif
 #if              XGW_XTUN_CRYPTO_ALGO_SUM32
