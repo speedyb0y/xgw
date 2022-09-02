@@ -466,11 +466,10 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     xtun_path_s* const pkt = PTR(payload) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
-    XTUN_ASSERT(PTR(skb_mac_header(skb)) == PTR(skb->data));
-    XTUN_ASSERT(PTR(skb_network_header(skb)) == PTR(skb->data));
-    XTUN_ASSERT((PTR(skb->data) + skb->len) == SKB_TAIL(skb));
+    XTUN_ASSERT(PTR(payload) == PTR(skb_mac_header(skb)));
+    XTUN_ASSERT(PTR(payload) == PTR(skb_network_header(skb)));
+    XTUN_ASSERT((PTR(payload) + payloadSize) == SKB_TAIL(skb));
     XTUN_ASSERT(PTR(pkt) >= PTR(skb->head));
-    XTUN_ASSERT((PTR(pkt) + sizeof(xtun_path_s)) <= SKB_TAIL(skb));
 
     dev_kfree_skb(skb);
     return NETDEV_TX_OK;
