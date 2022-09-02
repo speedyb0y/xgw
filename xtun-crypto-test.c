@@ -114,50 +114,35 @@ static inline u64 myrandom (void) {
     return x;
 }
 
-static const xtun_crypto_algo_e cryptoAlgo = TEST_CRYPTO_ALGO;
-
-static xtun_crypto_params_s cryptoParams = {
-#if   TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULL0
-
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_NULLX
-    .nullx = {
-        .x = 0x1234,
-    }
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_1
-    .shift64_1 = {
-        .k = {
-            0x464564456ULL,
-            0xE34232045ULL,
-        }
-    }
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_2
-    .shift64_2 = {
-        .k = {
-            0x464564456ULL,
-            0xE34232045ULL,
-        }
-    }
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_2
-    .shift64_3 = {
-        .k = {
-            0x464564456ULL,
-            0xE34232045ULL,
-            0x004560464ULL,
-        }
-    }
-#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_4
-    .shift64_4 = {
-        .k = {
-            0x464564456ULL,
-            0xE34232045ULL,
-            0x004560464ULL,
-            0x352532532ULL,
-        }
-    }
-#endif
-};
-
 int main (void) {
+
+    xtun_crypto_algo_e cryptoAlgo;
+    xtun_crypto_params_s cryptoParams;
+
+    switch ((cryptoAlgo = TEST_CRYPTO_ALGO)) {    
+        case XTUN_CRYPTO_ALGO_NULL0:
+            break;
+        case XTUN_CRYPTO_ALGO_NULLX:
+            cryptoParams.nullx.x = 0x1234;
+        case XTUN_CRYPTO_ALGO_SHIFT64_1:
+            cryptoParams.shift64_1.k[0] = 0x464564456ULL;
+            break;
+        case XTUN_CRYPTO_ALGO_SHIFT64_2:
+            cryptoParams.shift64_2.k[0] = 0x464564456ULL;
+            cryptoParams.shift64_2.k[1] = 0xE34232045ULL;
+            break;
+        case XTUN_CRYPTO_ALGO_SHIFT64_3:
+            cryptoParams.shift64_3.k[0] = 0x464564456ULL;
+            cryptoParams.shift64_3.k[1] = 0xE34232045ULL;
+            cryptoParams.shift64_3.k[2] = 0x004560464ULL;
+            break;
+        case XTUN_CRYPTO_ALGO_SHIFT64_4:
+            cryptoParams.shift64_4.k[0] = 0x464564456ULL;
+            cryptoParams.shift64_4.k[1] = 0xE34232045ULL;
+            cryptoParams.shift64_4.k[2] = 0x004560464ULL;
+            cryptoParams.shift64_4.k[3] = 0x352532532ULL;
+            break;
+    }
 
     u8 chunk  [TEST_CHUNK_SIZE_MAX];
     u8 chunkRW[TEST_CHUNK_SIZE_MAX];
