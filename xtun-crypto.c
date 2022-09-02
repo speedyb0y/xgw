@@ -198,7 +198,11 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_64_4_s* const restric
 #endif
 
 #if XTUN_CRYPTO_ALGO_NULL0
-static u16 xtun_crypto_null0_encode (const void* const restrict params, void* restrict data, uint size) {
+typedef struct xtun_crypto_null0_s {
+    int _ignored;
+} xtun_crypto_null0_s;
+
+static u16 xtun_crypto_null0_encode (const xtun_crypto_null0_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -207,7 +211,7 @@ static u16 xtun_crypto_null0_encode (const void* const restrict params, void* re
     return (u16)0;
 }
 
-static u16 xtun_crypto_null0_decode (const void* const restrict params, void* restrict data, uint size) {
+static u16 xtun_crypto_null0_decode (const xtun_crypto_null0_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -220,7 +224,7 @@ static u16 xtun_crypto_null0_decode (const void* const restrict params, void* re
 #if XTUN_CRYPTO_ALGO_X
 typedef struct xtun_crypto_x_s { u64 x; } xtun_crypto_x_s;
 
-static u16 xtun_crypto_x_encode (const xtun_crypto_s* const restrict params, void* restrict data, uint size) {
+static u16 xtun_crypto_x_encode (const xtun_crypto_x_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -229,7 +233,7 @@ static u16 xtun_crypto_x_encode (const xtun_crypto_s* const restrict params, voi
     return (u16)0;
 }
 
-static u16 xtun_crypto_x_decode (const xtun_crypto_s* const restrict params, void* restrict data, uint size) {
+static u16 xtun_crypto_x_decode (const xtun_crypto_x_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -238,10 +242,6 @@ static u16 xtun_crypto_x_decode (const xtun_crypto_s* const restrict params, voi
     return (u16)0;
 }
 #endif
-
-
-typedef u16 (*xtun_crypto_encode_f) (const xtun_crypto_s* const restrict params, void* const restrict data, uint size);
-typedef u16 (*xtun_crypto_decode_f) (const xtun_crypto_s* const restrict params, void* const restrict data, uint size);
 
 enum {
 #if XTUN_CRYPTO_ALGO_NULL0
@@ -271,7 +271,9 @@ enum {
     XTUN_CRYPTO_ALGOS_N
 };
 
-typedef union xtun_crypto_s {
+#define XTUN_CRYPTO_PARAMS_SIZE 32
+
+typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
 #if XTUN_CRYPTO_ALGO_NULL0
     xtun_crypto_null0_s null0;
 #endif
@@ -298,30 +300,36 @@ typedef union xtun_crypto_s {
 #endif
 } xtun_crypto_s;
 
+typedef u16 (*xtun_crypto_encode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
+typedef u16 (*xtun_crypto_decode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
+
+#define XTUN_CRYPTO_DECODE_F(f) ((xtun_crypto_decode_f)(f))
+#define XTUN_CRYPTO_ENCODE_F(f) ((xtun_crypto_encode_f)(f))
+
 static const xtun_crypto_decode_f xtun_crypto_decode[XTUN_CRYPTO_ALGOS_N] = {
 #if  XTUN_CRYPTO_ALGO_NULL0
-    [XTUN_CRYPTO_ALGO_NULL0]      = xtun_crypto_0_decode,
+    [XTUN_CRYPTO_ALGO_NULL0]      = XTUN_CRYPTO_DECODE_F(xtun_crypto_0_decode),
 #endif
 #if  XTUN_CRYPTO_ALGO_X
-    [XTUN_CRYPTO_ALGO_X]          = xtun_crypto_x_decode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+    [XTUN_CRYPTO_ALGO_X]          = XTUN_CRYPTO_DECODE_F(xtun_crypto_x_decode), // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
 #endif
 #if  XTUN_CRYPTO_ALGO_SUM32
-    [XTUN_CRYPTO_ALGO_SUM32]      = xtun_crypto_sum32_decode,
+    [XTUN_CRYPTO_ALGO_SUM32]      = XTUN_CRYPTO_DECODE_F(xtun_crypto_sum32_decode),
 #endif
 #if  XTUN_CRYPTO_ALGO_SUM64
-    [XTUN_CRYPTO_ALGO_SUM64]      = xtun_crypto_sum64_decode,
+    [XTUN_CRYPTO_ALGO_SUM64]      = XTUN_CRYPTO_DECODE_F(xtun_crypto_sum64_decode),
 #endif
 #if  XTUN_CRYPTO_ALGO_SHIFT64_1
-    [XTUN_CRYPTO_ALGO_SHIFT64_1]  = xtun_crypto_64_1_decode,
+    [XTUN_CRYPTO_ALGO_SHIFT64_1]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_1_decode),
 #endif
 #if  XTUN_CRYPTO_ALGO_SHIFT64_2
-    [XTUN_CRYPTO_ALGO_SHIFT64_2]  = xtun_crypto_64_2_decode,
+    [XTUN_CRYPTO_ALGO_SHIFT64_2]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_2_decode),
 #endif
 #if  XTUN_CRYPTO_ALGO_SHIFT64_3
-    [XTUN_CRYPTO_ALGO_SHIFT64_3]  = xtun_crypto_64_3_decode,
+    [XTUN_CRYPTO_ALGO_SHIFT64_3]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_3_decode),
 #endif
 #if  XTUN_CRYPTO_ALGO_SHIFT64_4
-    [XTUN_CRYPTO_ALGO_SHIFT64_4]  = xtun_crypto_64_4_decode,
+    [XTUN_CRYPTO_ALGO_SHIFT64_4]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_4_decode),
 #endif
 };
 
