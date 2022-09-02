@@ -337,3 +337,6 @@ static const xtun_crypto_encode_f xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
        [XTUN_CRYPTO_ALGO_SHIFT64_4]  = xtun_crypto_shift64_4_encode,
 #endif
 };
+
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_encode[algo](params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_decode[algo](params, data, size)
