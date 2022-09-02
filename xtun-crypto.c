@@ -3,17 +3,8 @@
 
 #define XTUN_CRYPTO_SHIFT64_KEY_0_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_0_ADD
 #define XTUN_CRYPTO_SHIFT64_KEY_1_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_1_ADD
+#define XTUN_CRYPTO_SHIFT64_KEY_2_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_2_ADD
 #define XTUN_CRYPTO_SHIFT64_KEY_3_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_3_ADD
-#define XTUN_CRYPTO_SHIFT64_KEY_4_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_4_ADD
-
-#define XTUN_CRYPTO_ALGO_NULL0     XGW_XTUN_CRYPTO_ALGO_NULL0
-#define XTUN_CRYPTO_ALGO_X         XGW_XTUN_CRYPTO_ALGO_X
-#define XTUN_CRYPTO_ALGO_SUM32     XGW_XTUN_CRYPTO_ALGO_SUM32
-#define XTUN_CRYPTO_ALGO_SUM64     XGW_XTUN_CRYPTO_ALGO_SUM64
-#define XTUN_CRYPTO_ALGO_SHIFT64_1 XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
-#define XTUN_CRYPTO_ALGO_SHIFT64_2 XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
-#define XTUN_CRYPTO_ALGO_SHIFT64_3 XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
-#define XTUN_CRYPTO_ALGO_SHIFT64_4 XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
 
 #if XTUN_CRYPTO_SHIFT64_KEY_0_ADD <= 0 \
  || XTUN_CRYPTO_SHIFT64_KEY_0_ADD > 0xFFFFFFFFFFFFFFFF
@@ -25,14 +16,14 @@
 #error "BAD XTUN_CRYPTO_1_ADD"
 #endif
 
+#if XTUN_CRYPTO_SHIFT64_KEY_2_ADD <= 0 \
+ || XTUN_CRYPTO_SHIFT64_KEY_2_ADD > 0xFFFFFFFFFFFFFFFF
+#error "BAD XTUN_CRYPTO_SHIFT64_KEY_2_ADD"
+#endif
+
 #if XTUN_CRYPTO_SHIFT64_KEY_3_ADD <= 0 \
  || XTUN_CRYPTO_SHIFT64_KEY_3_ADD > 0xFFFFFFFFFFFFFFFF
 #error "BAD XTUN_CRYPTO_SHIFT64_KEY_3_ADD"
-#endif
-
-#if XTUN_CRYPTO_SHIFT64_KEY_4_ADD <= 0 \
- || XTUN_CRYPTO_SHIFT64_KEY_4_ADD > 0xFFFFFFFFFFFFFFFF
-#error "BAD XTUN_CRYPTO_SHIFT64_KEY_4_ADD"
 #endif
 
 #define popcount32(x) __builtin_popcount((uint)(x))
@@ -58,7 +49,7 @@ static inline u64 decrypt64 (u64 x, const u64 mask) {
     return x;
 }
 
-#if XTUN_CRYPTO_ALGO_SHIFT64_4
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
 typedef struct xtun_crypto_64_4_s {
     u64 a;
     u64 b;
@@ -71,8 +62,8 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_64_4_s* const restric
 
     u64 a = params->a + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
     u64 b = params->b + XTUN_CRYPTO_SHIFT64_KEY_1_ADD;
-    u64 c = params->c + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
-    u64 d = params->d + XTUN_CRYPTO_SHIFT64_KEY_4_ADD;
+    u64 c = params->c + XTUN_CRYPTO_SHIFT64_KEY_2_ADD;
+    u64 d = params->d + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
 
     a += encrypt64(d, size);
     b += encrypt64(c, size);
@@ -138,8 +129,8 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_64_4_s* const restric
 
     u64 a = params->a + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
     u64 b = params->b + XTUN_CRYPTO_SHIFT64_KEY_1_ADD;
-    u64 c = params->c + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
-    u64 d = params->d + XTUN_CRYPTO_SHIFT64_KEY_4_ADD;
+    u64 c = params->c + XTUN_CRYPTO_SHIFT64_KEY_2_ADD;
+    u64 d = params->d + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
 
     a += encrypt64(d, size);
     b += encrypt64(c, size);
@@ -197,7 +188,7 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_64_4_s* const restric
 }
 #endif
 
-#if XTUN_CRYPTO_ALGO_NULL0
+#if XGW_XTUN_CRYPTO_ALGO_NULL0
 typedef struct xtun_crypto_null0_s {
     int _ignored;
 } xtun_crypto_null0_s;
@@ -221,7 +212,7 @@ static u16 xtun_crypto_null0_decode (const xtun_crypto_null0_s* const restrict p
 }
 #endif
 
-#if XTUN_CRYPTO_ALGO_X
+#if XGW_XTUN_CRYPTO_ALGO_X
 typedef struct xtun_crypto_x_s { u64 x; } xtun_crypto_x_s;
 
 static u16 xtun_crypto_x_encode (const xtun_crypto_x_s* const restrict params, void* restrict data, uint size) {
@@ -244,118 +235,118 @@ static u16 xtun_crypto_x_decode (const xtun_crypto_x_s* const restrict params, v
 #endif
 
 enum {
-#if XTUN_CRYPTO_ALGO_NULL0
-    XTUN_CRYPTO_ALGO_NULL0,
+#if XGW_XTUN_CRYPTO_ALGO_NULL0
+        XTUN_CRYPTO_ALGO_NULL0,
 #endif
-#if XTUN_CRYPTO_ALGO_X
-    XTUN_CRYPTO_ALGO_X,
+#if XGW_XTUN_CRYPTO_ALGO_X
+        XTUN_CRYPTO_ALGO_X,
 #endif
-#if XTUN_CRYPTO_ALGO_SUM32
-    XTUN_CRYPTO_ALGO_SUM32,
+#if XGW_XTUN_CRYPTO_ALGO_SUM32
+        XTUN_CRYPTO_ALGO_SUM32,
 #endif
-#if XTUN_CRYPTO_ALGO_SUM64
-    XTUN_CRYPTO_ALGO_SUM64,
+#if XGW_XTUN_CRYPTO_ALGO_SUM64
+        XTUN_CRYPTO_ALGO_SUM64,
 #endif
-#if XTUN_CRYPTO_ALGO_SHIFT64_1
-    XTUN_CRYPTO_ALGO_SHIFT64_1,
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
+        XTUN_CRYPTO_ALGO_SHIFT64_1,
 #endif
-#if XTUN_CRYPTO_ALGO_SHIFT64_2
-    XTUN_CRYPTO_ALGO_SHIFT64_2,
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
+        XTUN_CRYPTO_ALGO_SHIFT64_2,
 #endif
-#if XTUN_CRYPTO_ALGO_SHIFT64_3
-    XTUN_CRYPTO_ALGO_SHIFT64_3,
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
+        XTUN_CRYPTO_ALGO_SHIFT64_3,
 #endif
-#if XTUN_CRYPTO_ALGO_SHIFT64_4
-    XTUN_CRYPTO_ALGO_SHIFT64_4,
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
+        XTUN_CRYPTO_ALGO_SHIFT64_4,
 #endif
-    XTUN_CRYPTO_ALGOS_N
+        XTUN_CRYPTO_ALGOS_N
 };
 
 #define XTUN_CRYPTO_PARAMS_SIZE 32
 
 typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
-#if XTUN_CRYPTO_ALGO_NULL0
+#if XGW_XTUN_CRYPTO_ALGO_NULL0
     xtun_crypto_null0_s null0;
 #endif
-#if XTUN_CRYPTO_ALGO_X
+#if XGW_XTUN_CRYPTO_ALGO_X
     xtun_crypto_x_s x;
 #endif
-#if XTUN_CRYPTO_ALGO_SUM32
+#if XGW_XTUN_CRYPTO_ALGO_SUM32
     xtun_crypto_sum32_s sum32;
 #endif
-#if XTUN_CRYPTO_ALGO_SUM64
+#if XGW_XTUN_CRYPTO_ALGO_SUM64
     xtun_crypto_sum64_s sum64;
 #endif
-#if XTUN_CRYPTO_ALGO_SHIFT64_1
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
     xtun_crypto_64_1_s shift64_1;
 #endif
-#if XTUN_CRYPTO_ALGO_SHIFT64_2
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
     xtun_crypto_64_2_s shift64_2;
 #endif
-#if XTUN_CRYPTO_ALGO_SHIFT64_3
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
     xtun_crypto_64_3_s shift64_3;
 #endif
-#if XTUN_CRYPTO_ALGO_SHIFT64_4
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
     xtun_crypto_64_4_s shift64_4;
 #endif
-} xtun_crypto_s;
+} xtun_crypto_params_s;
 
-typedef u16 (*xtun_crypto_encode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 typedef u16 (*xtun_crypto_decode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
+typedef u16 (*xtun_crypto_encode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 
 #define XTUN_CRYPTO_DECODE_F(f) ((xtun_crypto_decode_f)(f))
 #define XTUN_CRYPTO_ENCODE_F(f) ((xtun_crypto_encode_f)(f))
 
 static const xtun_crypto_decode_f xtun_crypto_decode[XTUN_CRYPTO_ALGOS_N] = {
-#if  XTUN_CRYPTO_ALGO_NULL0
-    [XTUN_CRYPTO_ALGO_NULL0]      = XTUN_CRYPTO_DECODE_F(xtun_crypto_0_decode),
+#if XGW_XTUN_CRYPTO_ALGO_NULL0
+       [XTUN_CRYPTO_ALGO_NULL0]      = XTUN_CRYPTO_DECODE_F(xtun_crypto_null0_decode),
 #endif
-#if  XTUN_CRYPTO_ALGO_X
-    [XTUN_CRYPTO_ALGO_X]          = XTUN_CRYPTO_DECODE_F(xtun_crypto_x_decode), // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+#if XGW_XTUN_CRYPTO_ALGO_X
+       [XTUN_CRYPTO_ALGO_X]          = XTUN_CRYPTO_DECODE_F(xtun_crypto_x_decode), // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
 #endif
-#if  XTUN_CRYPTO_ALGO_SUM32
-    [XTUN_CRYPTO_ALGO_SUM32]      = XTUN_CRYPTO_DECODE_F(xtun_crypto_sum32_decode),
+#if XGW_XTUN_CRYPTO_ALGO_SUM32
+       [XTUN_CRYPTO_ALGO_SUM32]      = XTUN_CRYPTO_DECODE_F(xtun_crypto_sum32_decode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SUM64
-    [XTUN_CRYPTO_ALGO_SUM64]      = XTUN_CRYPTO_DECODE_F(xtun_crypto_sum64_decode),
+#if XGW_XTUN_CRYPTO_ALGO_SUM64
+       [XTUN_CRYPTO_ALGO_SUM64]      = XTUN_CRYPTO_DECODE_F(xtun_crypto_sum64_decode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SHIFT64_1
-    [XTUN_CRYPTO_ALGO_SHIFT64_1]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_1_decode),
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
+       [XTUN_CRYPTO_ALGO_SHIFT64_1]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_1_decode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SHIFT64_2
-    [XTUN_CRYPTO_ALGO_SHIFT64_2]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_2_decode),
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
+       [XTUN_CRYPTO_ALGO_SHIFT64_2]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_2_decode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SHIFT64_3
-    [XTUN_CRYPTO_ALGO_SHIFT64_3]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_3_decode),
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
+       [XTUN_CRYPTO_ALGO_SHIFT64_3]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_3_decode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SHIFT64_4
-    [XTUN_CRYPTO_ALGO_SHIFT64_4]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_4_decode),
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
+       [XTUN_CRYPTO_ALGO_SHIFT64_4]  = XTUN_CRYPTO_DECODE_F(xtun_crypto_64_4_decode),
 #endif
 };
 
 static const xtun_crypto_encode_f xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
-#if  XTUN_CRYPTO_ALGO_NULL0
-    [XTUN_CRYPTO_ALGO_NULL0]      = xtun_crypto_0_encode,
+#if XGW_XTUN_CRYPTO_ALGO_NULL0
+       [XTUN_CRYPTO_ALGO_NULL0]      = XTUN_CRYPTO_ENCODE_F(xtun_crypto_null0_encode),
 #endif
-#if  XTUN_CRYPTO_ALGO_X
-    [XTUN_CRYPTO_ALGO_X]          = xtun_crypto_x_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+#if XGW_XTUN_CRYPTO_ALGO_X
+       [XTUN_CRYPTO_ALGO_X]          = XTUN_CRYPTO_ENCODE_F(xtun_crypto_x_encode), // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
 #endif
-#if  XTUN_CRYPTO_ALGO_SUM32
-    [XTUN_CRYPTO_ALGO_SUM32]      = xtun_crypto_sum32_encode,
+#if XGW_XTUN_CRYPTO_ALGO_SUM32
+       [XTUN_CRYPTO_ALGO_SUM32]      = XTUN_CRYPTO_ENCODE_F(xtun_crypto_sum32_encode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SUM64
-    [XTUN_CRYPTO_ALGO_SUM64]      = xtun_crypto_sum64_encode,
+#if XGW_XTUN_CRYPTO_ALGO_SUM64
+       [XTUN_CRYPTO_ALGO_SUM64]      = XTUN_CRYPTO_ENCODE_F(xtun_crypto_sum64_encode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SHIFT64_1
-    [XTUN_CRYPTO_ALGO_SHIFT64_1]  = xtun_crypto_64_1_encode,
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
+       [XTUN_CRYPTO_ALGO_SHIFT64_1]  = XTUN_CRYPTO_ENCODE_F(xtun_crypto_64_1_encode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SHIFT64_2
-    [XTUN_CRYPTO_ALGO_SHIFT64_2]  = xtun_crypto_64_2_encode,
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
+       [XTUN_CRYPTO_ALGO_SHIFT64_2]  = XTUN_CRYPTO_ENCODE_F(xtun_crypto_64_2_encode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SHIFT64_3
-    [XTUN_CRYPTO_ALGO_SHIFT64_3]  = xtun_crypto_64_3_encode,
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
+       [XTUN_CRYPTO_ALGO_SHIFT64_3]  = XTUN_CRYPTO_ENCODE_F(xtun_crypto_64_3_encode),
 #endif
-#if  XTUN_CRYPTO_ALGO_SHIFT64_4
-    [XTUN_CRYPTO_ALGO_SHIFT64_4]  = xtun_crypto_64_4_encode,
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
+       [XTUN_CRYPTO_ALGO_SHIFT64_4]  = XTUN_CRYPTO_ENCODE_F(xtun_crypto_64_4_encode),
 #endif
 };
