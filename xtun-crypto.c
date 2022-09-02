@@ -51,24 +51,20 @@ static inline u64 decrypt64 (u64 x, const u64 mask) {
 
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
 typedef struct xtun_crypto_64_4_s {
-    u64 a;
-    u64 b;
-    u64 c;
-    u64 d;
+    u64 k[4];
 } xtun_crypto_64_4_s;
 
-// RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
 static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_64_4_s* const restrict params, void* restrict data, uint size) {
 
-    u64 a = params->a + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
-    u64 b = params->b + XTUN_CRYPTO_SHIFT64_KEY_1_ADD;
-    u64 c = params->c + XTUN_CRYPTO_SHIFT64_KEY_2_ADD;
-    u64 d = params->d + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
+    u64 k0 = params->k[0] + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
+    u64 k1 = params->k[1] + XTUN_CRYPTO_SHIFT64_KEY_1_ADD;
+    u64 k2 = params->k[2] + XTUN_CRYPTO_SHIFT64_KEY_2_ADD;
+    u64 k3 = params->k[3] + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
 
-    a += encrypt64(d, size);
-    b += encrypt64(c, size);
-    c += encrypt64(b, size);
-    d += encrypt64(a, size);
+    k0 += encrypt64(k3, size);
+    k1 += encrypt64(k2, size);
+    k2 += encrypt64(k1, size);
+    k3 += encrypt64(k0, size);
 
     data += size;
 
@@ -82,17 +78,17 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_64_4_s* const restric
         u64 value = orig;
 
         value = encrypt64(value, size);
-        value = encrypt64(value, a);
-        value = encrypt64(value, b);
-        value = encrypt64(value, c);
-        value = encrypt64(value, d);
+        value = encrypt64(value, k0);
+        value = encrypt64(value, k1);
+        value = encrypt64(value, k2);
+        value = encrypt64(value, k3);
 
         *(u64*)data = BE64(value);
 
-        a += encrypt64(d, orig);
-        b += encrypt64(a, size);
-        c += encrypt64(orig, b);
-        d += encrypt64(orig, c);
+        k0 += encrypt64(k3, orig);
+        k1 += encrypt64(k0, size);
+        k2 += encrypt64(orig, k1);
+        k3 += encrypt64(orig, k2);
     }
 
     while (size) {
@@ -104,38 +100,37 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_64_4_s* const restric
 
         u64 value = orig;
 
-        value += encrypt64(a, size);
-        value += encrypt64(b, size);
-        value += encrypt64(c, size);
-        value += encrypt64(d, size);
+        value += encrypt64(k0, size);
+        value += encrypt64(k1, size);
+        value += encrypt64(k2, size);
+        value += encrypt64(k3, size);
         value &= 0xFFU;
 
         *(u8*)data = BE8(value);
 
-        a += encrypt64(b, orig);
-        b += encrypt64(orig, a);
+        k0 += encrypt64(k1, orig);
+        k1 += encrypt64(orig, k0);
     }
 
-    a += b;
-    a += a >> 32;
-    a += a >> 16;
-    a &= 0xFFFFULL;
+    k0 += k1;
+    k0 += k0 >> 32;
+    k0 += k0 >> 16;
+    k0 &= 0xFFFFULL;
 
-    return (u16)a;
+    return (u16)k0;
 }
 
-// RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
 static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_64_4_s* const restrict params, void* restrict data, uint size) {
 
-    u64 a = params->a + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
-    u64 b = params->b + XTUN_CRYPTO_SHIFT64_KEY_1_ADD;
-    u64 c = params->c + XTUN_CRYPTO_SHIFT64_KEY_2_ADD;
-    u64 d = params->d + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
+    u64 k0 = params->k0 + XTUN_CRYPTO_SHIFT64_KEY_0_ADD;
+    u64 k1 = params->k1 + XTUN_CRYPTO_SHIFT64_KEY_1_ADD;
+    u64 k2 = params->k2 + XTUN_CRYPTO_SHIFT64_KEY_2_ADD;
+    u64 k3 = params->k3 + XTUN_CRYPTO_SHIFT64_KEY_3_ADD;
 
-    a += encrypt64(d, size);
-    b += encrypt64(c, size);
-    c += encrypt64(b, size);
-    d += encrypt64(a, size);
+    k0 += encrypt64(k3, size);
+    k1 += encrypt64(k2, size);
+    k2 += encrypt64(k1, size);
+    k3 += encrypt64(k0, size);
 
     data += size;
 
@@ -146,18 +141,18 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_64_4_s* const restric
 
         u64 orig = BE64(*(u64*)data);
 
-        orig = decrypt64(orig, d);
-        orig = decrypt64(orig, c);
-        orig = decrypt64(orig, b);
-        orig = decrypt64(orig, a);
+        orig = decrypt64(orig, k3);
+        orig = decrypt64(orig, k2);
+        orig = decrypt64(orig, k1);
+        orig = decrypt64(orig, k0);
         orig = decrypt64(orig, size);
 
         *(u64*)data = BE64(orig);
 
-        a += encrypt64(d, orig);
-        b += encrypt64(a, size);
-        c += encrypt64(orig, b);
-        d += encrypt64(orig, c);
+        k0 += encrypt64(k3, orig);
+        k1 += encrypt64(k0, size);
+        k2 += encrypt64(orig, k1);
+        k3 += encrypt64(orig, k2);
     }
 
     while (size) {
@@ -167,24 +162,24 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_64_4_s* const restric
 
         u64 orig = BE8(*(u8*)data);
 
-        orig -= encrypt64(d, size);
-        orig -= encrypt64(c, size);
-        orig -= encrypt64(b, size);
-        orig -= encrypt64(a, size);
+        orig -= encrypt64(k3, size);
+        orig -= encrypt64(k2, size);
+        orig -= encrypt64(k1, size);
+        orig -= encrypt64(k0, size);
         orig &= 0xFFU;
 
         *(u8*)data = BE8(orig);
 
-        a += encrypt64(b, orig);
-        b += encrypt64(orig, a);
+        k0 += encrypt64(k1, orig);
+        k1 += encrypt64(orig, k0);
     }
 
-    a += b;
-    a += a >> 32;
-    a += a >> 16;
-    a &= 0xFFFFULL;
+    k0 += k1;
+    k0 += k0 >> 32;
+    k0 += k0 >> 16;
+    k0 &= 0xFFFFULL;
 
-    return (u16)a;
+    return (u16)k0;
 }
 #endif
 
@@ -291,6 +286,7 @@ typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
 #endif
 } xtun_crypto_params_s;
 
+// RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
 typedef u16 (*xtun_crypto_decode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 typedef u16 (*xtun_crypto_encode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 
