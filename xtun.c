@@ -117,6 +117,10 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XTUN_PATH_SIZE_PRIVATE (XTUN_PATH_SIZE - XTUN_PATH_SIZE_WIRE)
 #define XTUN_PATH_SIZE_WIRE (ETH_HDR_SIZE + IP4_HDR_SIZE + UDP_HDR_SIZE)
 
+#define PATH_ETH(path) PTR(&(path)->eDst)
+#define PATH_IP(path)  PTR(&(path)->iVersion)
+#define PATH_UDP(path) PTR(&(path)->uSrc)
+
 typedef struct xtun_path_s {
     net_device_s* itfc;
 #if XTUN_SERVER
@@ -456,7 +460,10 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ASSERT: skb->len <= xtun->dev->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
     // ASSERT: skb->len <= xtun->path->itfc->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
 
-    xtun_path_s* const pkt = PTR(skb->data) - sizeof(xtun_path_s);
+    void* const payload = skb->data;
+    const uint payloadSize = skb->len;
+
+    xtun_path_s* const pkt = PTR(payload) - sizeof(xtun_path_s);
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
     XTUN_ASSERT(PTR(skb_mac_header(skb)) == PTR(skb->data));
@@ -485,15 +492,21 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     // ENCAPSULATE
     memcpy(pkt, path, sizeof(xtun_path_s));
 
-    pkt->uSize  = BE16(skb->len + UDP_HDR_SIZE);
-    pkt->iSize  = BE16(skb->len + UDP_HDR_SIZE + IP4_HDR_SIZE);
+    // ENCRYPT AND AUTHENTIFY
+    if (node->iHash)
+        pkt->iHash = node->iHash;
+    else
+        pkt->iHash = xtun_encode(node->keys, payload, payloadSize);
+
+    pkt->uSize  = BE16(payloadSize + UDP_HDR_SIZE);
+    pkt->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
     pkt->iCksum = ip_fast_csum(PTR(&pkt->iVersion), 5);
 
-    skb->transport_header = PTR(&pkt->uSrc)     - PTR(skb->head);
-    skb->network_header   = PTR(&pkt->iVersion) - PTR(skb->head);
-    skb->mac_header       = PTR(&pkt->eDst)     - PTR(skb->head);
-    skb->data             = PTR(&pkt->eDst);
-    skb->len             += XTUN_PATH_SIZE_WIRE;
+    skb->transport_header = PATH_UDP(pkt) - PTR(skb->head);
+    skb->network_header   = PATH_IP(pkt)  - PTR(skb->head);
+    skb->mac_header       = PATH_ETH(pkt) - PTR(skb->head);
+    skb->data             = PATH_ETH(pkt);
+    skb->len              = payloadSize + XTUN_PATH_SIZE_WIRE;
     skb->protocol         = BE16(ETH_P_IP);
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
