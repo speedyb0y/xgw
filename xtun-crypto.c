@@ -1,10 +1,35 @@
 
 #define XTUN_KEYS_N XGW_XTUN_KEYS_N
 
+#define XTUN_CRYPTO_SHIFT32_KEY_0_ADD XGW_XTUN_CRYPTO_SHIFT32_KEY_0_ADD
+#define XTUN_CRYPTO_SHIFT32_KEY_1_ADD XGW_XTUN_CRYPTO_SHIFT32_KEY_1_ADD
+#define XTUN_CRYPTO_SHIFT32_KEY_2_ADD XGW_XTUN_CRYPTO_SHIFT32_KEY_2_ADD
+#define XTUN_CRYPTO_SHIFT32_KEY_3_ADD XGW_XTUN_CRYPTO_SHIFT32_KEY_3_ADD
+
 #define XTUN_CRYPTO_SHIFT64_KEY_0_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_0_ADD
 #define XTUN_CRYPTO_SHIFT64_KEY_1_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_1_ADD
 #define XTUN_CRYPTO_SHIFT64_KEY_2_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_2_ADD
 #define XTUN_CRYPTO_SHIFT64_KEY_3_ADD XGW_XTUN_CRYPTO_SHIFT64_KEY_3_ADD
+
+#if XTUN_CRYPTO_SHIFT32_KEY_0_ADD <= 0 \
+ || XTUN_CRYPTO_SHIFT32_KEY_0_ADD > 0xFFFFFFFF
+#error "BAD XTUN_CRYPTO_SHIFT32_KEY_0_ADD"
+#endif
+
+#if XTUN_CRYPTO_SHIFT32_KEY_1_ADD <= 0 \
+ || XTUN_CRYPTO_SHIFT32_KEY_1_ADD > 0xFFFFFFFF
+#error "BAD XTUN_CRYPTO_SHIFT32_KEY_1_ADD"
+#endif
+
+#if XTUN_CRYPTO_SHIFT32_KEY_2_ADD <= 0 \
+ || XTUN_CRYPTO_SHIFT32_KEY_2_ADD > 0xFFFFFFFF
+#error "BAD XTUN_CRYPTO_SHIFT32_KEY_2_ADD"
+#endif
+
+#if XTUN_CRYPTO_SHIFT32_KEY_3_ADD <= 0 \
+ || XTUN_CRYPTO_SHIFT32_KEY_3_ADD > 0xFFFFFFFF
+#error "BAD XTUN_CRYPTO_SHIFT32_KEY_3_ADD"
+#endif
 
 #if XTUN_CRYPTO_SHIFT64_KEY_0_ADD <= 0 \
  || XTUN_CRYPTO_SHIFT64_KEY_0_ADD > 0xFFFFFFFFFFFFFFFF
@@ -28,6 +53,26 @@
 
 #define popcount32(x) __builtin_popcount((uint)(x))
 #define popcount64(x) __builtin_popcountll((uintll)(x))
+
+static inline u32 encrypt32 (u32 x, const u32 mask) {
+
+    uint q = popcount32(mask);
+
+    x += mask;
+    x = (x >> q) | (x << (32 - q));
+
+    return x;
+}
+
+static inline u32 decrypt32 (u32 x, const u32 mask) {
+
+    uint q = popcount32(mask);
+
+    x = (x << q) | (x >> (32 - q));
+    x -= mask;
+
+    return x;
+}
 
 static inline u64 encrypt64 (u64 x, const u64 mask) {
 
@@ -60,6 +105,11 @@ typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
         u64 x;
     } nullx;
 #endif
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
+    struct xtun_crypto_params_shift32_1_s {
+        u32 k[1];
+    } shift32_1;
+#endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
     struct xtun_crypto_params_shift64_1_s {
         u64 k[1];
@@ -81,6 +131,105 @@ typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
     } shift64_4;
 #endif
 } xtun_crypto_params_s;
+
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
+static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+
+    u32 k0 = params->shift32_1.k[0] + XTUN_CRYPTO_SHIFT32_KEY_0_ADD;
+
+    k0 += encrypt32(0x3223232U, size);
+
+    data += size;
+
+    while (size >= sizeof(u32)) {
+
+        size -= sizeof(u32);
+        data -= sizeof(u32);
+
+        const u32 orig = BE32(*(u32*)data);
+
+        u32 value = orig;
+
+        value = encrypt32(value, size);
+        value = encrypt32(value, k0);
+
+        *(u32*)data = BE32(value);
+
+        k0 += encrypt32(orig, size);
+        k0 += encrypt32(size, size);
+    }
+
+    while (size) {
+
+        size -= sizeof(u8);
+        data -= sizeof(u8);
+
+        const u8 orig = BE8(*(u8*)data);
+
+        u32 value = orig;
+
+        value += encrypt32(k0, size);
+        value &= 0xFFU;
+
+        *(u8*)data = BE8(value);
+
+        k0 += encrypt32(orig, size);
+        k0 += encrypt32(size, size);
+    }
+
+    k0 += k0 >> 16;
+    k0 &= 0xFFFFULL;
+
+    return (u16)k0;
+}
+
+static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+
+    u32 k0 = params->shift32_1.k[0] + XTUN_CRYPTO_SHIFT32_KEY_0_ADD;
+
+    k0 += encrypt32(0x3223232U, size);
+
+    data += size;
+
+    while (size >= sizeof(u32)) {
+
+        size -= sizeof(u32);
+        data -= sizeof(u32);
+
+        u32 orig = BE32(*(u32*)data);
+
+        orig = decrypt32(orig, k0);
+        orig = decrypt32(orig, size);
+
+        *(u32*)data = BE32(orig);
+
+        k0 += encrypt32(orig, size);
+        k0 += encrypt32(size, size);
+    }
+
+    while (size) {
+
+        size -= sizeof(u8);
+        data -= sizeof(u8);
+
+        u32 orig = BE8(*(u8*)data);
+
+        orig -= encrypt32(k0, size);
+        orig &= 0xFFU;
+
+        *(u8*)data = BE8(orig);
+
+        k0 += encrypt32(orig, size);
+        k0 += encrypt32(size, size);
+    }
+
+    k0 += k0 >> 16;
+    k0 &= 0xFFFFULL;
+
+    return (u16)k0;
+}
+#endif
+
 
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
 static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
@@ -409,6 +558,9 @@ typedef enum xtun_crypto_algo_e {
 #if XGW_XTUN_CRYPTO_ALGO_SUM64
         XTUN_CRYPTO_ALGO_SUM64,
 #endif
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
+        XTUN_CRYPTO_ALGO_SHIFT32_1,
+#endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
         XTUN_CRYPTO_ALGO_SHIFT64_1,
 #endif
@@ -441,6 +593,9 @@ static const xtun_crypto_decode_f xtun_crypto_decode[XTUN_CRYPTO_ALGOS_N] = {
 #if XGW_XTUN_CRYPTO_ALGO_SUM64
        [XTUN_CRYPTO_ALGO_SUM64]      = xtun_crypto_sum64_decode,
 #endif
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
+       [XTUN_CRYPTO_ALGO_SHIFT32_1]  = xtun_crypto_shift32_1_decode,
+#endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
        [XTUN_CRYPTO_ALGO_SHIFT64_1]  = xtun_crypto_shift64_1_decode,
 #endif
@@ -467,6 +622,9 @@ static const xtun_crypto_encode_f xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SUM64
        [XTUN_CRYPTO_ALGO_SUM64]      = xtun_crypto_sum64_encode,
+#endif
+#if XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
+       [XTUN_CRYPTO_ALGO_SHIFT32_1]  = xtun_crypto_shift32_1_encode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
        [XTUN_CRYPTO_ALGO_SHIFT64_1]  = xtun_crypto_shift64_1_encode,

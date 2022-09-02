@@ -1,11 +1,7 @@
 /*
 
-    gcc -fwhole-program -Wall -Wextra -O2 -march=native xtun-encoding-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512]
+    gcc -fwhole-program -Wall -Wextra -O2 -march=native xtun-crypto-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512]
 
-
-    gcc -fwhole-program -Wall -Wextra -O2 -march=native xtun-encoding-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512] -DDECODE=0 -DPRINT=0
-
-    ./a.out < /dev/zero | pv > /dev/null
     openssl aes-256-cbc -salt -in /dev/zero -out /proc/self/fd/1 -pass stdin <<< $(sha256sum <<< ewewgewew) | pv > /dev/null
 */
 
@@ -15,6 +11,7 @@
 #undef XGW_XTUN_CRYPTO_ALGO_NULLX
 #undef XGW_XTUN_CRYPTO_ALGO_SUM32
 #undef XGW_XTUN_CRYPTO_ALGO_SUM64
+#undef XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
 #undef XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
 #undef XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
 #undef XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
@@ -24,14 +21,11 @@
 #define XGW_XTUN_CRYPTO_ALGO_NULLX 1
 #define XGW_XTUN_CRYPTO_ALGO_SUM32 1
 #define XGW_XTUN_CRYPTO_ALGO_SUM64 1
+#define XGW_XTUN_CRYPTO_ALGO_SHIFT32_1 1
 #define XGW_XTUN_CRYPTO_ALGO_SHIFT64_1 1
 #define XGW_XTUN_CRYPTO_ALGO_SHIFT64_2 0
 #define XGW_XTUN_CRYPTO_ALGO_SHIFT64_3 0
 #define XGW_XTUN_CRYPTO_ALGO_SHIFT64_4 1
-
-#ifndef TEST
-#define TEST 0
-#endif
 
 #include <stdint.h>
 #include <string.h>
@@ -54,6 +48,8 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 
 #define BE8(x) (x)
+#define BE16(x) (x)
+#define BE32(x) (x)
 #define BE64(x)(x) // TODO: FIXME:
 
 #define CACHE_LINE_SIZE 64
@@ -88,20 +84,20 @@ typedef uint64_t u64;
 #define TEST_PRINT 1
 #endif
 
-#ifndef TEST_COUNT
-#define TEST_COUNT 1
+#ifndef TEST_LOOPS
+#define TEST_LOOPS 16
 #endif
 
 #ifndef TEST_ORIGINAL
 #define TEST_ORIGINAL 1
 #endif
 
-#ifndef TEST_PARAMS
-#define TEST_PARAMS 1
-#endif
-
 #ifndef TEST_CRYPTO_ALGO
 #define TEST_CRYPTO_ALGO XTUN_CRYPTO_ALGO_NULL0
+#endif
+
+#ifndef TEST_CRYPTO_PARAMS
+#define TEST_CRYPTO_PARAMS 1
 #endif
 
 #if TEST_PRINT
@@ -184,13 +180,13 @@ int main (void) {
 #if !TEST_ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
 #endif
-        for (uint c = TEST_COUNT; c; c--) {
+        for (uint c = TEST_LOOPS; c; c--) {
 
 #if TEST_ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
 #endif
 
-#if TEST_PARAMS
+#if TEST_CRYPTO_PARAMS
             switch (cryptoAlgo) {
 #if              XGW_XTUN_CRYPTO_ALGO_NULL0
                 case XTUN_CRYPTO_ALGO_NULL0:
@@ -244,7 +240,7 @@ int main (void) {
 
             // ENCODE
 #if TEST_ENCODE
-            const u16 hashOriginal = xtun_crypto_encode[cryptoAlgo](&cryptoParams, chunkRW, chunkSize);
+            const u16 hashOriginal = xtun_crypto_encode(cryptoAlgo, &cryptoParams, chunkRW, chunkSize);
 #else
             const u16 hashOriginal = 0;
 #endif
@@ -310,7 +306,7 @@ int main (void) {
             }
 
 #if TEST_DECODE
-            const u64 hashNew = xtun_crypto_decode[cryptoAlgo](&cryptoParams, chunkRW, chunkSize);
+            const u64 hashNew = xtun_crypto_decode(cryptoAlgo, &cryptoParams, chunkRW, chunkSize);
 #if TEST_VERIFY_DATA
             if (memcmp(chunk, chunkRW, chunkSize))
                 err("DATA MISMATCH");
