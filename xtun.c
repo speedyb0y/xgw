@@ -160,7 +160,7 @@ typedef struct xtun_path_s {
 
 typedef struct xtun_node_s {
     net_device_s* dev;
-    xtun_crypto_s cryptoParams;
+    xtun_crypto_params_s cryptoParams;
     u64 reserved2;
     u32 reserved;
     u16 cryptoAlgo;
@@ -172,8 +172,8 @@ typedef struct xtun_node_s {
 } xtun_node_s;
 
 typedef struct xtun_cfg_path_s {
-    u32 cband;
-    u32 sband;
+    uint cband;
+    uint sband;
     char itfc[IFNAMSIZ];
     union { u8 cmac[8]; u16 cmac16[3]; };
     union { u8 smac[8]; u16 smac16[3]; };
@@ -185,10 +185,10 @@ typedef struct xtun_cfg_path_s {
 } xtun_cfg_path_s;
 
 typedef struct xtun_cfg_node_s {
-    const char name[IFNAMSIZ];
-    u16 iHash;
-    u32 flowPackets; // TOTAL DE PACOTES A CADA CIRCULADA
-    u64 keys[XTUN_KEYS_N];
+    char name[IFNAMSIZ];
+    xtun_crypto_params_s cryptoParams;
+    xtun_crypto_algo_e cryptoAlgo;
+    uint flowPackets; // TOTAL DE PACOTES A CADA CIRCULADA
     xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
 
@@ -206,7 +206,7 @@ static const xtun_cfg_node_s cfgNodes[XTUN_NODES_N] =
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
-    { .name = "xgw-0", .iHash = 0x2562, .keys = { 0, 0, 0, 0 }, .flowPackets = 32*1000, .paths = {
+    { .name = "xgw-0", .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .flowPackets = 16*1000, .paths = {
         { .itfc = "enp5s0", .cband = 60, .sband = 480, .tos = 0, .ttl = 64,
             .cmac = MAC(d0,50,99,10,10,10), .caddr = {192,168,0,20},    .cport = 2000,
             .smac = MAC(54,9F,06,F4,C7,A0), .saddr = {200,200,200,200}
@@ -336,7 +336,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         goto drop;
 
     // DECRYPT AND CONFIRM AUTHENTICITY
-    if (xtun_crypto_decode[node->cryptoAlgo](&node->cryptoData, payload, payloadSize) != hdr->iHash)
+    if (xtun_crypto_decode[node->cryptoAlgo](&node->cryptoParams, payload, payloadSize) != hdr->iHash)
         goto drop;
 
 #if XTUN_SERVER
@@ -482,7 +482,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     memcpy(hdr, &node->paths[node->flows[((u64)node->flowShift + xtun_flow_hash(skb->data)) % XTUN_FLOWS_N]], sizeof(xtun_path_s));
 
     // ENCRYPT AND AUTHENTIFY
-    hdr->iHash = xtun_crypto_encode[node->cryptoAlgo](&node->cryptoData, payload, payloadSize);
+    hdr->iHash = xtun_crypto_encode[node->cryptoAlgo](&node->cryptoParams, payload, payloadSize);
     hdr->uSize  = BE16(payloadSize + UDP_HDR_SIZE);
     hdr->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
     hdr->iCksum = ip_fast_csum(PATH_IP(hdr), 5);
@@ -627,25 +627,69 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 
 static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
 
-    printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH"
-        " IHASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX FLOW PACKETS %llu"
-        "\n",
-        cfg->name, nid, cfg->iHash,
-        (uintll)cfg->keys[0],
-        (uintll)cfg->keys[1],
-        (uintll)cfg->keys[2],
-        (uintll)cfg->keys[3],
-        (uintll)cfg->flowPackets
-    );
+    printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH FLOW PACKETS %llu\n",
+        cfg->name, nid, (uintll)cfg->flowPackets);
 
-    node->iHash         = cfg->iHash;
-    node->keys[0]       = cfg->keys[0];
-    node->keys[1]       = cfg->keys[1];
-    node->keys[2]       = cfg->keys[2];
-    node->keys[3]       = cfg->keys[3];
+    switch (cfg->cryptoAlgo) {
+#if      XGW_XTUN_CRYPTO_ALGO_NULL0
+        case XTUN_CRYPTO_ALGO_NULL0:
+            printk(" CRYPTO ALGO NULL0");
+            break;
+#endif
+#if      XGW_XTUN_CRYPTO_ALGO_SUM32
+        case XTUN_CRYPTO_ALGO_SUM32:
+            printk(" CRYPTO ALGO SUM32");
+            break;
+#endif
+#if      XGW_XTUN_CRYPTO_ALGO_SUM64
+        case XTUN_CRYPTO_ALGO_SUM64:
+            printk(" CRYPTO ALGO SUM64");
+            break;
+#endif
+#if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
+        case XTUN_CRYPTO_ALGO_SHIFT64_1:
+            printk(" CRYPTO ALGO SHIFT64_1 KEYS 0x%016llX\n",
+                (uintll)cfg->cryptoParams.shift64_1.k[0]
+                );
+            break;
+#endif
+#if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
+        case XTUN_CRYPTO_ALGO_SHIFT64_2:
+            printk(" CRYPTO ALGO SHIFT64_2 KEYS 0x%016llX 0x%016llX\n",
+                (uintll)cfg->cryptoParams.shift64_2.k[0],
+                (uintll)cfg->cryptoParams.shift64_2.k[1]
+                );
+            break;
+#endif
+#if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
+        case XTUN_CRYPTO_ALGO_SHIFT64_3:
+            printk(" CRYPTO ALGO SHIFT64_3 KEYS 0x%016llX 0x%016llX 0x%016llX\n",
+                (uintll)cfg->cryptoParams.shift64_3.k[0],
+                (uintll)cfg->cryptoParams.shift64_3.k[1],
+                (uintll)cfg->cryptoParams.shift64_3.k[2]
+                );
+            break;
+#endif
+#if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
+        case XTUN_CRYPTO_ALGO_SHIFT64_4:
+            printk(" CRYPTO ALGO SHIFT64_4 KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX\n",
+                (uintll)cfg->cryptoParams.shift64_4.k[0],
+                (uintll)cfg->cryptoParams.shift64_4.k[1],
+                (uintll)cfg->cryptoParams.shift64_4.k[2],
+                (uintll)cfg->cryptoParams.shift64_4.k[3]
+                );
+            break;
+#endif
+        default:
+            printk(" CRYPTO ALGO UNKNOWN\n");
+    }
+
+    node->cryptoAlgo    = cfg->cryptoAlgo;
     node->flowPackets   = cfg->flowPackets;
     node->flowRemaining = 0;
     node->flowShift     = 0;
+
+    memcpy(&node->cryptoParams, &cfg->cryptoParams, sizeof(xtun_crypto_params_s));
 
     // CREATE THE VIRTUAL INTERFACE
     net_device_s* const dev = alloc_netdev(sizeof(xtun_node_s*), cfg->name, NET_NAME_USER, xtun_dev_setup);
@@ -729,6 +773,7 @@ static int __init xtun_init(void) {
 
     printk("XTUN: INIT\n");
 
+    BUILD_BUG_ON(sizeof(xtun_crypto_params_s) != XTUN_CRYPTO_PARAMS_SIZE);
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
 
