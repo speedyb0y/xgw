@@ -261,7 +261,11 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restr
         data -= sizeof(u64);
         const u64 orig = BE64(*(u64*)data);
         u64 value = orig;
-        value = encrypt64(encrypt64(encrypt64(encrypt64(encrypt64(value, size), a), b), c), d);
+        value = encrypt64(value, size);
+        value = encrypt64(value, a);
+        value = encrypt64(value, b);
+        value = encrypt64(value, c);
+        value = encrypt64(value, d);
         *(u64*)data = BE64(value);
         a += encrypt64(orig, size);
         b += encrypt64(a, orig);
