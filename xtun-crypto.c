@@ -52,10 +52,13 @@ static inline u64 decrypt64 (u64 x, const u64 mask) {
 #define XTUN_CRYPTO_PARAMS_SIZE 32
 
 typedef union xtun_crypto_params_s { char _[XTUN_CRYPTO_PARAMS_SIZE];
-#if XGW_XTUN_CRYPTO_ALGO_X
+#if XGW_XTUN_CRYPTO_ALGO_NULL0
+	// NOTHING
+#endif
+#if XGW_XTUN_CRYPTO_ALGO_NULLX
     struct {
         u64 x;
-    } x;
+    } nullx;
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
     struct {
@@ -229,7 +232,7 @@ static u16 xtun_crypto_null0_decode (const xtun_crypto_params_s* const restrict 
 }
 #endif
 
-#if XGW_XTUN_CRYPTO_ALGO_X
+#if XGW_XTUN_CRYPTO_ALGO_NULLX
 static u16 xtun_crypto_x_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
@@ -253,8 +256,8 @@ typedef enum xtun_crypto_algo_e {
 #if XGW_XTUN_CRYPTO_ALGO_NULL0
         XTUN_CRYPTO_ALGO_NULL0,
 #endif
-#if XGW_XTUN_CRYPTO_ALGO_X
-        XTUN_CRYPTO_ALGO_X,
+#if XGW_XTUN_CRYPTO_ALGO_NULLX
+        XTUN_CRYPTO_ALGO_NULLX,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SUM32
         XTUN_CRYPTO_ALGO_SUM32,
@@ -285,8 +288,8 @@ static const xtun_crypto_decode_f xtun_crypto_decode[XTUN_CRYPTO_ALGOS_N] = {
 #if XGW_XTUN_CRYPTO_ALGO_NULL0
        [XTUN_CRYPTO_ALGO_NULL0]      = xtun_crypto_null0_decode,
 #endif
-#if XGW_XTUN_CRYPTO_ALGO_X
-       [XTUN_CRYPTO_ALGO_X]          = xtun_crypto_x_decode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+#if XGW_XTUN_CRYPTO_ALGO_NULLX
+       [XTUN_CRYPTO_ALGO_NULLX]      = xtun_crypto_x_decode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SUM32
        [XTUN_CRYPTO_ALGO_SUM32]      = xtun_crypto_sum32_decode,
@@ -312,8 +315,8 @@ static const xtun_crypto_encode_f xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
 #if XGW_XTUN_CRYPTO_ALGO_NULL0
        [XTUN_CRYPTO_ALGO_NULL0]      = xtun_crypto_null0_encode,
 #endif
-#if XGW_XTUN_CRYPTO_ALGO_X
-       [XTUN_CRYPTO_ALGO_X]          = xtun_crypto_x_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+#if XGW_XTUN_CRYPTO_ALGO_NULLX
+       [XTUN_CRYPTO_ALGO_NULLX]      = xtun_crypto_x_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SUM32
        [XTUN_CRYPTO_ALGO_SUM32]      = xtun_crypto_sum32_encode,
