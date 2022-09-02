@@ -66,13 +66,21 @@ typedef uint64_t u64;
 #define TEST_COUNT 1
 #endif
 
-#ifndef TEST_SPEED
-#define TEST_SPEED 0
+#ifndef TEST_ORIGINAL
+#define TEST_ORIGINAL 1
 #endif
 
 #ifndef TEST_CRYPTO_ALGO
 #define TEST_CRYPTO_ALGO XTUN_CRYPTO_ALGO_NULL0
 #endif
+
+#if TEST_PRINT
+#define print(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
+#else
+#define print(...) ({})
+#endif
+
+#define err(fmt, ...) fprintf(stderr, "ERROR: " fmt "\n", ##__VA_ARGS__)
 
 static inline u64 myrandom (void) {
 
@@ -93,6 +101,28 @@ static xtun_crypto_params_s cryptoParams = {
     .nullx = {
         .x = 0x1234,
     }
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_1
+    .shift64_1 = {
+        .k = {
+            0x464564456ULL,
+            0xE34232045ULL,
+        }
+    }
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_2
+    .shift64_2 = {
+        .k = {
+            0x464564456ULL,
+            0xE34232045ULL,
+        }
+    }
+#elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_2
+    .shift64_3 = {
+        .k = {
+            0x464564456ULL,
+            0xE34232045ULL,
+            0x004560464ULL,
+        }
+    }
 #elif TEST_CRYPTO_ALGO == XTUN_CRYPTO_ALGO_SHIFT64_4
     .shift64_4 = {
         .k = {
@@ -102,35 +132,24 @@ static xtun_crypto_params_s cryptoParams = {
             0x352532532ULL,
         }
     }
-#else
-#error
 #endif
 };
 
-#if TEST_PRINT
-#define print(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
-#else
-#define print(...) ({})
-#endif
-
-#define err(fmt, ...) fprintf(stderr, "ERROR: " fmt "\n", ##__VA_ARGS__)
-
 int main (void) {
 
-    u8 chunk[CHUNK_SIZE_MAX];
-    u8 chunkRW[CHUNK_SIZE_MAX];
+    u8 chunk  [TEST_CHUNK_SIZE_MAX];
+    u8 chunkRW[TEST_CHUNK_SIZE_MAX];
     int chunkSize;
 
-    while ((chunkSize = read(STDIN_FILENO, chunk, (CHUNK_SIZE_MIN + (myrandom() % (CHUNK_SIZE_MAX - CHUNK_SIZE_MIN))))) > 0) {
+    while ((chunkSize = read(STDIN_FILENO, chunk, (TEST_CHUNK_SIZE_MIN + (myrandom() % (TEST_CHUNK_SIZE_MAX - TEST_CHUNK_SIZE_MIN))))) > 0) {
 
             print("SIZE %u", chunkSize);
-#if TEST_SPEED
-            // USA ESSE ORIGINAL
+#if !TEST_ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
 #endif
         for (uint c = COUNT; c; c--) {
 
-#if !TEST_SPEED
+#if TEST_ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
 #endif
 
