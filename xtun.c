@@ -486,6 +486,9 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     XTUN_ASSERT((PTR(payload) + payloadSize) == SKB_TAIL(skb));
     XTUN_ASSERT(PTR(hdr) >= PTR(skb->head));
 
+    if (PTR(hdr) < PTR(skb->head))
+        goto drop;
+
     // TODO: FIXME: payloadSize tem que caber no MTU final
 
     // ENVIA flowPackets, E AÍ AVANCA flowShift
@@ -513,13 +516,18 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
 
-    if (hdr->itfc) {
-        skb->dev = hdr->itfc; // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
-        // THE FUNCTION CAN BE CALLED FROM AN INTERRUPT
-        // WHEN CALLING THIS METHOD, INTERRUPTS MUST BE ENABLED
-        dev_queue_xmit(skb);
-    } else
-        dev_kfree_skb(skb);
+    if (!hdr->itfc)
+        goto drop;
+
+    skb->dev = hdr->itfc; // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
+    // THE FUNCTION CAN BE CALLED FROM AN INTERRUPT
+    // WHEN CALLING THIS METHOD, INTERRUPTS MUST BE ENABLED
+    dev_queue_xmit(skb);
+
+    return NETDEV_TX_OK;
+
+drop:
+    dev_kfree_skb(skb);
 
     return NETDEV_TX_OK;
 }
@@ -598,40 +606,40 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     path->iSrcLock   = 0,
     path->iDstLock   = 0,
     path->uDstLock   = 0;
-    path->itfc       =  NULL;
+    path->itfc       = NULL;
 #if XTUN_SERVER
-    path->hash       =  0;
+    path->hash       = 0;
 #else
-    path->reserved2  =  0;
-    path->cpkts      =  cfg->clt.pkts;
+    path->reserved2  = 0;
+    path->cpkts      = cfg->clt.pkts;
 #endif
-    path->spkts      =  cfg->srv.pkts;
-    path->eType      =  BE16(ETH_P_IP);
-    path->iVersion   =  0x45;
+    path->spkts      = cfg->srv.pkts;
+    path->eType      = BE16(ETH_P_IP);
+    path->iVersion   = 0x45;
 #if XTUN_SERVER
-    path->iTOS       =  cfg->srv.tos;
+    path->iTOS       = cfg->srv.tos;
 #else
-    path->iTOS       =  cfg->clt.tos;
+    path->iTOS       = cfg->clt.tos;
 #endif
-    path->iSize      =  0;
-    path->iHash      =  0;
-    path->iFrag      =  0;
+    path->iSize      = 0;
+    path->iHash      = 0;
+    path->iFrag      = 0;
 #if XTUN_SERVER
-    path->iTTL       =  cfg->srv.ttl;
+    path->iTTL       = cfg->srv.ttl;
 #else
-    path->iTTL       =  cfg->clt.ttl;
+    path->iTTL       = cfg->clt.ttl;
 #endif
-    path->iProtocol  =  IPPROTO_UDP;
-    path->iCksum     =  0;
+    path->iProtocol  = IPPROTO_UDP;
+    path->iCksum     = 0;
 #if XTUN_SERVER
-    path->uSrc       =  BE16(PORT(nid, pid));
-    path->uDst       =  0;
+    path->uSrc       = BE16(PORT(nid, pid));
+    path->uDst       = 0;
 #else
-    path->uSrc       =  BE16(cfg->clt.port);
-    path->uDst       =  BE16(PORT(nid, pid));
+    path->uSrc       = BE16(cfg->clt.port);
+    path->uDst       = BE16(PORT(nid, pid));
 #endif
-    path->uSize      =  0;
-    path->uCksum     =  0;
+    path->uSize      = 0;
+    path->uCksum     = 0;
 
     memcpy(path->eSrc, cfg->this.mac, ETH_ALEN);
     memcpy(path->eDst, cfg->this.gw,  ETH_ALEN);
@@ -639,9 +647,9 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     memcpy(path->iSrc, cfg->this.addr, 4);
     memcpy(path->iDst, cfg->peer.addr, 4);
 
-    net_device_s* const itfc = dev_get_by_name(&init_net, cfg->this.itfc);
+    net_device_s* itfc;
 
-    if (itfc) {
+    if ((itfc = dev_get_by_name(&init_net, cfg->this.itfc))) {
 
         // HOOK INTERFACE
         rtnl_lock();
@@ -649,18 +657,22 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
         if (rcu_dereference(itfc->rx_handler) != xtun_in) {
             // NOT HOOKED YET
             if (!netdev_rx_handler_register(itfc, xtun_in, NULL)) {
-                // NOW IT'S HOOKED
-                // TODO: FIXME: TEM QUE FAZER ISSO EM TODAS AS INTERFACES OU NAO VAI PODER CONSIDERAR O SKB COMO xtun_path_s
-                itfc->hard_header_len += sizeof(xtun_path_s) - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
+                // HOOK SUCCESS
+                // NOTE: ISSO É PARA QUE POSSA DAR FORWARD NOS PACOTES
+                // NOTE: A INTERFACE JA TEM O ETH_HLEN
+                itfc->hard_header_len += sizeof(xtun_path_s) - ETH_HLEN;
                 itfc->min_header_len  += sizeof(xtun_path_s) - ETH_HLEN;
-                path->itfc = itfc;
-            }
+            } else // HOOK FAILED
+                dev = NULL;
         } else // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
             path->itfc = itfc;
 
         rtnl_unlock();
 
-        if (!path->itfc) {
+        if (dev) {
+            path->itfc = dev;
+            path->itfcIsUp = 1; // TODO:
+        } else {
             printk("XTUN: TUNNEL %s: PATH %u: HOOK: FAILED\n",
                 node->dev->name, pid);
             dev_put(itfc);
