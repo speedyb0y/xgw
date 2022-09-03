@@ -172,16 +172,23 @@ typedef struct xtun_node_s {
 } xtun_node_s;
 
 typedef struct xtun_cfg_path_s {
-    uint cltPackets; // TOTAL DE PACOTES A CADA CIRCULADA
-    uint srvPackets;
-    char itfc[IFNAMSIZ];
-    u8 cltMAC[ETH_ALEN];
-    u8 srvMAC[ETH_ALEN];
-    u8 cltAddr[4];
-    u8 srvAddr[4];
-    u16 cltPort;
-    u8 tos;
-    u8 ttl;
+    struct {
+        char itfc[IFNAMSIZ];
+        u8 mac[ETH_ALEN];
+        u8 addr[4];
+        u16 port;
+        u8 tos;
+        u8 ttl;
+        uint pkts; // TOTAL DE PACOTES A CADA CIRCULADA
+    } clt;
+    struct {
+        char itfc[IFNAMSIZ];
+        u8 mac[ETH_ALEN];
+        u8 addr[4];
+        u8 tos;
+        u8 ttl;
+        uint pkts;
+    } srv;
 } xtun_cfg_path_s;
 
 typedef struct xtun_cfg_node_s {
@@ -206,17 +213,17 @@ static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
     { .name = "xgw-0", .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
-        { .itfc = "enp5s0", .cltPkts = 1000, .srvPkts = 11000, .tos = 0, .ttl = 64,
-            .cltMAC = MAC(d0,50,99,10,10,10), .cltAddr = {192,168,0,20},    .cltPort = 2000,
-            .srvMAC = MAC(54,9F,06,F4,C7,A0), .srvAddr = {200,200,200,200}
+        {
+            .clt = { .itfc = "enp5s0", .pkts =  1000, .mac = MAC(d0,50,99,10,10,10), .addr = {192,168,0,20},    .tos = 0, .ttl = 64, .port = 2000, },
+            .srv = { .itfc = "eth0",   .pkts = 11000, .mac = MAC(54,9F,06,F4,C7,A0), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
         },
-        { .itfc = "enp5s0", .cltPkts = 500, .srvPkts = 4000, .tos = 0, .ttl = 64,
-            .cltMAC = MAC(d0,50,99,11,11,11), .cltAddr = {192,168,100,20},  .cltPort = 2111,
-            .srvMAC = MAC(CC,ED,21,96,99,C0), .srvAddr = {200,200,200,200}
+        {
+            .clt = { .itfc = "enp5s0", .pkts =  500, .mac = MAC(d0,50,99,11,11,11), .addr = {192,168,100,20}, .tos = 0, .ttl = 64, .port = 2111, },
+            .srv = { .itfc = "eth0",   .pkts = 4000, .mac = MAC(CC,ED,21,96,99,C0), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
         },
-        { .itfc = "enp5s0", .cltPkts = 1300, .srvPktsd = 12000, .tos = 0, .ttl = 64,
-            .cltMAC = MAC(d0,50,99,12,12,12), .cltAddr = {192,168,1,20},    .cltPort = 2222,
-            .srvMAC = MAC(90,55,DE,A1,CD,F0), .srvAddr = {200,200,200,200}
+        {
+            .clt = { .itfc = "enp5s0", .pkts =  1300, .mac = MAC(d0,50,99,12,12,12), .addr = {192,168,1,20},   .tos = 0, .ttl = 64, .port = 2222 },
+            .srv = { .itfc = "eth0",   .pkts = 12000, .mac = MAC(90,55,DE,A1,CD,F0), .addr = {200,200,200,200} .tos = 0, .ttl = 64, },
         },
     }},
 };
@@ -553,8 +560,8 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
         " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
         " SRV BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
         node->dev->name, pid, cfg->itfc, cfg->tos, cfg->ttl,
-        cfg->cltBand, _MAC(cfg->cltMAC), _IP4(cfg->cltAddr), cfg->cltPort,
-        cfg->srvBand, _MAC(cfg->srvMAC), _IP4(cfg->srvAddr), PORT(nid, pid)
+        cfg->clt.band, _MAC(cfg->clt.mac), _IP4(cfg->clt.addr), cfg->clt.port,
+        cfg->srv.band, _MAC(cfg->srv.mac), _IP4(cfg->srv.addr), PORT(nid, pid)
     );
 
     path->itfc       =  NULL;
