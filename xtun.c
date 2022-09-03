@@ -377,18 +377,19 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     if (unlikely(path->hash != hash)) {
         path->hash = hash;
+        // TODO: MARCAR path->on porque provou que funciona?
 
-        if (!path->uDstLearn)
+        if (path->uDstLearn)
             path->uDst = hdr->uSrc;
-        if (!path->itfcLearn) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
+        if (path->itfcLearn) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
             path->itfc = itfc;
-        if (!path->eSrcLearn)
+        if (path->eSrcLearn)
             memcpy(path->eSrc, hdr->eDst, ETH_ALEN);
-        if (!path->eDstLearn)
+        if (path->eDstLearn)
             memcpy(path->eDst, hdr->eSrc, ETH_ALEN);
-        if (!path->iSrcLearn)
+        if (path->iSrcLearn)
             memcpy(path->iSrc, hdr->iDst, 4);
-        if (!path->iDstLearn)
+        if (path->iDstLearn)
             memcpy(path->iDst, hdr->iSrc, 4);
 
         printk("XTUN: TUNNEL %s: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
