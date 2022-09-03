@@ -651,24 +651,20 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
             if (!netdev_rx_handler_register(itfc, xtun_in, NULL)) {
                 // NOW IT'S HOOKED
                 // TODO: FIXME: TEM QUE FAZER ISSO EM TODAS AS INTERFACES OU NAO VAI PODER CONSIDERAR O SKB COMO xtun_path_s
-                printk("XTUN: TUNNEL %s: PATH %u: HOOK: SUCCESS\n",
-                    node->dev->name, pid);
                 itfc->hard_header_len += sizeof(xtun_path_s) - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
                 itfc->min_header_len  += sizeof(xtun_path_s) - ETH_HLEN;
                 path->itfc = itfc;
-            } else
-                printk("XTUN: TUNNEL %s: PATH %u: HOOK: FAILED\n",
-                    node->dev->name, pid);
-        } else { // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
-            printk("XTUN: TUNNEL %s: PATH %u: HOOK: ALREADY\n",
-                node->dev->name, pid);
+            }
+        } else // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
             path->itfc = itfc;
-        }
 
         rtnl_unlock();
 
-        if (!path->itfc)
+        if (!path->itfc) {
+            printk("XTUN: TUNNEL %s: PATH %u: HOOK: FAILED\n",
+                node->dev->name, pid);
             dev_put(itfc);
+        }
     } else
         printk("XTUN: TUNNEL %s: PATH %u: HOOK: INTERFACE NOT FOUND\n",
             node->dev->name, pid);
