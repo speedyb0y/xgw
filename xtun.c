@@ -130,7 +130,14 @@ typedef struct xtun_path_s {
     u32 cpkts;
 #endif
     u32 spkts;
-    u16 reserved;
+    u16 isUp:1, // ADMINISTRATIVELY
+        isItfcUp:1, // WATCH INTERFACE EVENTS AND SET THIS
+        itfcLock:1,
+        eSrcLock:1,
+        eDstLock:1,
+        iSrcLock:1,
+        iDstLock:1,    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO 
+        uDstLock:1;
 #define ETH_HDR_SIZE 14
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
@@ -253,7 +260,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     uintll maiorP = 0;
 
     foreach (pid, XTUN_PATHS_N) {
-        const uint b = node->paths[pid].mpkts;
+        const uint b = node->paths[pid].isUp * node->paths[pid].mpkts;
         // CALCULA O TOTAL
         total += b;
         // LEMBRA O PATH COM MAIOR BANDWIDTH
@@ -270,7 +277,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
 
     if (total) {
         do {
-            uint q = (((uintll)node->paths[pid].mpkts) * XTUN_FLOWS_N) / total;
+            uint q = (node->paths[pid].isUp * ((uintll)node->paths[pid].mpkts) * XTUN_FLOWS_N) / total;
             flowsR -= q;
             while (q--)
                 *flows++ = pid;
@@ -363,15 +370,20 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     if (path->hash != hash) {
         
-        path->hash    = hash;
-        path->itfc    = itfc; // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
-        path->uDst    = hdr->uSrc;
+        path->hash = hash;
 
-        memcpy(path->eSrc, hdr->eDst, ETH_ALEN);
-        memcpy(path->eDst, hdr->eSrc, ETH_ALEN);
-
-        memcpy(path->iSrc, hdr->iDst, 4);
-        memcpy(path->iDst, hdr->iSrc, 4);
+        if (!path->uDstLock)
+            path->uDst = hdr->uSrc;        
+        if (!path->itfcLock) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
+            path->itfc = itfc;
+        if (!path->eSrcLock)
+            memcpy(path->eSrc, hdr->eDst, ETH_ALEN);
+        if (!path->eDstLock)
+            memcpy(path->eDst, hdr->eSrc, ETH_ALEN);
+        if (!path->iSrcLock)
+            memcpy(path->iSrc, hdr->iDst, 4);
+        if (!path->iDstLock)
+            memcpy(path->iDst, hdr->iSrc, 4);
 
         printk("XTUN: TUNNEL %s: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
             " SRC %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n"
