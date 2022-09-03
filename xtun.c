@@ -303,13 +303,20 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
         *flow++ = pid;
 
     //
+    total /= XTUN_FLOWS_N;
+
+    //
     if (node->flowPackets == total && !memcmp(node->flows, flows, XTUN_FLOWS_N))
         // NO CHANGES
         return 0;
 
     // SOMETHING CHANGED
-    node->flowPackets = total; memcpy(node->flows, flows, XTUN_FLOWS_N);
-    node->flowRemaining = 0; // TODO: FIXME: FAZER ISSO SEMPRE QUE HOUVER QUALQUER MUDANCA NO ARRAY
+
+    // TODO: SÓ FAZER ISSO SE MUDOU OS FLOWS OU SE ALGUM PATH DIMINUIR SEUS PACKETS
+    if (node->flowPackets > total)
+        node->flowRemaining = 0; 
+    node->flowPackets = total;
+    memcpy(node->flows, flows, XTUN_FLOWS_N);
 
     return 1;
 }
