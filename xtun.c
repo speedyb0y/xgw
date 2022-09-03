@@ -172,8 +172,8 @@ typedef struct xtun_node_s {
 } xtun_node_s;
 
 typedef struct xtun_cfg_path_s {
-    uint cltBand;
-    uint srvBand;
+    uint cltPackets; // TOTAL DE PACOTES A CADA CIRCULADA
+    uint srvPackets;
     char itfc[IFNAMSIZ];
     u8 cltMAC[ETH_ALEN];
     u8 srvMAC[ETH_ALEN];
@@ -188,7 +188,6 @@ typedef struct xtun_cfg_node_s {
     char name[IFNAMSIZ];
     xtun_crypto_params_s cryptoParams;
     xtun_crypto_algo_e cryptoAlgo;
-    uint flowPackets; // TOTAL DE PACOTES A CADA CIRCULADA
     xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
 
@@ -206,16 +205,16 @@ static const xtun_cfg_node_s cfgNodes[XTUN_NODES_N] =
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
-    { .name = "xgw-0", .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .flowPackets = 16*1000, .paths = {
-        { .itfc = "enp5s0", .cltBand = 60, .srvBand = 480, .tos = 0, .ttl = 64,
+    { .name = "xgw-0", .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
+        { .itfc = "enp5s0", .cltPkts = 1000, .srvPkts = 11000, .tos = 0, .ttl = 64,
             .cltMAC = MAC(d0,50,99,10,10,10), .cltAddr = {192,168,0,20},    .cltPort = 2000,
             .srvMAC = MAC(54,9F,06,F4,C7,A0), .srvAddr = {200,200,200,200}
         },
-        { .itfc = "enp5s0", .cltBand = 40, .srvBand = 80, .tos = 0, .ttl = 64,
+        { .itfc = "enp5s0", .cltPkts = 500, .srvPkts = 4000, .tos = 0, .ttl = 64,
             .cltMAC = MAC(d0,50,99,11,11,11), .cltAddr = {192,168,100,20},  .cltPort = 2111,
             .srvMAC = MAC(CC,ED,21,96,99,C0), .srvAddr = {200,200,200,200}
         },
-        { .itfc = "enp5s0", .cltBand = 90, .srvBand = 590, .tos = 0, .ttl = 64,
+        { .itfc = "enp5s0", .cltPkts = 1300, .srvPktsd = 12000, .tos = 0, .ttl = 64,
             .cltMAC = MAC(d0,50,99,12,12,12), .cltAddr = {192,168,1,20},    .cltPort = 2222,
             .srvMAC = MAC(90,55,DE,A1,CD,F0), .srvAddr = {200,200,200,200}
         },
