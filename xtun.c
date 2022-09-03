@@ -169,8 +169,9 @@ typedef struct xtun_node_s {
     net_device_s* dev;
     xtun_crypto_params_s cryptoParams;
     u64 reserved2;
-    u32 reserved;
     u16 cryptoAlgo;
+    u16 reserved;
+    u16 mtu; // TODO: FIXME:
     u16 flowShift; // SHIFTA TODOS OS FLOW IDS AO MESMO TEMPO, AO SELECIONAR O PATH
     u32 flowRemaining; // QUANTOS PACOTES ENVIAR ATÉ AVANÇAR O FLOW SHIFT
     u32 flowPackets; // O QUE USAR COMO FLOW REMAINING
@@ -322,7 +323,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     if (skb->len <= XTUN_PATH_SIZE_WIRE
      || skb->data_len
      || hdr->eType     != BE16(ETH_P_IP)
-     || hdr->iVersion  != BE8(0x45)
+     || hdr->iVersion  != 0x45
      || hdr->iProtocol != BE8(IPPROTO_UDP)
 #if XTUN_SERVER
      || nid >= XTUN_NODES_N
@@ -369,7 +370,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     ;
 
     if (path->hash != hash) {
-        
         path->hash = hash;
 
         if (!path->uDstLock)
@@ -388,7 +388,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         printk("XTUN: TUNNEL %s: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
             " SRC %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n"
             " DST %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n",
-            node->dev->name, pid, (uintll)path->hash, path->itfc->name, BE8(path->iTOS), BE8(path->iTTL),
+            node->dev->name, pid, (uintll)path->hash, path->itfc->name, path->iTOS, path->iTTL,
             _MAC(path->eSrc), _IP4(path->iSrc), BE16(path->uSrc),
             _MAC(path->eDst), _IP4(path->iDst), BE16(path->uDst));
     }
@@ -484,6 +484,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     XTUN_ASSERT(PTR(payload) == PTR(skb_network_header(skb)));
     XTUN_ASSERT((PTR(payload) + payloadSize) == SKB_TAIL(skb));
     XTUN_ASSERT(PTR(hdr) >= PTR(skb->head));
+
+    // TODO: FIXME: payloadSize tem que caber no MTU final
 
     // ENVIA flowPackets, E AÍ AVANCA flowShift
     if (node->flowRemaining == 0) {
