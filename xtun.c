@@ -131,13 +131,13 @@ typedef struct xtun_path_s {
 #endif
     u32 spkts;
     u16 isUp:1, // ADMINISTRATIVELY
-        isItfcUp:1, // WATCH INTERFACE EVENTS AND SET THIS
-        itfcLock:1,
-        eSrcLock:1,
-        eDstLock:1,
-        iSrcLock:1,
-        iDstLock:1,    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO
-        uDstLock:1;
+        itfcUp:1, // WATCH INTERFACE EVENTS AND SET THIS
+        itfcLearn:1,
+        eSrcLearn:1,
+        eDstLearn:1,
+        iSrcLearn:1,
+        iDstLearn:1,    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO
+        uDstLearn:1;
 #define ETH_HDR_SIZE 14
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
@@ -373,17 +373,17 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     if (unlikely(path->hash != hash)) {
         path->hash = hash;
 
-        if (!path->uDstLock)
+        if (!path->uDstLearn)
             path->uDst = hdr->uSrc;
-        if (!path->itfcLock) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
+        if (!path->itfcLearn) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
             path->itfc = itfc;
-        if (!path->eSrcLock)
+        if (!path->eSrcLearn)
             memcpy(path->eSrc, hdr->eDst, ETH_ALEN);
-        if (!path->eDstLock)
+        if (!path->eDstLearn)
             memcpy(path->eDst, hdr->eSrc, ETH_ALEN);
-        if (!path->iSrcLock)
+        if (!path->iSrcLearn)
             memcpy(path->iSrc, hdr->iDst, 4);
-        if (!path->iDstLock)
+        if (!path->iDstLearn)
             memcpy(path->iDst, hdr->iSrc, 4);
 
         printk("XTUN: TUNNEL %s: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
@@ -599,13 +599,13 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     );
 
     path->isUp       = 1;
-    path->isItfcUp   = 0;
-    path->itfcLock   = 0,
-    path->eSrcLock   = 0,
-    path->eDstLock   = 0,
-    path->iSrcLock   = 0,
-    path->iDstLock   = 0,
-    path->uDstLock   = 0;
+    path->itfcUp     = 0;
+    path->itfcLearn  = !0,
+    path->eSrcLearn  = !0,
+    path->eDstLearn  = !0,
+    path->iSrcLearn  = !0,
+    path->iDstLearn  = !0,
+    path->uDstLearn  = !0;
     path->itfc       = NULL;
 #if XTUN_SERVER
     path->hash       = 0;
@@ -671,7 +671,7 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 
         if (dev) {
             path->itfc = dev;
-            path->itfcIsUp = 1; // TODO:
+            path->itfcUp = 1; // TODO:
         } else {
             printk("XTUN: TUNNEL %s: PATH %u: HOOK: FAILED\n",
                 node->dev->name, pid);
