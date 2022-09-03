@@ -135,12 +135,15 @@ typedef struct xtun_path_s {
     u32 reserved;
     u16 isUp:1, // ADMINISTRATIVELY
         itfcUp:1, // WATCH INTERFACE EVENTS AND SET THIS
+#if XTUN_SERVER
         itfcLearn:1,
         eSrcLearn:1,
         eDstLearn:1,
         iSrcLearn:1,
         iDstLearn:1,    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO
-        uDstLearn:1;
+        uDstLearn:1
+#endif
+        ;
 #define ETH_HDR_SIZE 14
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
@@ -606,21 +609,22 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     );
 
     path->isUp       = 1;
-    path->itfcUp     = 0; // TODO: CAREGAR ISSO NO DEVICE NOTIFIER
-    path->itfcLearn  = !0,
-    path->eSrcLearn  = !0,
-    path->eDstLearn  = !0,
-    path->iSrcLearn  = !0,
-    path->iDstLearn  = !0,
-    path->uDstLearn  = !0;
     path->itfc       = NULL;
+    path->itfcUp     = 0; // TODO: CAREGAR ISSO NO DEVICE NOTIFIER
 #if XTUN_SERVER
     path->hash       = 0;
+    path->itfcLearn  = !0;
+    path->eSrcLearn  = !0;
+    path->eDstLearn  = !0;
+    path->iSrcLearn  = !0;
+    path->iDstLearn  = !0;
+    path->uDstLearn  = !0;
 #else
-    path->reserved2  = 0;
-    path->cpkts      = cfg->clt.pkts;
+    path->reserved2  = 0;    
 #endif
-    path->spkts      = cfg->srv.pkts;
+    path->reserved   = 0;    
+    path->cltPkts    = cfg->clt.pkts;
+    path->srvPkts    = cfg->srv.pkts;
     path->eType      = BE16(ETH_P_IP);
     path->iVersion   = 0x45;
 #if XTUN_SERVER
