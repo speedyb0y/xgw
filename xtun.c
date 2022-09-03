@@ -198,8 +198,6 @@ typedef struct xtun_cfg_node_s {
     xtun_cfg_path_s paths[XTUN_PATHS_N];
 } xtun_cfg_node_s;
 
-static const char* const itfcs[] = { "enp5s0" };
-
 #if XTUN_SERVER
 static xtun_node_s nodes[XTUN_NODES_N];
 #else
@@ -617,20 +615,40 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     memcpy(path->iDst, cfg->srv.addr, 4);
 #endif
 
-#if !XTUN_SERVER
-    net_device_s* const itfc = dev_get_by_name(&init_net, cfg->clt.itfc);
+    net_device_s* itfc;
 
-    if (itfc) {
-        // THE HOOK OWNS IT
-        dev_put(itfc);
-        //
-        if (itfc->rx_handler == xtun_in)
-            path->itfc  = itfc;
-        else
-            printk("XTUN: TUNNEL %s: PATH %u: CREATE FAILED - INTERFACE NOT HOOKED\n", node->dev->name, pid);
+    if ((itfc = dev_get_by_name(&init_net, cfg->me.itfc))) {
+
+        // HOOK INTERFACE
+        rtnl_lock();
+
+        if (rcu_dereference(itfc->rx_handler) != xtun_in) {
+            // NOT HOOKED YET
+            if (!netdev_rx_handler_register(itfc, xtun_in, NULL)) {
+                // NOW IT'S HOOKED
+                // TODO: FIXME: TEM QUE FAZER ISSO EM TODAS AS INTERFACES OU NAO VAI PODER CONSIDERAR O SKB COMO xtun_path_s
+                printk("XTUN: TUNNEL %s: PATH %u: HOOK: SUCCESS\n",
+                    node->dev->name, pid);
+                itfc->hard_header_len += sizeof(xtun_path_s) - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
+                itfc->min_header_len  += sizeof(xtun_path_s) - ETH_HLEN;
+                itfc = NULL;
+            } else
+                printk("XTUN: TUNNEL %s: PATH %u: HOOK: FAILED\n",
+                    node->dev->name, pid);
+        } else { // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
+            printk("XTUN: TUNNEL %s: PATH %u: HOOK: ALREADY\n",
+                node->dev->name, pid);
+            path->itfc = itfc
+            itfc = NULL;
+        }
+
+        rtnl_unlock();
+
+        if (itfc)
+            dev_put(itfc);
     } else
-        printk("XTUN: TUNNEL %s: PATH %u: CREATE FAILED - INTERFACE NOT FOUND\n", node->dev->name, pid);
-#endif
+        printk("XTUN: TUNNEL %s: PATH %u: HOOK: INTERFACE NOT FOUND\n",
+            node->dev->name, pid);
 }
 
 static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
@@ -744,46 +762,6 @@ static void xtun_nodes_init (void) {
 #endif
 }
 
-// HOOK INTERFACES
-static void xtun_itfcs_hook (void) {
-
-    foreach (i, ARRAY_COUNT(itfcs)) {
-
-        const char* const itfc = itfcs[i];
-
-        net_device_s* dev;
-
-        if (!(dev = dev_get_by_name(&init_net, itfc))) {
-            printk("XTUN: INTERFACE %s: HOOK: COULD NOT FIND\n", itfc);
-            continue;
-        }
-
-        rtnl_lock();
-
-        // NOTE: WE ARE SUPPORTING SAME INTERFACE MULTIPLE TIMES
-        if (rcu_dereference(dev->rx_handler) != xtun_in) {
-            // NOT HOOKED YET
-            if (!netdev_rx_handler_register(dev, xtun_in, NULL)) {
-                // NOW IT'S HOOKED
-                // TODO: FIXME: TEM QUE FAZER ISSO EM TODAS AS INTERFACES OU NAO VAI PODER CONSIDERAR O SKB COMO xtun_path_s
-                printk("XTUN: INTERFACE %s: HOOK: SUCCESS\n", itfc);
-                dev->hard_header_len += sizeof(xtun_path_s) - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
-                dev->min_header_len  += sizeof(xtun_path_s) - ETH_HLEN;
-                dev = NULL;
-            } else
-                printk("XTUN: INTERFACE %s: HOOK: FAILED\n", itfc);
-        } else { // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
-            printk("XTUN: INTERFACE %s: HOOK: ALREADY\n", itfc);
-            dev = NULL;
-        }
-
-        rtnl_unlock();
-
-        if (dev)
-            dev_put(dev);
-    }
-}
-
 static int __init xtun_init(void) {
 
     printk("XTUN: INIT\n");
@@ -791,8 +769,6 @@ static int __init xtun_init(void) {
     BUILD_BUG_ON(sizeof(xtun_crypto_params_s) != XTUN_CRYPTO_PARAMS_SIZE);
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
-
-    xtun_itfcs_hook();
 
     xtun_nodes_init();
 
