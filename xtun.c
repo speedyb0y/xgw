@@ -314,7 +314,7 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
 
     // TODO: SÓ FAZER ISSO SE MUDOU OS FLOWS OU SE ALGUM PATH DIMINUIR SEUS PACKETS
     if (node->flowPackets > total)
-        node->flowRemaining = 0; 
+        node->flowRemaining = 0;
     node->flowPackets = total;
     memcpy(node->flows, flows, XTUN_FLOWS_N);
 
