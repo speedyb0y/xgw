@@ -626,24 +626,16 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     path->uCksum     =  0;
 
 #if XTUN_SERVER
-    memset(path->eSrc, 0, ETH_ALEN);
-    memset(path->eDst, 0, ETH_ALEN);
-
-    memset(path->iSrc, 0, 4);
-    memset(path->iDst, 0, 4);
+#define this clt
 #else
-    memcpy(path->eSrc, cfg->clt.mac, ETH_ALEN);
-    memcpy(path->eDst, cfg->srv.mac, ETH_ALEN);
-
-    memcpy(path->iSrc, cfg->clt.addr, 4);
-    memcpy(path->iDst, cfg->srv.addr, 4);
+#define peer srv
 #endif
 
-#if XTUN_SERVER
-#define me clt
-#else
-#define me srv
-#endif
+    memcpy(path->eSrc, cfg->this.mac, ETH_ALEN);
+    memcpy(path->eDst, cfg->this.gw,  ETH_ALEN);
+
+    memcpy(path->iSrc, cfg->this.addr, 4);
+    memcpy(path->iDst, cfg->peer.addr, 4);
 
     net_device_s* const itfc = dev_get_by_name(&init_net, cfg->me.itfc);
 
