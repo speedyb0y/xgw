@@ -682,42 +682,42 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 
 static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
 
-    printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH\n",
+    printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH ",
         cfg->name, nid);
 
     switch (cfg->cryptoAlgo) {
 #if      XGW_XTUN_CRYPTO_ALGO_NULL0
         case XTUN_CRYPTO_ALGO_NULL0:
-            printk(" CRYPTO ALGO NULL0");
+            printk("CRYPTO ALGO NULL0");
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SUM32
         case XTUN_CRYPTO_ALGO_SUM32:
-            printk(" CRYPTO ALGO SUM32");
+            printk("CRYPTO ALGO SUM32");
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SUM64
         case XTUN_CRYPTO_ALGO_SUM64:
-            printk(" CRYPTO ALGO SUM64");
+            printk("CRYPTO ALGO SUM64");
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
         case XTUN_CRYPTO_ALGO_SHIFT32_1:
-            printk(" CRYPTO ALGO SHIFT32_1 KEYS 0x%016llX\n",
+            printk("CRYPTO ALGO SHIFT32_1 KEYS 0x%016llX",
                 (uintll)cfg->cryptoParams.shift32_1.k
                 );
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
         case XTUN_CRYPTO_ALGO_SHIFT64_1:
-            printk(" CRYPTO ALGO SHIFT64_1 KEYS 0x%016llX\n",
+            printk("CRYPTO ALGO SHIFT64_1 KEYS 0x%016llX",
                 (uintll)cfg->cryptoParams.shift64_1.k
                 );
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
         case XTUN_CRYPTO_ALGO_SHIFT64_2:
-            printk(" CRYPTO ALGO SHIFT64_2 KEYS 0x%016llX 0x%016llX\n",
+            printk("CRYPTO ALGO SHIFT64_2 KEYS 0x%016llX 0x%016llX",
                 (uintll)cfg->cryptoParams.shift64_2.a,
                 (uintll)cfg->cryptoParams.shift64_2.b
                 );
@@ -725,7 +725,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
         case XTUN_CRYPTO_ALGO_SHIFT64_3:
-            printk(" CRYPTO ALGO SHIFT64_3 KEYS 0x%016llX 0x%016llX 0x%016llX\n",
+            printk("CRYPTO ALGO SHIFT64_3 KEYS 0x%016llX 0x%016llX 0x%016llX",
                 (uintll)cfg->cryptoParams.shift64_3.a,
                 (uintll)cfg->cryptoParams.shift64_3.b,
                 (uintll)cfg->cryptoParams.shift64_3.c
@@ -734,7 +734,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
         case XTUN_CRYPTO_ALGO_SHIFT64_4:
-            printk(" CRYPTO ALGO SHIFT64_4 KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX\n",
+            printk("CRYPTO ALGO SHIFT64_4 KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX",
                 (uintll)cfg->cryptoParams.shift64_4.a,
                 (uintll)cfg->cryptoParams.shift64_4.b,
                 (uintll)cfg->cryptoParams.shift64_4.c,
@@ -743,7 +743,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
             break;
 #endif
         default:
-            printk(" CRYPTO ALGO UNKNOWN\n");
+            printk("CRYPTO ALGO UNKNOWN");
     }
 
     node->cryptoAlgo    = cfg->cryptoAlgo;
