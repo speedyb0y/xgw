@@ -627,24 +627,16 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     path->srvPkts    = cfg->srv.pkts;
     path->eType      = BE16(ETH_P_IP);
     path->iVersion   = 0x45;
-#if XTUN_SERVER
-    path->iTOS       = cfg->srv.tos;
-#else
-    path->iTOS       = cfg->clt.tos;
-#endif
+    path->iTOS       = cfg->this.tos;
  // path->iSize
     path->iHash      = 0;
     path->iFrag      = 0;
-#if XTUN_SERVER
-    path->iTTL       = cfg->srv.ttl;
-#else
-    path->iTTL       = cfg->clt.ttl;
-#endif
+    path->iTTL       = cfg->this.ttl;
     path->iProtocol  = IPPROTO_UDP;
     path->iCksum     = 0;
 #if XTUN_SERVER
     path->uSrc       = BE16(PORT(nid, pid));
-    path->uDst       = 0;
+    path->uDst       = BE16(cfg->clt.port);
 #else
     path->uSrc       = BE16(cfg->clt.port);
     path->uDst       = BE16(PORT(nid, pid));
