@@ -231,12 +231,10 @@ static const xtun_cfg_node_s cfgNode[1] =
         {
             .clt = { .itfc = "enp5s0", .pkts =  1000, .mac = MAC(d0,50,99,10,10,10), .gw = MAC(54,9F,06,F4,C7,A0), .addr = {192,168,0,20},    .tos = 0, .ttl = 64, .port = 2000, },
             .srv = { .itfc = "eth0",   .pkts = 11000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
-        },
-        {
+        }, {
             .clt = { .itfc = "enp5s0", .pkts =  500, .mac = MAC(d0,50,99,11,11,11), .gw = MAC(CC,ED,21,96,99,C0), .addr = {192,168,100,20},  .tos = 0, .ttl = 64, .port = 2111, },
             .srv = { .itfc = "eth0",   .pkts = 4000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
-        },
-        {
+        }, {
             .clt = { .itfc = "enp5s0", .pkts =  1300, .mac = MAC(d0,50,99,12,12,12), .gw = MAC(90,55,DE,A1,CD,F0), .addr = {192,168,1,20},    .tos = 0, .ttl = 64, .port = 2222 },
             .srv = { .itfc = "eth0",   .pkts = 12000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
         },
