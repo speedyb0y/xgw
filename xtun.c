@@ -257,8 +257,8 @@ static void xtun_node_flows_print (const xtun_node_s* const node) {
         flows[fid] = '0' + node->flows[fid];
     flows[XTUN_FLOWS_N] = '\0';
 
-    printk("XTUN: TUNNEL %s: FLOWS: %s\n",
-        node->dev->name, flows);
+    printk("XTUN: TUNNEL %s: PACKETS %u REMAINING %u FLOWS %s\n",
+        node->dev->name, node->flowPackets, node->flowRemaining, flows);
 }
 
 static void xtun_node_flows_update (xtun_node_s* const node) {
@@ -298,7 +298,10 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
         *flows++ = pid;
 
     //
-    node->flowPackets = total;
+    if (node->flowPackets != total) {
+        node->flowPackets = total;
+        node->flowRemaining = 0;
+    }
 }
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
