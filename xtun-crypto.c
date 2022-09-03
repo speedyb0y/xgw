@@ -464,21 +464,20 @@ typedef enum xtun_crypto_algo_e {
         XTUN_CRYPTO_ALGOS_N
 } xtun_crypto_algo_e;
 
-#if (\
-    + XGW_XTUN_CRYPTO_ALGO_NULL0 \
-    + XGW_XTUN_CRYPTO_ALGO_NULLX \
-    + XGW_XTUN_CRYPTO_ALGO_SUM32 \
-    + XGW_XTUN_CRYPTO_ALGO_SUM64 \
-    + XGW_XTUN_CRYPTO_ALGO_SHIFT32_1 \
-    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_1 \
-    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_2 \
-    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_3 \
-    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_4 \
+#if (XGW_XTUN_CRYPTO_ALGO_NULL0 \
+   + XGW_XTUN_CRYPTO_ALGO_NULLX \
+   + XGW_XTUN_CRYPTO_ALGO_SUM32 \
+   + XGW_XTUN_CRYPTO_ALGO_SUM64 \
+   + XGW_XTUN_CRYPTO_ALGO_SHIFT32_1 \
+   + XGW_XTUN_CRYPTO_ALGO_SHIFT64_1 \
+   + XGW_XTUN_CRYPTO_ALGO_SHIFT64_2 \
+   + XGW_XTUN_CRYPTO_ALGO_SHIFT64_3 \
+   + XGW_XTUN_CRYPTO_ALGO_SHIFT64_4 \
     ) > 1
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-typedef u16 (*xtun_crypto_xcode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
+typedef u16 (*xtun_crypto_algo_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 
-static const xtun_crypto_xcode_f _xtun_crypto [XTUN_CRYPTO_ALGOS_N*2] = {
+static const xtun_crypto_algo_f _xtun_algos [XTUN_CRYPTO_ALGOS_N*2] = {
 #if XGW_XTUN_CRYPTO_ALGO_NULL0
              xtun_crypto_null0_encode,
              xtun_crypto_null0_decode,
@@ -517,8 +516,8 @@ static const xtun_crypto_xcode_f _xtun_crypto [XTUN_CRYPTO_ALGOS_N*2] = {
 #endif
 };
 
-#define xtun_crypto_encode(algo, params, data, size) _xtun_crypto[(algo)*2+0](params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) _xtun_crypto[(algo)*2+1](params, data, size)
+#define xtun_crypto_encode(algo, params, data, size) _xtun_algos[(algo)*2+0](params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) _xtun_algos[(algo)*2+1](params, data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_NULL0
 #define xtun_crypto_encode(algo, params, data, size) xtun_crypto_null0_encode(data, size)
 #define xtun_crypto_decode(algo, params, data, size) xtun_crypto_null0_decode(data, size)
