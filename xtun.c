@@ -263,9 +263,9 @@ static void xtun_node_flows_print (const xtun_node_s* const node) {
 
 static int xtun_node_flows_update (xtun_node_s* const node) {
 
-    uintll total = 0;
-    uintll maiorB = 0;
-    uintll maiorP = 0;
+    uint total = 0;
+    uint maiorB = 0;
+    uint maiorP = 0;
 
     foreach (pid, XTUN_PATHS_N) {
         const uint b = node->paths[pid].isUp
@@ -287,7 +287,11 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
 
     if (total) {
         do {
-            uint q = (node->paths[pid].isUp * ((uintll)node->paths[pid].mpkts) * XTUN_FLOWS_N) / total;
+            uint q = ( (uintll)XTUN_FLOWS_N
+              * node->paths[pid].isUp
+              * node->paths[pid].itfcUp
+              * node->paths[pid].mpkts
+                ) / total;
             while (q--)
                 *flow++ = pid;
             pid = (pid + 1) % XTUN_PATHS_N;
