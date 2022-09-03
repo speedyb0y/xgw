@@ -268,7 +268,9 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
     uintll maiorP = 0;
 
     foreach (pid, XTUN_PATHS_N) {
-        const uint b = node->paths[pid].isUp * node->paths[pid].mpkts;
+        const uint b = node->paths[pid].isUp
+                     * node->paths[pid].itfcUp
+                     * node->paths[pid].mpkts;
         // CALCULA O TOTAL
         total += b;
         // LEMBRA O PATH COM MAIOR BANDWIDTH
