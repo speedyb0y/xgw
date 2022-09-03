@@ -599,7 +599,7 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     );
 
     path->isUp       = 1;
-    path->itfcUp     = 0;
+    path->itfcUp     = 0; // TODO: CAREGAR ISSO NO DEVICE NOTIFIER
     path->itfcLearn  = !0,
     path->eSrcLearn  = !0,
     path->eDstLearn  = !0,
@@ -647,13 +647,13 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     memcpy(path->iSrc, cfg->this.addr, 4);
     memcpy(path->iDst, cfg->peer.addr, 4);
 
-    net_device_s* itfc;
+    net_device_s* const itfc = dev_get_by_name(&init_net, cfg->this.itfc);
 
-    if ((itfc = dev_get_by_name(&init_net, cfg->this.itfc))) {
+    if (itfc) {
 
-        // HOOK INTERFACE
         rtnl_lock();
 
+        // HOOK INTERFACE
         if (rcu_dereference(itfc->rx_handler) != xtun_in) {
             // NOT HOOKED YET
             if (!netdev_rx_handler_register(itfc, xtun_in, NULL)) {
@@ -662,17 +662,15 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
                 // NOTE: A INTERFACE JA TEM O ETH_HLEN
                 itfc->hard_header_len += sizeof(xtun_path_s) - ETH_HLEN;
                 itfc->min_header_len  += sizeof(xtun_path_s) - ETH_HLEN;
-            } else // HOOK FAILED
-                dev = NULL;
-        } else // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
+                //
+                path->itfc = itfc;
+            }
+        } else // ALREADY HOOKED
             path->itfc = itfc;
 
         rtnl_unlock();
 
-        if (dev) {
-            path->itfc = dev;
-            path->itfcUp = 1; // TODO:
-        } else {
+        if (!path->itfc) {
             printk("XTUN: TUNNEL %s: PATH %u: HOOK: FAILED\n",
                 node->dev->name, pid);
             dev_put(itfc);
