@@ -243,12 +243,6 @@ static const xtun_cfg_node_s cfgNode[1] =
     }},
 };
 
-#if XTUN_SERVER
-#define mpkts spkts
-#else
-#define mpkts cpkts
-#endif
-
 static void xtun_node_flows_print (const xtun_node_s* const node) {
 
     char flows[XTUN_FLOWS_N + 1];
@@ -261,7 +255,13 @@ static void xtun_node_flows_print (const xtun_node_s* const node) {
         node->dev->name, node->flowPackets, node->flowRemaining, flows);
 }
 
-static void xtun_node_flows_update (xtun_node_s* const node) {
+#if XTUN_SERVER
+#define mpkts srvPkts
+#else
+#define mpkts cltPkts
+#endif
+
+static int xtun_node_flows_update (xtun_node_s* const node) {
 
     uintll total = 0;
     uintll maiorB = 0;
@@ -279,29 +279,33 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
         }
     }
 
-    u8* flows = node->flows;
-    uint flowsR = XTUN_FLOWS_N;
+    u8  flows[XTUN_FLOWS_N]; 
+    u8* flow = flows;
     uint pid = maiorP;
 
     if (total) {
         do {
             uint q = (node->paths[pid].isUp * ((uintll)node->paths[pid].mpkts) * XTUN_FLOWS_N) / total;
-            flowsR -= q;
             while (q--)
-                *flows++ = pid;
+                *flow++ = pid;
             pid = (pid + 1) % XTUN_PATHS_N;
-        } while (flowsR && pid != maiorP);
+        } while (flow != &flows[XTUN_FLOWS_N] && pid != maiorP);
     }
 
     // O QUE SOBRAR DEIXA COM O MAIOR PATH
-    while (flowsR--)
-        *flows++ = pid;
+    while (flow != &flows[XTUN_FLOWS_N])
+        *flow++ = pid;
 
     //
-    if (node->flowPackets != total) {
-        node->flowPackets = total;
-        node->flowRemaining = 0;
-    }
+    if (node->flowPackets == total && !memcmp(node->flows, flows, XTUN_FLOWS_N))
+        // NO CHANGES
+        return 0;
+
+    // SOMETHING CHANGED
+    node->flowPackets = total; memcpy(node->flows, flows, XTUN_FLOWS_N);
+    node->flowRemaining = 0; // TODO: FIXME: FAZER ISSO SEMPRE QUE HOUVER QUALQUER MUDANCA NO ARRAY
+
+    return 1;
 }
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
@@ -527,7 +531,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
 
-    if (!hdr->itfc)
+    // TODO: SE itfcUp FOR TRUE, ENTAO hdr->itfc JÁ É TRUE
+    if (!(hdr->isUp && hdr->itfcUp && hdr->itfc))
         goto drop;
 
     // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
@@ -614,7 +619,7 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 
     path->isUp       = 1;
     path->itfc       = NULL;
-    path->itfcUp     = 0; // TODO: CAREGAR ISSO NO DEVICE NOTIFIER
+    path->itfcUp     = 1; // TODO: INICIALIZAR COMO 0 E CARREGAR ISSO NO DEVICE NOTIFIER
 #if XTUN_SERVER
     path->hash       = 0;
     path->itfcLearn  = !0;
