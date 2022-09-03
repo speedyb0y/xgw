@@ -136,7 +136,7 @@ typedef struct xtun_path_s {
         eSrcLock:1,
         eDstLock:1,
         iSrcLock:1,
-        iDstLock:1,    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO 
+        iDstLock:1,    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO
         uDstLock:1;
 #define ETH_HDR_SIZE 14
     u8  eDst[ETH_ALEN];
@@ -362,6 +362,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     net_device_s* const itfc = skb->dev;
 
+    // NOTE: O SERVER NÃO PODE RECEBER ALEATORIAMENTE COM  UM MESMO IP EM MAIS DE UMA INTERACE, SENÃO VAI FICAR TROCANDO TODA HORA AQUI
     const u64 hash = (u64)(uintptr_t)itfc
       + (*(u64*)hdr->eDst) // VAI PEGAR UM PEDAÇO DO eSrc
       + (*(u64*)hdr->eSrc) // VAI PEGAR O eType
@@ -369,11 +370,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
       + (       hdr->uSrc)
     ;
 
-    if (path->hash != hash) {
+    if (unlikely(path->hash != hash)) {
         path->hash = hash;
 
         if (!path->uDstLock)
-            path->uDst = hdr->uSrc;        
+            path->uDst = hdr->uSrc;
         if (!path->itfcLock) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
             path->itfc = itfc;
         if (!path->eSrcLock)
@@ -581,6 +582,14 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
         cfg->srv.pkts, cfg->srv.itfc, _MAC(cfg->srv.mac), _IP4(cfg->srv.addr), PORT(nid, pid), cfg->srv.tos, cfg->srv.ttl
     );
 
+    path->isUp       = 1;
+    path->isItfcUp   = 0;
+    path->itfcLock   = 0,
+    path->eSrcLock   = 0,
+    path->eDstLock   = 0,
+    path->iSrcLock   = 0,
+    path->iDstLock   = 0,
+    path->uDstLock   = 0;
     path->itfc       =  NULL;
 #if XTUN_SERVER
     path->hash       =  0;
@@ -589,7 +598,6 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     path->cpkts      =  cfg->clt.pkts;
 #endif
     path->spkts      =  cfg->srv.pkts;
-    path->reserved   =  0;
     path->eType      =  BE16(ETH_P_IP);
     path->iVersion   =  0x45;
 #if XTUN_SERVER
@@ -631,9 +639,15 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     memcpy(path->iDst, cfg->srv.addr, 4);
 #endif
 
-    net_device_s* itfc;
+#if XTUN_SERVER
+#define me clt
+#else
+#define me srv
+#endif
 
-    if ((itfc = dev_get_by_name(&init_net, cfg->me.itfc))) {
+    net_device_s* const itfc = dev_get_by_name(&init_net, cfg->me.itfc);
+
+    if (itfc) {
 
         // HOOK INTERFACE
         rtnl_lock();
@@ -647,20 +661,19 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
                     node->dev->name, pid);
                 itfc->hard_header_len += sizeof(xtun_path_s) - ETH_HLEN; // A INTERFACE JA TEM O ETH_HLEN
                 itfc->min_header_len  += sizeof(xtun_path_s) - ETH_HLEN;
-                itfc = NULL;
+                path->itfc = itfc;
             } else
                 printk("XTUN: TUNNEL %s: PATH %u: HOOK: FAILED\n",
                     node->dev->name, pid);
         } else { // ALREADY HOOKED, BUT REFERENCED ANOTHER TIME
             printk("XTUN: TUNNEL %s: PATH %u: HOOK: ALREADY\n",
                 node->dev->name, pid);
-            path->itfc = itfc
-            itfc = NULL;
+            path->itfc = itfc;
         }
 
         rtnl_unlock();
 
-        if (itfc)
+        if (!path->itfc)
             dev_put(itfc);
     } else
         printk("XTUN: TUNNEL %s: PATH %u: HOOK: INTERFACE NOT FOUND\n",
