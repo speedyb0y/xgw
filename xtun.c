@@ -632,7 +632,7 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 
     path->isUp       = 1;
     path->itfc       = NULL;
-    path->itfcUp     = 1; // TODO: INICIALIZAR COMO 0 E CARREGAR ISSO NO DEVICE NOTIFIER
+    path->itfcUp     = 0; // TODO: INICIALIZAR COMO 0 E CARREGAR ISSO NO DEVICE NOTIFIER
 #if XTUN_SERVER
     path->hash       = 0;
     path->itfcLearn  = !0;
@@ -695,7 +695,9 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 
         rtnl_unlock();
 
-        if (!path->itfc) { // TODO: LEMBRAR O NOME ENTÃO - APONTAR PARA O CONFIG?
+        if (path->itfc) { // TODO:
+            path->itfcUp = 1;
+        } else { // TODO: LEMBRAR O NOME ENTÃO - APONTAR PARA O CONFIG?
             printk("INTERFACE NOT HOOKED\n");
             dev_put(itfc);
         }
