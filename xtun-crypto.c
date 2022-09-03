@@ -511,31 +511,31 @@ static const xtun_crypto_decode_f _xtun_crypto_decode[XTUN_CRYPTO_ALGOS_N] = {
 
 static const xtun_crypto_encode_f _xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
 #if XGW_XTUN_CRYPTO_ALGO_NULL0
-       [XTUN_CRYPTO_ALGO_NULL0]      = xtun_crypto_null0_encode,
+             xtun_crypto_null0_encode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_NULLX
-       [XTUN_CRYPTO_ALGO_NULLX]      = xtun_crypto_nullx_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+             xtun_crypto_nullx_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SUM32
-       [XTUN_CRYPTO_ALGO_SUM32]      = xtun_crypto_sum32_encode,
+             xtun_crypto_sum32_encode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SUM64
-       [XTUN_CRYPTO_ALGO_SUM64]      = xtun_crypto_sum64_encode,
+             xtun_crypto_sum64_encode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
-       [XTUN_CRYPTO_ALGO_SHIFT32_1]  = xtun_crypto_shift32_1_encode,
+             xtun_crypto_shift32_1_encode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
-       [XTUN_CRYPTO_ALGO_SHIFT64_1]  = xtun_crypto_shift64_1_encode,
+             xtun_crypto_shift64_1_encode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
-       [XTUN_CRYPTO_ALGO_SHIFT64_2]  = xtun_crypto_shift64_2_encode,
+             xtun_crypto_shift64_2_encode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
-       [XTUN_CRYPTO_ALGO_SHIFT64_3]  = xtun_crypto_shift64_3_encode,
+             xtun_crypto_shift64_3_encode,
 #endif
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
-       [XTUN_CRYPTO_ALGO_SHIFT64_4]  = xtun_crypto_shift64_4_encode,
+             xtun_crypto_shift64_4_encode,
 #endif
 };
 
