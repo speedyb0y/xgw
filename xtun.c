@@ -121,15 +121,18 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define PATH_IP(path)  PTR(&(path)->iVersion)
 #define PATH_UDP(path) PTR(&(path)->uSrc)
 
+// NOTE: O CLIENTE PRECISA SABER DO SERVIDOR POIS É CONFIGURADO NELE E REPASSADO AO SERVIDOR
+#define cltPkts iSize
+#define srvPkts uSize
+
 typedef struct xtun_path_s {
     net_device_s* itfc;
 #if XTUN_SERVER
     u64 hash; // THE PATH HASH
 #else
-    u32 reserved2;
-    u32 cpkts;
+    u64 reserved2;
 #endif
-    u32 spkts;
+    u32 reserved;
     u16 isUp:1, // ADMINISTRATIVELY
         itfcUp:1, // WATCH INTERFACE EVENTS AND SET THIS
         itfcLearn:1,
@@ -180,7 +183,7 @@ typedef struct xtun_node_s {
 } xtun_node_s;
 
 typedef struct xtun_cfg_path_s {
-    struct {
+    struct xtun_cfg_path_clt_s {
         char itfc[IFNAMSIZ];
         u8 mac[ETH_ALEN];
         u8 gw[ETH_ALEN];
@@ -190,7 +193,7 @@ typedef struct xtun_cfg_path_s {
         u8 ttl;
         uint pkts; // TOTAL DE PACOTES A CADA CIRCULADA
     } clt;
-    struct {
+    struct xtun_cfg_path_srv_s {
         char itfc[IFNAMSIZ];
         u8 mac[ETH_ALEN];
         u8 gw[ETH_ALEN];
@@ -625,7 +628,7 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 #else
     path->iTOS       = cfg->clt.tos;
 #endif
-    path->iSize      = 0;
+ // path->iSize
     path->iHash      = 0;
     path->iFrag      = 0;
 #if XTUN_SERVER
@@ -642,7 +645,7 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     path->uSrc       = BE16(cfg->clt.port);
     path->uDst       = BE16(PORT(nid, pid));
 #endif
-    path->uSize      = 0;
+ // path->uSize
     path->uCksum     = 0;
 
     memcpy(path->eSrc, cfg->this.mac, ETH_ALEN);
@@ -754,12 +757,14 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     node->dev           = NULL;
     node->mtu           = cfg->mtu;
     node->cryptoAlgo    = cfg->cryptoAlgo;
-    node->flowPackets   = 0;
-    node->flowRemaining = 0;
-    node->flowShift     = 0;
     node->reserved      = 0;
     node->reserved2     = 0;
-
+    node->flowRemaining = 0;
+    node->flowShift     = 0;
+ // node->flowPackets
+ // node->flows
+ // node->paths
+ 
     memcpy(&node->cryptoParams, &cfg->cryptoParams, sizeof(xtun_crypto_params_s));
 
     // INITIALIZE ITS PATHS
