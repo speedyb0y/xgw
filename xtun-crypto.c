@@ -468,7 +468,7 @@ typedef enum xtun_crypto_algo_e {
 typedef u16 (*xtun_crypto_decode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 typedef u16 (*xtun_crypto_encode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 
-static const xtun_crypto_decode_f xtun_crypto_decode[XTUN_CRYPTO_ALGOS_N] = {
+static const xtun_crypto_decode_f _xtun_crypto_decode[XTUN_CRYPTO_ALGOS_N] = {
 #if XGW_XTUN_CRYPTO_ALGO_NULL0
        [XTUN_CRYPTO_ALGO_NULL0]      = xtun_crypto_null0_decode,
 #endif
@@ -498,7 +498,7 @@ static const xtun_crypto_decode_f xtun_crypto_decode[XTUN_CRYPTO_ALGOS_N] = {
 #endif
 };
 
-static const xtun_crypto_encode_f xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
+static const xtun_crypto_encode_f _xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
 #if XGW_XTUN_CRYPTO_ALGO_NULL0
        [XTUN_CRYPTO_ALGO_NULL0]      = xtun_crypto_null0_encode,
 #endif
@@ -528,5 +528,5 @@ static const xtun_crypto_encode_f xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
 #endif
 };
 
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_encode[algo](params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_decode[algo](params, data, size)
+#define xtun_crypto_encode(algo, params, data, size) _xtun_crypto_encode[algo](params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) _xtun_crypto_decode[algo](params, data, size)

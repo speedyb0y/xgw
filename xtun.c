@@ -53,11 +53,11 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define CACHE_LINE_SIZE 64
 
-#define __MAC(x) (x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5]
-#define __IP4(x) (x)[0], (x)[1], (x)[2], (x)[3]
+#define __A6(x) (x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5]
+#define __A4(x) (x)[0], (x)[1], (x)[2], (x)[3]
 
-#define _MAC(x) __MAC((u8*)(x))
-#define _IP4(x) __IP4((u8*)(x))
+#define _MAC(x) __A6(x)
+#define _IP4(x) __A4(x)
 
 #define MAC__(a,b,c) a ## b ## c
 #define MAC_(x) MAC__(0x,x,U)
@@ -132,8 +132,8 @@ typedef struct xtun_path_s {
     u32 sband;
     u16 qband;
 #define ETH_HDR_SIZE 14
-    u16 eDst[3];
-    u16 eSrc[3];
+    u8  eDst[ETH_ALEN];
+    u8  eSrc[ETH_ALEN];
     u16 eType;
 #define IP4_HDR_SIZE 20
     u8  iVersion;
@@ -144,8 +144,8 @@ typedef struct xtun_path_s {
     u8  iTTL;
     u8  iProtocol;
     u16 iCksum;
-    u32 iSrc;
-    u32 iDst;
+    u8  iSrc[4];
+    u8  iDst[4];
 #define UDP_HDR_SIZE 8
     u16 uSrc;
     u16 uDst; // THE XTUN_SERVER PORT WILL DETERMINE THE NODE AND PATH
@@ -172,14 +172,14 @@ typedef struct xtun_node_s {
 } xtun_node_s;
 
 typedef struct xtun_cfg_path_s {
-    uint cband;
-    uint sband;
+    uint cltBand;
+    uint srvBand;
     char itfc[IFNAMSIZ];
-    union { u8 cmac[8]; u16 cmac16[3]; };
-    union { u8 smac[8]; u16 smac16[3]; };
-    union { u8 caddr[sizeof(u32)]; u32 caddr32; };
-    union { u8 saddr[sizeof(u32)]; u32 saddr32; };
-    u16 cport;
+    u8 cltMAC[ETH_ALEN];
+    u8 srvMAC[ETH_ALEN];
+    u8 cltAddr[4];
+    u8 srvAddr[4];
+    u16 cltPort;
     u8 tos;
     u8 ttl;
 } xtun_cfg_path_s;
@@ -207,17 +207,17 @@ static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
     { .name = "xgw-0", .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .flowPackets = 16*1000, .paths = {
-        { .itfc = "enp5s0", .cband = 60, .sband = 480, .tos = 0, .ttl = 64,
-            .cmac = MAC(d0,50,99,10,10,10), .caddr = {192,168,0,20},    .cport = 2000,
-            .smac = MAC(54,9F,06,F4,C7,A0), .saddr = {200,200,200,200}
+        { .itfc = "enp5s0", .cltBand = 60, .srvBand = 480, .tos = 0, .ttl = 64,
+            .cltMAC = MAC(d0,50,99,10,10,10), .cltAddr = {192,168,0,20},    .cltPort = 2000,
+            .srvMAC = MAC(54,9F,06,F4,C7,A0), .srvAddr = {200,200,200,200}
         },
-        { .itfc = "enp5s0", .cband = 40, .sband = 80, .tos = 0, .ttl = 64,
-            .cmac = MAC(d0,50,99,11,11,11), .caddr = {192,168,100,20},  .cport = 2111,
-            .smac = MAC(CC,ED,21,96,99,C0), .saddr = {200,200,200,200}
+        { .itfc = "enp5s0", .cltBand = 40, .srvBand = 80, .tos = 0, .ttl = 64,
+            .cltMAC = MAC(d0,50,99,11,11,11), .cltAddr = {192,168,100,20},  .cltPort = 2111,
+            .srvMAC = MAC(CC,ED,21,96,99,C0), .srvAddr = {200,200,200,200}
         },
-        { .itfc = "enp5s0", .cband = 90, .sband = 590, .tos = 0, .ttl = 64,
-            .cmac = MAC(d0,50,99,12,12,12), .caddr = {192,168,1,20},    .cport = 2222,
-            .smac = MAC(90,55,DE,A1,CD,F0), .saddr = {200,200,200,200}
+        { .itfc = "enp5s0", .cltBand = 90, .srvBand = 590, .tos = 0, .ttl = 64,
+            .cltMAC = MAC(d0,50,99,12,12,12), .cltAddr = {192,168,1,20},    .cltPort = 2222,
+            .srvMAC = MAC(90,55,DE,A1,CD,F0), .srvAddr = {200,200,200,200}
         },
     }},
 };
@@ -336,7 +336,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         goto drop;
 
     // DECRYPT AND CONFIRM AUTHENTICITY
-    if (xtun_crypto_decode[node->cryptoAlgo](&node->cryptoParams, payload, payloadSize) != hdr->iHash)
+    if (xtun_crypto_decode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize) != hdr->iHash)
         goto drop;
 
 #if XTUN_SERVER
@@ -346,36 +346,29 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     net_device_s* const itfc = skb->dev;
 
     const u64 hash = (u64)(uintptr_t)itfc
-      + ((u64)hdr->eDst[0] <<  0)
-      + ((u64)hdr->eDst[1] <<  4)
-      + ((u64)hdr->eDst[2] <<  8)
-      + ((u64)hdr->eSrc[0] << 12)
-      + ((u64)hdr->eSrc[1] << 16)
-      + ((u64)hdr->eSrc[2] << 20)
-      + ((u64)hdr->iSrc    << 24)
-      + ((u64)hdr->iDst    << 28)
-      + ((u64)hdr->uSrc    << 32)
+      + (*(u64*)hdr->eDst) // VAI PEGAR UM PEDAÇO DO eSrc
+      + (*(u64*)hdr->eSrc) // VAI PEGAR O eType
+      + (*(u64*)hdr->iSrc) // VAI PEGAR O iDst
+      + (       hdr->uSrc)
     ;
 
     if (path->hash != hash) {
         path->hash    = hash;
         path->itfc    = itfc;
-        path->eDst[0] = hdr->eSrc[0];
-        path->eDst[1] = hdr->eSrc[1];
-        path->eDst[2] = hdr->eSrc[2];
-        path->eSrc[0] = hdr->eDst[0];
-        path->eSrc[1] = hdr->eDst[1];
-        path->eSrc[2] = hdr->eDst[2];
-        path->iSrc    = hdr->iDst;
-        path->iDst    = hdr->iSrc;
         path->uDst    = hdr->uSrc;
+
+        memcpy(path->eSrc, hdr->eDst, ETH_ALEN);
+        memcpy(path->eDst, hdr->eSrc, ETH_ALEN);
+
+        memcpy(path->iSrc, hdr->iDst, 4);
+        memcpy(path->iDst, hdr->iSrc, 4);
 
         printk("XTUN: TUNNEL %s: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u"
             " CLT MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
             " SRV MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
             node->dev->name, pid, (uintll)path->hash, path->itfc->name, BE8(path->iTOS), BE8(path->iTTL),
-            _MAC(path->eSrc), _IP4((u8*)&path->iSrc), BE16(path->uSrc),
-            _MAC(path->eDst), _IP4((u8*)&path->iDst), BE16(path->uDst)
+            _MAC(path->eSrc), _IP4(path->iSrc), BE16(path->uSrc),
+            _MAC(path->eDst), _IP4(path->iDst), BE16(path->uDst)
         );
     }
 #endif
@@ -482,7 +475,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     memcpy(hdr, &node->paths[node->flows[((u64)node->flowShift + xtun_flow_hash(skb->data)) % XTUN_FLOWS_N]], sizeof(xtun_path_s));
 
     // ENCRYPT AND AUTHENTIFY
-    hdr->iHash = xtun_crypto_encode[node->cryptoAlgo](&node->cryptoParams, payload, payloadSize);
+    hdr->iHash = xtun_crypto_encode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize);
     hdr->uSize  = BE16(payloadSize + UDP_HDR_SIZE);
     hdr->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
     hdr->iCksum = ip_fast_csum(PATH_IP(hdr), 5);
@@ -561,31 +554,18 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
         " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
         " SRV BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
         node->dev->name, pid, cfg->itfc, cfg->tos, cfg->ttl,
-        cfg->cband, _MAC(cfg->cmac), _IP4(&cfg->caddr), cfg->cport,
-        cfg->sband, _MAC(cfg->smac), _IP4(&cfg->saddr), PORT(nid, pid)
+        cfg->cltBand, _MAC(cfg->cltMAC), _IP4(cfg->cltAddr), cfg->cltPort,
+        cfg->srvBand, _MAC(cfg->srvMAC), _IP4(cfg->srvAddr), PORT(nid, pid)
     );
 
     path->itfc       =  NULL;
 #if XTUN_SERVER
     path->hash       =  0;
-    path->sband      =  cfg->sband;
-    path->eDst[0]    =  0;
-    path->eDst[1]    =  0;
-    path->eDst[2]    =  0;
-    path->eSrc[0]    =  0;
-    path->eSrc[1]    =  0;
-    path->eSrc[2]    =  0;
 #else
     path->seila      =  0;
-    path->cband      =  cfg->cband;
-    path->sband      =  cfg->sband;
-    path->eDst[0]    =  cfg->smac16[0];
-    path->eDst[1]    =  cfg->smac16[1];
-    path->eDst[2]    =  cfg->smac16[2];
-    path->eSrc[0]    =  cfg->cmac16[0];
-    path->eSrc[1]    =  cfg->cmac16[1];
-    path->eSrc[2]    =  cfg->cmac16[2];
+    path->cband      =  cfg->cltBand;
 #endif
+    path->sband      =  cfg->srvBand;
     path->eType      =  BE16(ETH_P_IP);
     path->iVersion   =  0x45;
     path->iTOS       =  cfg->tos;
@@ -596,18 +576,28 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     path->iProtocol  =  IPPROTO_UDP;
     path->iCksum     =  0;
 #if XTUN_SERVER
-    path->iSrc       =  0;
-    path->iDst       =  0;
     path->uSrc       =  BE16(PORT(nid, pid));
     path->uDst       =  0;
 #else
-    path->iSrc       =  cfg->caddr32;
-    path->iDst       =  cfg->saddr32;
-    path->uSrc       =  BE16(cfg->cport);
+    path->uSrc       =  BE16(cfg->cltPort);
     path->uDst       =  BE16(PORT(nid, pid));
 #endif
     path->uSize      =  0;
-    path->uCksum     =  0;
+    path->uCksum     =  0;    
+
+#if XTUN_SERVER
+    memset(path->eSrc, 0, ETH_ALEN);
+    memset(path->eDst, 0, ETH_ALEN);
+
+    memset(path->iSrc, 0, 4);
+    memset(path->iDst, 0, 4);
+#else
+    memcpy(path->eSrc, cfg->cltMAC, ETH_ALEN);
+    memcpy(path->eDst, cfg->srvMAC, ETH_ALEN);
+
+    memcpy(path->iSrc, cfg->cltAddr, 4);
+    memcpy(path->iDst, cfg->srvAddr, 4);
+#endif
 
 #if !XTUN_SERVER
     net_device_s* const itfc = dev_get_by_name(&init_net, cfg->itfc);
@@ -646,37 +636,44 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
             printk(" CRYPTO ALGO SUM64");
             break;
 #endif
+#if      XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
+        case XTUN_CRYPTO_ALGO_SHIFT32_1:
+            printk(" CRYPTO ALGO SHIFT32_1 KEYS 0x%016llX\n",
+                (uintll)cfg->cryptoParams.shift32_1.k
+                );
+            break;
+#endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
         case XTUN_CRYPTO_ALGO_SHIFT64_1:
             printk(" CRYPTO ALGO SHIFT64_1 KEYS 0x%016llX\n",
-                (uintll)cfg->cryptoParams.shift64_1.k[0]
+                (uintll)cfg->cryptoParams.shift64_1.k
                 );
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
         case XTUN_CRYPTO_ALGO_SHIFT64_2:
             printk(" CRYPTO ALGO SHIFT64_2 KEYS 0x%016llX 0x%016llX\n",
-                (uintll)cfg->cryptoParams.shift64_2.k[0],
-                (uintll)cfg->cryptoParams.shift64_2.k[1]
+                (uintll)cfg->cryptoParams.shift64_2.a,
+                (uintll)cfg->cryptoParams.shift64_2.b
                 );
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
         case XTUN_CRYPTO_ALGO_SHIFT64_3:
             printk(" CRYPTO ALGO SHIFT64_3 KEYS 0x%016llX 0x%016llX 0x%016llX\n",
-                (uintll)cfg->cryptoParams.shift64_3.k[0],
-                (uintll)cfg->cryptoParams.shift64_3.k[1],
-                (uintll)cfg->cryptoParams.shift64_3.k[2]
+                (uintll)cfg->cryptoParams.shift64_3.a,
+                (uintll)cfg->cryptoParams.shift64_3.b,
+                (uintll)cfg->cryptoParams.shift64_3.c
                 );
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
         case XTUN_CRYPTO_ALGO_SHIFT64_4:
             printk(" CRYPTO ALGO SHIFT64_4 KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX\n",
-                (uintll)cfg->cryptoParams.shift64_4.k[0],
-                (uintll)cfg->cryptoParams.shift64_4.k[1],
-                (uintll)cfg->cryptoParams.shift64_4.k[2],
-                (uintll)cfg->cryptoParams.shift64_4.k[3]
+                (uintll)cfg->cryptoParams.shift64_4.a,
+                (uintll)cfg->cryptoParams.shift64_4.b,
+                (uintll)cfg->cryptoParams.shift64_4.c,
+                (uintll)cfg->cryptoParams.shift64_4.d
                 );
             break;
 #endif
