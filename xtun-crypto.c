@@ -542,32 +542,31 @@ static const xtun_crypto_encode_f _xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
 #define xtun_crypto_encode(algo, params, data, size) _xtun_crypto_encode[algo](params, data, size)
 #define xtun_crypto_decode(algo, params, data, size) _xtun_crypto_decode[algo](params, data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_NULL0
-#define xtun_crypto_encode xtun_crypto_null0_encode
-#define xtun_crypto_decode xtun_crypto_null0_decode
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_null0_encode(data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_null0_decode(data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_NULLX
-#define xtun_crypto_encode xtun_crypto_nullx_encode
-#define xtun_crypto_decode xtun_crypto_nullx_decode
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_nullx_encode(params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_nullx_decode(params, data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_SUM32
-#define xtun_crypto_encode xtun_crypto_sum32_encode
-#define xtun_crypto_decode xtun_crypto_sum32_decode
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_sum32_encode(params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_sum32_decode(params, data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_SUM64
-#define xtun_crypto_encode xtun_crypto_sum64_encode
-#define xtun_crypto_decode xtun_crypto_sum64_decode
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_sum64_encode(params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_sum64_decode(params, data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
-#define xtun_crypto_encode xtun_crypto_shift32_1_encode
-#define xtun_crypto_decode xtun_crypto_shift32_1_decode
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift32_1_encode(params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift32_1_decode(params, data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
-#define xtun_crypto_encode xtun_crypto_shift64_1_encode
-#define xtun_crypto_decode xtun_crypto_shift64_1_decode
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift64_1_encode(params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift64_1_decode(params, data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
-#define xtun_crypto_encode xtun_crypto_shift64_2_encode
-#define xtun_crypto_decode xtun_crypto_shift64_2_decode
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift64_2_encode(params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift64_2_decode(params, data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
-#define xtun_crypto_encode xtun_crypto_shift64_3_encode
-#define xtun_crypto_decode xtun_crypto_shift64_3_decode
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift64_3_encode(params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift64_3_decode(params, data, size)
 #elif XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
-#define xtun_crypto_encode xtun_crypto_shift64_4_encode
-#define xtun_crypto_decode xtun_crypto_shift64_4_decode
-#else
-#error
+#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift64_4_encode(params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift64_4_decode(params, data, size)
+#endif
 #endif
