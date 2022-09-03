@@ -126,11 +126,11 @@ typedef struct xtun_path_s {
 #if XTUN_SERVER
     u64 hash; // THE PATH HASH
 #else
-    u32 seila;
-    u32 cband;
+    u32 reserved2;
+    u32 cpkts;
 #endif
-    u32 sband;
-    u16 qband;
+    u32 spkts;
+    u16 reserved;
 #define ETH_HDR_SIZE 14
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
@@ -222,16 +222,16 @@ static const xtun_cfg_node_s cfgNode[1] =
             .srv = { .itfc = "eth0",   .pkts = 4000, .mac = MAC(CC,ED,21,96,99,C0), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
         },
         {
-            .clt = { .itfc = "enp5s0", .pkts =  1300, .mac = MAC(d0,50,99,12,12,12), .addr = {192,168,1,20},   .tos = 0, .ttl = 64, .port = 2222 },
-            .srv = { .itfc = "eth0",   .pkts = 12000, .mac = MAC(90,55,DE,A1,CD,F0), .addr = {200,200,200,200} .tos = 0, .ttl = 64, },
+            .clt = { .itfc = "enp5s0", .pkts =  1300, .mac = MAC(d0,50,99,12,12,12), .addr = {192,168,1,20},    .tos = 0, .ttl = 64, .port = 2222 },
+            .srv = { .itfc = "eth0",   .pkts = 12000, .mac = MAC(90,55,DE,A1,CD,F0), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
         },
     }},
 };
 
 #if XTUN_SERVER
-#define mband sband
+#define mpkts spkts
 #else
-#define mband cband
+#define mpkts cpkts
 #endif
 
 static void xtun_node_flows_print (const xtun_node_s* const node) {
@@ -253,7 +253,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     uintll maiorP = 0;
 
     foreach (pid, XTUN_PATHS_N) {
-        const uint b = node->paths[pid].mband;
+        const uint b = node->paths[pid].mpkts;
         // CALCULA O TOTAL
         total += b;
         // LEMBRA O PATH COM MAIOR BANDWIDTH
@@ -270,7 +270,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
 
     if (total) {
         do {
-            uint q = (((uintll)node->paths[pid].mband) * XTUN_FLOWS_N) / total;
+            uint q = (((uintll)node->paths[pid].mpkts) * XTUN_FLOWS_N) / total;
             flowsR -= q;
             while (q--)
                 *flows++ = pid;
@@ -281,6 +281,9 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     // O QUE SOBRAR DEIXA COM O MAIOR PATH
     while (flowsR--)
         *flows++ = pid;
+
+    //
+    node->flowPackets = total;
 }
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
@@ -556,40 +559,49 @@ static void xtun_dev_setup (net_device_s* const dev) {
 
 static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
 
-    printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING WITH ITFC %s TOS 0x%02X TTL %u"
-        " CLT BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
-        " SRV BAND %u MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
-        node->dev->name, pid, cfg->itfc, cfg->tos, cfg->ttl,
-        cfg->clt.band, _MAC(cfg->clt.mac), _IP4(cfg->clt.addr), cfg->clt.port,
-        cfg->srv.band, _MAC(cfg->srv.mac), _IP4(cfg->srv.addr), PORT(nid, pid)
+    printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING\n"
+        " CLT PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n"
+        " SRV PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n",
+        node->dev->name, pid,
+        cfg->clt.pkts, cfg->clt.itfc, _MAC(cfg->clt.mac), _IP4(cfg->clt.addr), cfg->clt.port, cfg->clt.tos, cfg->clt.ttl,
+        cfg->srv.pkts, cfg->srv.itfc, _MAC(cfg->srv.mac), _IP4(cfg->srv.addr), PORT(nid, pid), cfg->srv.tos, cfg->srv.ttl
     );
 
     path->itfc       =  NULL;
 #if XTUN_SERVER
     path->hash       =  0;
 #else
-    path->seila      =  0;
-    path->cband      =  cfg->cltBand;
+    path->reserved2  =  0;
+    path->cpkts      =  cfg->clt.pkts;
 #endif
-    path->sband      =  cfg->srvBand;
+    path->spkts      =  cfg->srv.pkts;
+    path->reserved   =  0;
     path->eType      =  BE16(ETH_P_IP);
     path->iVersion   =  0x45;
-    path->iTOS       =  cfg->tos;
+#if XTUN_SERVER
+    path->iTOS       =  cfg->srv.tos;
+#else
+    path->iTOS       =  cfg->clt.tos;
+#endif
     path->iSize      =  0;
     path->iHash      =  0;
     path->iFrag      =  0;
-    path->iTTL       =  cfg->ttl;
+#if XTUN_SERVER
+    path->iTTL       =  cfg->srv.ttl;
+#else
+    path->iTTL       =  cfg->clt.ttl;
+#endif
     path->iProtocol  =  IPPROTO_UDP;
     path->iCksum     =  0;
 #if XTUN_SERVER
     path->uSrc       =  BE16(PORT(nid, pid));
     path->uDst       =  0;
 #else
-    path->uSrc       =  BE16(cfg->cltPort);
+    path->uSrc       =  BE16(cfg->clt.port);
     path->uDst       =  BE16(PORT(nid, pid));
 #endif
     path->uSize      =  0;
-    path->uCksum     =  0;    
+    path->uCksum     =  0;
 
 #if XTUN_SERVER
     memset(path->eSrc, 0, ETH_ALEN);
@@ -598,15 +610,15 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     memset(path->iSrc, 0, 4);
     memset(path->iDst, 0, 4);
 #else
-    memcpy(path->eSrc, cfg->cltMAC, ETH_ALEN);
-    memcpy(path->eDst, cfg->srvMAC, ETH_ALEN);
+    memcpy(path->eSrc, cfg->clt.mac, ETH_ALEN);
+    memcpy(path->eDst, cfg->srv.mac, ETH_ALEN);
 
-    memcpy(path->iSrc, cfg->cltAddr, 4);
-    memcpy(path->iDst, cfg->srvAddr, 4);
+    memcpy(path->iSrc, cfg->clt.addr, 4);
+    memcpy(path->iDst, cfg->srv.addr, 4);
 #endif
 
 #if !XTUN_SERVER
-    net_device_s* const itfc = dev_get_by_name(&init_net, cfg->itfc);
+    net_device_s* const itfc = dev_get_by_name(&init_net, cfg->clt.itfc);
 
     if (itfc) {
         // THE HOOK OWNS IT
@@ -623,8 +635,8 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 
 static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
 
-    printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH FLOW PACKETS %llu\n",
-        cfg->name, nid, (uintll)cfg->flowPackets);
+    printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH\n",
+        cfg->name, nid);
 
     switch (cfg->cryptoAlgo) {
 #if      XGW_XTUN_CRYPTO_ALGO_NULL0
@@ -688,7 +700,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     }
 
     node->cryptoAlgo    = cfg->cryptoAlgo;
-    node->flowPackets   = cfg->flowPackets;
+    //////node->flowPackets   = cfg->flowPackets;
     node->flowRemaining = 0;
     node->flowShift     = 0;
 
