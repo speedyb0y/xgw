@@ -572,6 +572,14 @@ static void xtun_dev_setup (net_device_s* const dev) {
         ;
 }
 
+#if XTUN_SERVER
+#define this srv
+#define peer clt
+#else
+#define this clt
+#define peer srv
+#endif
+
 static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
 
     printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING\n"
@@ -625,19 +633,13 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     path->uSize      =  0;
     path->uCksum     =  0;
 
-#if XTUN_SERVER
-#define this clt
-#else
-#define peer srv
-#endif
-
     memcpy(path->eSrc, cfg->this.mac, ETH_ALEN);
     memcpy(path->eDst, cfg->this.gw,  ETH_ALEN);
 
     memcpy(path->iSrc, cfg->this.addr, 4);
     memcpy(path->iDst, cfg->peer.addr, 4);
 
-    net_device_s* const itfc = dev_get_by_name(&init_net, cfg->me.itfc);
+    net_device_s* const itfc = dev_get_by_name(&init_net, cfg->this.itfc);
 
     if (itfc) {
 
