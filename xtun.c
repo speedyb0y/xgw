@@ -591,11 +591,11 @@ static void xtun_dev_setup (net_device_s* const dev) {
 static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
 
     printk("XTUN: TUNNEL %s: PATH %u: INITIALIZING\n"
-        " CLT PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n"
-        " SRV PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n",
+        " CLT PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n"
+        " SRV PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n",
         node->dev->name, pid,
-        cfg->clt.pkts, cfg->clt.itfc, _MAC(cfg->clt.mac), _IP4(cfg->clt.addr), cfg->clt.port, cfg->clt.tos, cfg->clt.ttl,
-        cfg->srv.pkts, cfg->srv.itfc, _MAC(cfg->srv.mac), _IP4(cfg->srv.addr), PORT(nid, pid), cfg->srv.tos, cfg->srv.ttl
+        cfg->clt.pkts, cfg->clt.itfc, _MAC(cfg->clt.mac), _MAC(cfg->clt.gw), _IP4(cfg->clt.addr), cfg->clt.port, cfg->clt.tos, cfg->clt.ttl,
+        cfg->srv.pkts, cfg->srv.itfc, _MAC(cfg->srv.mac), _MAC(cfg->srv.gw), _IP4(cfg->srv.addr), PORT(nid, pid), cfg->srv.tos, cfg->srv.ttl
     );
 
     path->isUp       = 1;
