@@ -464,6 +464,17 @@ typedef enum xtun_crypto_algo_e {
         XTUN_CRYPTO_ALGOS_N
 } xtun_crypto_algo_e;
 
+#if (\
+    + XGW_XTUN_CRYPTO_ALGO_NULL0 \
+    + XGW_XTUN_CRYPTO_ALGO_NULLX \
+    + XGW_XTUN_CRYPTO_ALGO_SUM32 \
+    + XGW_XTUN_CRYPTO_ALGO_SUM64 \
+    + XGW_XTUN_CRYPTO_ALGO_SHIFT32_1 \
+    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_1 \
+    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_2 \
+    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_3 \
+    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_4 \
+    ) > 1
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
 typedef u16 (*xtun_crypto_decode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 typedef u16 (*xtun_crypto_encode_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
@@ -530,3 +541,33 @@ static const xtun_crypto_encode_f _xtun_crypto_encode[XTUN_CRYPTO_ALGOS_N] = {
 
 #define xtun_crypto_encode(algo, params, data, size) _xtun_crypto_encode[algo](params, data, size)
 #define xtun_crypto_decode(algo, params, data, size) _xtun_crypto_decode[algo](params, data, size)
+#elif XGW_XTUN_CRYPTO_ALGO_NULL0
+#define xtun_crypto_encode xtun_crypto_null0_encode
+#define xtun_crypto_decode xtun_crypto_null0_decode
+#elif XGW_XTUN_CRYPTO_ALGO_NULLX
+#define xtun_crypto_encode xtun_crypto_nullx_encode
+#define xtun_crypto_decode xtun_crypto_nullx_decode
+#elif XGW_XTUN_CRYPTO_ALGO_SUM32
+#define xtun_crypto_encode xtun_crypto_sum32_encode
+#define xtun_crypto_decode xtun_crypto_sum32_decode
+#elif XGW_XTUN_CRYPTO_ALGO_SUM64
+#define xtun_crypto_encode xtun_crypto_sum64_encode
+#define xtun_crypto_decode xtun_crypto_sum64_decode
+#elif XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
+#define xtun_crypto_encode xtun_crypto_shift32_1_encode
+#define xtun_crypto_decode xtun_crypto_shift32_1_decode
+#elif XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
+#define xtun_crypto_encode xtun_crypto_shift64_1_encode
+#define xtun_crypto_decode xtun_crypto_shift64_1_decode
+#elif XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
+#define xtun_crypto_encode xtun_crypto_shift64_2_encode
+#define xtun_crypto_decode xtun_crypto_shift64_2_decode
+#elif XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
+#define xtun_crypto_encode xtun_crypto_shift64_3_encode
+#define xtun_crypto_decode xtun_crypto_shift64_3_decode
+#elif XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
+#define xtun_crypto_encode xtun_crypto_shift64_4_encode
+#define xtun_crypto_decode xtun_crypto_shift64_4_decode
+#else
+#error
+#endif
