@@ -788,7 +788,7 @@ static int __init xtun_init(void) {
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
 
-// INITIALIZE TUNNELS
+    // INITIALIZE TUNNELS
 #if XTUN_SERVER
     foreach (nid, XTUN_NODES_N)
         xtun_node_init(&nodes[nid], nid, &cfgNodes[nid]);
