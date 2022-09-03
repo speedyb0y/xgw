@@ -691,6 +691,12 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
             printk("CRYPTO ALGO NULL0");
             break;
 #endif
+#if      XGW_XTUN_CRYPTO_ALGO_NULLX
+        case XTUN_CRYPTO_ALGO_NULLX:
+            printk("CRYPTO ALGO NULLX X 0x%016llX",
+                (uintll)cfg->cryptoParams.nullx.x);
+            break;
+#endif
 #if      XGW_XTUN_CRYPTO_ALGO_SUM32
         case XTUN_CRYPTO_ALGO_SUM32:
             printk("CRYPTO ALGO SUM32");
@@ -704,23 +710,20 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
         case XTUN_CRYPTO_ALGO_SHIFT32_1:
             printk("CRYPTO ALGO SHIFT32_1 KEYS 0x%016llX",
-                (uintll)cfg->cryptoParams.shift32_1.k
-                );
+                (uintll)cfg->cryptoParams.shift32_1.k);
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
         case XTUN_CRYPTO_ALGO_SHIFT64_1:
             printk("CRYPTO ALGO SHIFT64_1 KEYS 0x%016llX",
-                (uintll)cfg->cryptoParams.shift64_1.k
-                );
+                (uintll)cfg->cryptoParams.shift64_1.k);
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
         case XTUN_CRYPTO_ALGO_SHIFT64_2:
             printk("CRYPTO ALGO SHIFT64_2 KEYS 0x%016llX 0x%016llX",
                 (uintll)cfg->cryptoParams.shift64_2.a,
-                (uintll)cfg->cryptoParams.shift64_2.b
-                );
+                (uintll)cfg->cryptoParams.shift64_2.b);
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
@@ -728,8 +731,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
             printk("CRYPTO ALGO SHIFT64_3 KEYS 0x%016llX 0x%016llX 0x%016llX",
                 (uintll)cfg->cryptoParams.shift64_3.a,
                 (uintll)cfg->cryptoParams.shift64_3.b,
-                (uintll)cfg->cryptoParams.shift64_3.c
-                );
+                (uintll)cfg->cryptoParams.shift64_3.c);
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
@@ -738,8 +740,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
                 (uintll)cfg->cryptoParams.shift64_4.a,
                 (uintll)cfg->cryptoParams.shift64_4.b,
                 (uintll)cfg->cryptoParams.shift64_4.c,
-                (uintll)cfg->cryptoParams.shift64_4.d
-                );
+                (uintll)cfg->cryptoParams.shift64_4.d);
             break;
 #endif
         default:
