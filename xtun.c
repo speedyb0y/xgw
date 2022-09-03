@@ -175,6 +175,7 @@ typedef struct xtun_cfg_path_s {
     struct {
         char itfc[IFNAMSIZ];
         u8 mac[ETH_ALEN];
+        u8 gw[ETH_ALEN];
         u8 addr[4];
         u16 port;
         u8 tos;
@@ -184,6 +185,7 @@ typedef struct xtun_cfg_path_s {
     struct {
         char itfc[IFNAMSIZ];
         u8 mac[ETH_ALEN];
+        u8 gw[ETH_ALEN];
         u8 addr[4];
         u8 tos;
         u8 ttl;
@@ -212,16 +214,16 @@ static const xtun_cfg_node_s cfgNode[1] =
 {
     { .name = "xgw-0", .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
         {
-            .clt = { .itfc = "enp5s0", .pkts =  1000, .mac = MAC(d0,50,99,10,10,10), .addr = {192,168,0,20},    .tos = 0, .ttl = 64, .port = 2000, },
-            .srv = { .itfc = "eth0",   .pkts = 11000, .mac = MAC(54,9F,06,F4,C7,A0), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
+            .clt = { .itfc = "enp5s0", .pkts =  1000, .mac = MAC(d0,50,99,10,10,10), .gw = MAC(54,9F,06,F4,C7,A0), .addr = {192,168,0,20},    .tos = 0, .ttl = 64, .port = 2000, },
+            .srv = { .itfc = "eth0",   .pkts = 11000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
         },
         {
-            .clt = { .itfc = "enp5s0", .pkts =  500, .mac = MAC(d0,50,99,11,11,11), .addr = {192,168,100,20}, .tos = 0, .ttl = 64, .port = 2111, },
-            .srv = { .itfc = "eth0",   .pkts = 4000, .mac = MAC(CC,ED,21,96,99,C0), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
+            .clt = { .itfc = "enp5s0", .pkts =  500, .mac = MAC(d0,50,99,11,11,11), .gw = MAC(CC,ED,21,96,99,C0), .addr = {192,168,100,20},  .tos = 0, .ttl = 64, .port = 2111, },
+            .srv = { .itfc = "eth0",   .pkts = 4000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
         },
         {
-            .clt = { .itfc = "enp5s0", .pkts =  1300, .mac = MAC(d0,50,99,12,12,12), .addr = {192,168,1,20},    .tos = 0, .ttl = 64, .port = 2222 },
-            .srv = { .itfc = "eth0",   .pkts = 12000, .mac = MAC(90,55,DE,A1,CD,F0), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
+            .clt = { .itfc = "enp5s0", .pkts =  1300, .mac = MAC(d0,50,99,12,12,12), .gw = MAC(90,55,DE,A1,CD,F0), .addr = {192,168,1,20},    .tos = 0, .ttl = 64, .port = 2222 },
+            .srv = { .itfc = "eth0",   .pkts = 12000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
         },
     }},
 };
@@ -360,8 +362,9 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     ;
 
     if (path->hash != hash) {
+        
         path->hash    = hash;
-        path->itfc    = itfc;
+        path->itfc    = itfc; // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
         path->uDst    = hdr->uSrc;
 
         memcpy(path->eSrc, hdr->eDst, ETH_ALEN);
@@ -371,12 +374,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         memcpy(path->iDst, hdr->iSrc, 4);
 
         printk("XTUN: TUNNEL %s: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u"
-            " CLT MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u"
-            " SRV MAC %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u\n",
+            " SRC %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n"
+            " DST %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n",
             node->dev->name, pid, (uintll)path->hash, path->itfc->name, BE8(path->iTOS), BE8(path->iTTL),
             _MAC(path->eSrc), _IP4(path->iSrc), BE16(path->uSrc),
-            _MAC(path->eDst), _IP4(path->iDst), BE16(path->uDst)
-        );
+            _MAC(path->eDst), _IP4(path->iDst), BE16(path->uDst));
     }
 #endif
 
