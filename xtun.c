@@ -780,17 +780,6 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     }
 }
 
-// INITIALIZE TUNNELS
-static void xtun_nodes_init (void) {
-
-#if XTUN_SERVER
-    foreach (nid, XTUN_NODES_N)
-        xtun_node_init(&nodes[nid], nid, &cfgNodes[nid]);
-#else
-        xtun_node_init(node, XTUN_NODE_ID, cfgNode);
-#endif
-}
-
 static int __init xtun_init(void) {
 
     printk("XTUN: INIT\n");
@@ -799,7 +788,13 @@ static int __init xtun_init(void) {
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
 
-    xtun_nodes_init();
+// INITIALIZE TUNNELS
+#if XTUN_SERVER
+    foreach (nid, XTUN_NODES_N)
+        xtun_node_init(&nodes[nid], nid, &cfgNodes[nid]);
+#else
+        xtun_node_init(node, XTUN_NODE_ID, cfgNode);
+#endif
 
     return 0;
 }
