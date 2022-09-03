@@ -107,8 +107,10 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 //
 #if 0
+#define XTUN_DEV_PRIV_SIZE sizeof(xtun_node_s*)
 #define XTUN_DEV_NODE(dev) (*(xtun_node_s**)netdev_priv(dev))
 #else
+#define XTUN_DEV_PRIV_SIZE 0
 #define XTUN_DEV_NODE(dev) ((dev)->rx_handler_data)
 #endif
 
@@ -773,7 +775,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     xtun_node_flows_print(node);
 
     // CREATE THE VIRTUAL INTERFACE
-    net_device_s* const dev = alloc_netdev(sizeof(xtun_node_s*), cfg->name, NET_NAME_USER, xtun_dev_setup);
+    net_device_s* const dev = alloc_netdev(XTUN_DEV_PRIV_SIZE, cfg->name, NET_NAME_USER, xtun_dev_setup);
 
     if (!dev) {
         printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT ALLOCATE\n", cfg->name);
