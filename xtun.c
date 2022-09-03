@@ -520,9 +520,12 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     if (!hdr->itfc)
         goto drop;
 
-    skb->dev = hdr->itfc; // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
-    // THE FUNCTION CAN BE CALLED FROM AN INTERRUPT
-    // WHEN CALLING THIS METHOD, INTERRUPTS MUST BE ENABLED
+    // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
+    skb->dev = hdr->itfc;
+
+    // -- THE FUNCTION CAN BE CALLED FROM AN INTERRUPT
+    // -- WHEN CALLING THIS METHOD, INTERRUPTS MUST BE ENABLED
+    // -- REGARDLESS OF THE RETURN VALUE, THE SKB IS CONSUMED
     dev_queue_xmit(skb);
 
     return NETDEV_TX_OK;
@@ -577,7 +580,7 @@ static void xtun_dev_setup (net_device_s* const dev) {
     dev->priv_flags      = IFF_NO_QUEUE
                          | IFF_LIVE_ADDR_CHANGE
                          | IFF_LIVE_RENAME_OK
-                        // IFF_NO_RX_HANDLER?
+                         | IFF_NO_RX_HANDLER
         ;
 }
 
@@ -783,10 +786,10 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     // MAKE IT VISIBLE IN THE SYSTEM
     if (register_netdev(dev)) {
         printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->name);
-        // TODO: LEMBRAR O NOME DA INTERFACE    
+        // TODO: LEMBRAR O NOME DA INTERFACE
         free_netdev(dev);
     } else
-        node->dev = dev; 
+        node->dev = dev;
 }
 
 static int __init xtun_init(void) {
