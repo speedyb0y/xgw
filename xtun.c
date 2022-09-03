@@ -279,7 +279,7 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
         }
     }
 
-    u8  flows[XTUN_FLOWS_N]; 
+    u8  flows[XTUN_FLOWS_N];
     u8* flow = flows;
     uint pid = maiorP;
 
@@ -629,9 +629,9 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     path->iDstLearn  = !0;
     path->uDstLearn  = !0;
 #else
-    path->reserved2  = 0;    
+    path->reserved2  = 0;
 #endif
-    path->reserved   = 0;    
+    path->reserved   = 0;
     path->cltPkts    = cfg->clt.pkts;
     path->srvPkts    = cfg->srv.pkts;
     path->eType      = BE16(ETH_P_IP);
@@ -769,7 +769,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
  // node->flowPackets
  // node->flows
  // node->paths
- 
+
     memcpy(&node->cryptoParams, &cfg->cryptoParams, sizeof(xtun_crypto_params_s));
 
     // INITIALIZE ITS PATHS
