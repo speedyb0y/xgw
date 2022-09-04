@@ -214,23 +214,28 @@ typedef struct xtun_cfg_node_srv_s {
 
 typedef struct xtun_cfg_node_s {
     uint id;
+    char name[IFNAMSIZ];
     xtun_cfg_node_side_s clt;
     xtun_cfg_node_side_s srv;
 } xtun_cfg_node_s;
 
 #if XTUN_SERVER
-#define NODE(nid) (&nodes[nid])
 #define NODE_ID(node) ((uint)((node) - nodes))
 static xtun_node_s nodes[XTUN_NODES_N];
 #else
-#define NODE(nid) (node)
 #define NODE_ID(node) XTUN_NODE_ID
 static xtun_node_s node[1];
 #endif
 
+#if XTUN_SERVER
+#define CONF_ID(nid) .id = (nid), .name = "xgw-" # nid
+#else
+#define CONF_ID(nid) .id = (nid), .name = "xgw"
+#endif
+
 static const xtun_cfg_node_s cfgNodes[] = {
 #if (XTUN_SERVER && XTUN_NODES_N > 1) || XTUN_NODE_ID == 1
-    { .id = 1,
+    { CONF_ID(1),
         .clt = { .mtu = XGW_XTUN_NODE_0_CLT_MTU, .pkts = XGW_XTUN_NODE_0_CLT_PKTS, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
             { .itfc = XGW_XTUN_NODE_0_CLT_PATH_0_ITFC, .band = XGW_XTUN_NODE_0_CLT_PATH_0_BAND, .mac = XGW_XTUN_NODE_0_CLT_PATH_0_MAC, .gw = XGW_XTUN_NODE_0_CLT_PATH_0_GW, .addr = {XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_0,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_1,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_2,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_3}, .tos = XGW_XTUN_NODE_0_CLT_PATH_0_TOS, .ttl = XGW_XTUN_NODE_0_CLT_PATH_0_TTL, .port = XGW_XTUN_NODE_0_CLT_PATH_0_PORT, },
 #if XTUN_PATHS_N > 1
@@ -798,12 +803,9 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg, const uint nid) {
     const xtun_cfg_node_side_s* const srv = &cfg->srv;
 #if XTUN_SERVER
     xtun_node_s* const node = &nodes[nid];
-    char name[IFNAMSIZ]; snprintf(name, sizeof(name), "xgw-%u", nid);
-#else
-    const char* const name = "xgw";
 #endif
 
-    printk("XTUN: NODE %u: INITIALIZING", nid);
+    printk("XTUN: NODE %u: INITIALIZING WITH NAME %s", nid, cfg->name);
 
     xtun_print_side("THIS", this);
     xtun_print_side("PEER", peer);
@@ -829,7 +831,7 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg, const uint nid) {
     xtun_node_flows_update(node);
 
     // CREATE THE VIRTUAL INTERFACE
-    net_device_s* const dev = alloc_netdev(XTUN_DEV_PRIV_SIZE, name, NET_NAME_USER, xtun_dev_setup);
+    net_device_s* const dev = alloc_netdev(XTUN_DEV_PRIV_SIZE, cfg->name, NET_NAME_USER, xtun_dev_setup);
 
     if (!dev) {
         printk("XTUN: NODE %u: CREATE FAILED - COULD NOT ALLOCATE\n", nid);
