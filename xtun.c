@@ -141,6 +141,7 @@ typedef struct xtun_path_s {
 #endif
     u32 reserved;
     u16 isUp:1, // ADMINISTRATIVELY
+        autoUp:1, // SE DER TIMEOUT VAI DESATIVAR ISSO
         itfcUp:1, // WATCH INTERFACE EVENTS AND SET THIS
 #if XTUN_SERVER
         itfcLearn:1,
@@ -150,7 +151,7 @@ typedef struct xtun_path_s {
         iDstLearn:1,    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO
         uDstLearn:1,
 #endif
-        _reserved:8;
+        _reserved:7;
 #define ETH_HDR_SIZE 14
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
@@ -263,19 +264,7 @@ static const xtun_cfg_node_s cfgNode[1] =
 #endif
 };
 
-static void xtun_node_flows_print (const xtun_node_s* const node) {
-
-    char flows[XTUN_FLOWS_N + 1];
-
-    foreach (fid, XTUN_FLOWS_N)
-        flows[fid] = '0' + node->flows[fid];
-    flows[XTUN_FLOWS_N] = '\0';
-
-    printk("XTUN: NODE %u: PACKETS %u REMAINING %u FLOWS %s\n",
-        NODE_ID(node), node->flowPackets, node->flowRemaining, flows);
-}
-
-static int xtun_node_flows_update (xtun_node_s* const node) {
+static void xtun_node_flows_update (xtun_node_s* const node) {
 
     uint total = 0;
     uint maiorB = 0;
@@ -283,6 +272,7 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
 
     foreach (pid, XTUN_PATHS_N) {
         const uint b = node->paths[pid].isUp
+                     * node->paths[pid].autoUp
                      * node->paths[pid].itfcUp
                      * node->paths[pid].mBand;
         // CALCULA O TOTAL
@@ -303,6 +293,7 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
         do {
             uint q = ( (uintll)XTUN_FLOWS_N
               * node->paths[pid].isUp
+              * node->paths[pid].autoUp
               * node->paths[pid].itfcUp
               * node->paths[pid].mBand
                 ) / total;
@@ -315,25 +306,18 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
     // O QUE SOBRAR DEIXA COM O MAIOR PATH
     while (flow != &flows[XTUN_FLOWS_N])
         *flow++ = pid;
-#if 0
-    //
-    total /= XTUN_FLOWS_N;
 
-    //
-    if (node->flowPackets == total && !memcmp(node->flows, flows, XTUN_FLOWS_N))
-        // NO CHANGES
-        return 0;
-
-    // SOMETHING CHANGED
-
-    // TODO: SÓ FAZER ISSO SE MUDOU OS FLOWS OU SE ALGUM PATH DIMINUIR SEUS PACKETS
-    if (node->flowPackets > total)
-        node->flowRemaining = 0;
-    node->flowPackets = total;
-#endif
     memcpy(node->flows, flows, XTUN_FLOWS_N);
 
-    return 1;
+    // PRINT IT
+    char flowsStr[XTUN_FLOWS_N + 1];
+
+    foreach (fid, XTUN_FLOWS_N)
+        flowsStr[fid] = '0' + node->flows[fid];
+    flowsStr[XTUN_FLOWS_N] = '\0';
+
+    printk("XTUN: NODE %u: FLOW UPDATED: PACKETS %u REMAINING %u FLOWS %s\n",
+        NODE_ID(node), node->flowPackets, node->flowRemaining, flowsStr);
 }
 
 static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
@@ -403,10 +387,10 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     if (xtun_crypto_decode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize) != hdr->iHash)
         goto drop;
 
-#if XTUN_SERVER
-    // DETECT AND UPDATE PATH CHANGES
     xtun_path_s* const path = &node->paths[pid];
 
+#if XTUN_SERVER
+    // DETECT AND UPDATE PATH CHANGES
     net_device_s* const itfc = skb->dev;
 
     // NOTE: O SERVER NÃO PODE RECEBER ALEATORIAMENTE COM  UM MESMO IP EM MAIS DE UMA INTERACE, SENÃO VAI FICAR TROCANDO TODA HORA AQUI
@@ -419,7 +403,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     if (unlikely(path->hash != hash)) {
         path->hash = hash;
-        // TODO: MARCAR path->on porque provou que funciona?
 
         if (path->uDstLearn)
             path->uDst = hdr->uSrc;
@@ -443,6 +426,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     }
 #endif
 
+    // DETECT AND UPDATE PATH AVAILABILITY
+    if (unlikely(!path->autoUp)) {
+        path->autoUp = 1; // TODO: FIXME: IMPLEMENTAR E USAR ISSO
+        xtun_node_flows_update(node);
+    }
     // NOTE: MAKE SURE WE DO THE EQUIVALENT OF TRIM
     // pskb_trim(skb, payloadSize);
 
@@ -581,7 +569,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     skb->mac_len          = ETH_HLEN;
 
     // TODO: SE itfcUp FOR TRUE, ENTAO hdr->itfc JÁ É TRUE
-    if (!(hdr->isUp && hdr->itfcUp && hdr->itfc && hdr->itfc->flags & IFF_UP))
+    // TODO: FIXME: CONSOLIDAR TODOS ESSES CHECKS EM UMA COISA SO TODA VEZ QUE ALTERAR ALGUM DELES
+    if (!(hdr->isUp && hdr->autoUp && hdr->itfcUp && hdr->itfc && hdr->itfc->flags & IFF_UP))
         goto drop;
 
     // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
@@ -674,6 +663,7 @@ static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xt
     );
 
     path->isUp       = 1;
+    path->autoUp     = 1;
     path->itfc       = NULL;
     path->itfcUp     = 0; // TODO: INICIALIZAR COMO 0 E CARREGAR ISSO NO DEVICE NOTIFIER
 #if XTUN_SERVER
@@ -853,7 +843,6 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
 
     // INITIALIZE ITS FLOWS
     xtun_node_flows_update(node);
-    xtun_node_flows_print(node);
 
     // CREATE THE VIRTUAL INTERFACE
     net_device_s* const dev = alloc_netdev(XTUN_DEV_PRIV_SIZE, name, NET_NAME_USER, xtun_dev_setup);
