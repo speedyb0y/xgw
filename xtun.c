@@ -630,14 +630,14 @@ static void xtun_dev_setup (net_device_s* const dev) {
 
 #if XTUN_SERVER
 #define this srv
+#define thisPath spath
 #define peer clt
-#define mpath spath
-#define ypath cpath
+#define peerPath cpath
 #else
 #define this clt
+#define thisPath cpath
 #define peer srv
-#define mpath cpath
-#define ypath spath
+#define peerPath spath
 #endif
 
 static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xtun_path_s* const restrict path, const uint pid, const xtun_cfg_node_s* const restrict cfg) {
@@ -649,8 +649,8 @@ static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xt
         " CLT BAND %8u ITFC %16s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %5u TOS 0x%02X TTL %3u\n"
         " SRV BAND %8u ITFC %16s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %5u TOS 0x%02X TTL %3u\n",
         nid, pid,
-        cpath->band, cpath->itfc, _MAC(cpath->mac), _MAC(cpath->gw), _IP4(cpath->addr), cpath->port, cpath->tos, cpath->ttl,
-        spath->band, spath->itfc, _MAC(spath->mac), _MAC(spath->gw), _IP4(spath->addr), spath->port, spath->tos, spath->ttl
+        thisPath->band, thisPath->itfc, _MAC(thisPath->mac), _MAC(thisPath->gw), _IP4(thisPath->addr), thisPath->port, thisPath->tos, thisPath->ttl,
+        peerPath->band, peerPath->itfc, _MAC(peerPath->mac), _MAC(peerPath->gw), _IP4(peerPath->addr), peerPath->port, peerPath->tos, peerPath->ttl
     );
 
     path->isUp       = 1;
@@ -673,25 +673,25 @@ static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xt
     path->srvBand    = spath->band;
     path->eType      = BE16(ETH_P_IP);
     path->iVersion   = 0x45;
-    path->iTOS       = mpath->tos;
+    path->iTOS       = thisPath->tos;
  // path->iSize
     path->iHash      = 0;
     path->iFrag      = 0;
-    path->iTTL       = mpath->ttl;
+    path->iTTL       = thisPath->ttl;
     path->iProtocol  = IPPROTO_UDP;
     path->iCksum     = 0;
-    path->uSrc       = BE16(mpath->port);
-    path->uDst       = BE16(ypath->port);
+    path->uSrc       = BE16(thisPath->port);
+    path->uDst       = BE16(peerPath->port);
  // path->uSize
     path->uCksum     = 0;
 
-    memcpy(path->eSrc, mpath->mac, ETH_ALEN);
-    memcpy(path->eDst, mpath->gw,  ETH_ALEN);
+    memcpy(path->eSrc, thisPath->mac, ETH_ALEN);
+    memcpy(path->eDst, thisPath->gw,  ETH_ALEN);
 
-    memcpy(path->iSrc, mpath->addr, 4);
-    memcpy(path->iDst, ypath->addr, 4);
+    memcpy(path->iSrc, thisPath->addr, 4);
+    memcpy(path->iDst, peerPath->addr, 4);
 
-    net_device_s* const itfc = dev_get_by_name(&init_net, mpath->itfc);
+    net_device_s* const itfc = dev_get_by_name(&init_net, thisPath->itfc);
 
     if (itfc) {
 
