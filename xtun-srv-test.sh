@@ -24,13 +24,14 @@ done
 iptables -t nat -A POSTROUTING -s 172.16.0.0/16 -o ${SERVER_ITFC} -j MASQUERADE
 
 for NID in $(seq 15) ; do
-    echo 1 > /proc/sys/net/ipv4/conf/xgw-${NID}/forwarding
-done
+    if [ -e /proc/sys/net/ipv4/conf/xgw-${NID} ] ; then
 
-for NID in $(seq 15) ; do
-    ip link set dev xgw-${NID}  up
-    ip -4 addr add dev xgw-${NID} 172.16.${NID}.0/24 noprefixroute
-    ip -4 route add metric 1 dev xgw-${NID} src 172.16.${NID}.0 172.16.${NID}.0/24
+        echo 1 > /proc/sys/net/ipv4/conf/xgw-${NID}/forwarding
+
+        ip link set dev xgw-${NID} up
+        ip -4 addr add dev xgw-${NID} 172.16.${NID}.0/24 noprefixroute
+        ip -4 route add metric 1 dev xgw-${NID} src 172.16.${NID}.0 172.16.${NID}.0/24
+    fi
 done
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
