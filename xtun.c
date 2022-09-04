@@ -210,7 +210,6 @@ typedef struct xtun_cfg_path_s {
 } xtun_cfg_path_s;
 
 typedef struct xtun_cfg_node_s {
-    char name[IFNAMSIZ];
     uint mtu;
     xtun_crypto_params_s cryptoParams;
     xtun_crypto_algo_e cryptoAlgo;
@@ -218,9 +217,11 @@ typedef struct xtun_cfg_node_s {
 } xtun_cfg_node_s;
 
 #if XTUN_SERVER
+#define NODE_ID(node) ((uint)((node) - nodes))
 static xtun_node_s nodes[XTUN_NODES_N];
 #else
 static xtun_node_s node[1];
+#define NODE_ID(node) XTUN_NODE_ID
 #endif
 
 #if XTUN_SERVER
@@ -229,7 +230,7 @@ static const xtun_cfg_node_s cfgNodes[XTUN_NODES_N] =
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
-    { .name = "xgw-0", .mtu = 1500 - 28, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
+    { .mtu = 1500 - 28, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
         {
             .clt = { .itfc = "enp5s0", .pkts =  1000, .mac = MAC(d0,50,99,10,10,10), .gw = MAC(54,9F,06,F4,C7,A0), .addr = {192,168,0,20},    .tos = 0, .ttl = 64, .port = 2000, },
             .srv = { .itfc = "eth0",   .pkts = 11000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
@@ -251,8 +252,8 @@ static void xtun_node_flows_print (const xtun_node_s* const node) {
         flows[fid] = '0' + node->flows[fid];
     flows[XTUN_FLOWS_N] = '\0';
 
-    printk("XTUN: TUNNEL %s: PACKETS %u REMAINING %u FLOWS %s\n",
-        node->dev->name, node->flowPackets, node->flowRemaining, flows);
+    printk("XTUN: NODE %u: PACKETS %u REMAINING %u FLOWS %s\n",
+        NODE_ID(node), node->flowPackets, node->flowRemaining, flows);
 }
 
 #if XTUN_SERVER
@@ -414,10 +415,10 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         if (path->iDstLearn)
             memcpy(path->iDst, hdr->iSrc, 4);
 
-        printk("XTUN: TUNNEL %s: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
+        printk("XTUN: NODE %u: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
             " SRC %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n"
             " DST %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n",
-            node->dev->name, pid, (uintll)path->hash, path->itfc->name, path->iTOS, path->iTTL,
+            nid, pid, (uintll)path->hash, path->itfc->name, path->iTOS, path->iTTL,
             _MAC(path->eSrc), _IP4(path->iSrc), BE16(path->uSrc),
             _MAC(path->eDst), _IP4(path->iDst), BE16(path->uDst));
     }
@@ -622,10 +623,10 @@ static void xtun_dev_setup (net_device_s* const dev) {
 
 static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
 
-    printk("PATH %u: INITIALIZING\n"
+    printk("XTUN: NODE %u: PATH %u: INITIALIZING\n"
         " CLT PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n"
         " SRV PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n",
-        pid,
+        nid, pid,
         cfg->clt.pkts, cfg->clt.itfc, _MAC(cfg->clt.mac), _MAC(cfg->clt.gw), _IP4(cfg->clt.addr), cfg->clt.port, cfg->clt.tos, cfg->clt.ttl,
         cfg->srv.pkts, cfg->srv.itfc, _MAC(cfg->srv.mac), _MAC(cfg->srv.gw), _IP4(cfg->srv.addr), PORT(nid, pid), cfg->srv.tos, cfg->srv.ttl
     );
@@ -698,17 +699,17 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
         if (path->itfc) { // TODO:
             path->itfcUp = 1;
         } else { // TODO: LEMBRAR O NOME ENTÃO - APONTAR PARA O CONFIG?
-            printk("INTERFACE NOT HOOKED\n");
+            printk("XTUN: NODE %u: PATH %u: INTERFACE NOT HOOKED\n", nid, pid);
             dev_put(itfc);
         }
     } else
-        printk("INTERFACE NOT FOUND\n");
+        printk("XTUN: NODE %u: PATH %u: INTERFACE NOT FOUND\n", nid, pid);
 }
 
 static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
 
-    printk("XTUN: TUNNEL %s: NODE #%u INITIALIZING WITH MTU %u",
-        cfg->name, nid, cfg->mtu);
+    printk("XTUN: NODE %u: INITIALIZING WITH MTU %u ",
+        nid, cfg->mtu);
 
     switch (cfg->cryptoAlgo) {
 #if      XGW_XTUN_CRYPTO_ALGO_NULL0
@@ -796,10 +797,16 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     xtun_node_flows_print(node);
 
     // CREATE THE VIRTUAL INTERFACE
-    net_device_s* const dev = alloc_netdev(XTUN_DEV_PRIV_SIZE, cfg->name, NET_NAME_USER, xtun_dev_setup);
+#if XTUN_SERVER
+    char name[IFNAMSIZ];
+    snprintf(name, sizeof(name), "xgw-%u", nid);
+#else
+    const char* const name = "xgw";
+#endif
+    net_device_s* const dev = alloc_netdev(XTUN_DEV_PRIV_SIZE, name, NET_NAME_USER, xtun_dev_setup);
 
     if (!dev) {
-        printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT ALLOCATE\n", cfg->name);
+        printk("XTUN: NODE %u: CREATE FAILED - COULD NOT ALLOCATE\n", nid);
         return;
     }
 
@@ -808,7 +815,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
 
     // MAKE IT VISIBLE IN THE SYSTEM
     if (register_netdev(dev)) {
-        printk("XTUN: TUNNEL %s: CREATE FAILED - COULD NOT REGISTER\n", cfg->name);
+        printk("XTUN: NODE %u: CREATE FAILED - COULD NOT REGISTER\n", nid);
         // TODO: LEMBRAR O NOME DA INTERFACE
         free_netdev(dev);
     } else
