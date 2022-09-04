@@ -13,7 +13,7 @@ SERVER_IP4=45.76.11.87
     iptables -t raw -A PREROUTING -j DROP   -d ${SERVER_IP4}
     iptables -t raw -A PREROUTING -j DROP   -d ${SERVER_IP4}
     iptables -t raw -A PREROUTING -j DROP   -d ${SERVER_IP4}
-for ID in $(seq 15) ; do
+for NID in $(seq 15) ; do
     iptables -t raw -A PREROUTING -j ACCEPT -i xgw-${NID} -s 172.16.${NID}.0/24   -d 172.16.${NID}.0
     iptables -t raw -A PREROUTING -j ACCEPT -i xgw-${NID} -s 172.16.${NID}.0/24 ! -d 172.16.0.0/16
     iptables -t raw -A PREROUTING -j DROP   -i xgw-${NID}
