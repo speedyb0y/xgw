@@ -4,6 +4,10 @@ SERVER_ITFC=enp1s0
 
 SERVER_IP4=45.76.11.87
 
+echo scalable > /proc/sys/net/ipv4/tcp_congestion_control
+echo 4096 > /proc/sys/net/ipv4/tcp_max_reordering
+echo  300 > /proc/sys/net/ipv4/tcp_reordering
+
     iptables -t raw -A PREROUTING -j DROP   -s ${SERVER_IP4}
     iptables -t raw -A PREROUTING -j DROP   -i ${SERVER_ITFC} -s 172.16.0.0/16
     iptables -t raw -A PREROUTING -j ACCEPT -i ${SERVER_ITFC} -d ${SERVER_IP4}
