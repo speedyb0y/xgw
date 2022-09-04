@@ -646,8 +646,8 @@ static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xt
     const xtun_cfg_path_s* const spath = &cfg->srv.paths[pid];
 
     printk("XTUN: NODE %u: PATH %u: INITIALIZING\n"
-        " CLT BAND %8u ITFC %16s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %5u TOS 0x%02X TTL %3u\n"
-        " SRV BAND %8u ITFC %16s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %5u TOS 0x%02X TTL %3u\n",
+        " THIS BAND %8u ITFC %16s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %5u TOS 0x%02X TTL %3u\n"
+        " PEER BAND %8u ITFC %16s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %5u TOS 0x%02X TTL %3u\n",
         nid, pid,
         thisPath->band, thisPath->itfc, _MAC(thisPath->mac), _MAC(thisPath->gw), _IP4(thisPath->addr), thisPath->port, thisPath->tos, thisPath->ttl,
         peerPath->band, peerPath->itfc, _MAC(peerPath->mac), _MAC(peerPath->gw), _IP4(peerPath->addr), peerPath->port, peerPath->tos, peerPath->ttl
@@ -794,14 +794,11 @@ static void xtun_print_side (const char* const restrict sideName, const xtun_cfg
 
 static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
 
+    const xtun_cfg_node_side_s* const clt = &cfg->clt;
+    const xtun_cfg_node_side_s* const srv = &cfg->srv;
     const uint nid = cfg->id;
 #if XTUN_SERVER
     xtun_node_s* const node = &nodes[nid];
-#endif
-    const xtun_cfg_node_side_s* const clt = &cfg->clt;
-    const xtun_cfg_node_side_s* const srv = &cfg->srv;
-
-#if XTUN_SERVER
     char name[IFNAMSIZ]; snprintf(name, sizeof(name), "xgw-%u", nid);
 #else
     const char* const name = "xgw";
