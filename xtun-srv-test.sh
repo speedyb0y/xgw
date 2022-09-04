@@ -4,6 +4,10 @@ SERVER_ITFC=enp1s0
 
 SERVER_IP4=45.76.11.87
 
+make
+
+insmod xtun-srv.ko
+
 echo scalable > /proc/sys/net/ipv4/tcp_congestion_control
 echo 4096 > /proc/sys/net/ipv4/tcp_max_reordering
 echo  300 > /proc/sys/net/ipv4/tcp_reordering

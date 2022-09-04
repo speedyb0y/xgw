@@ -9,6 +9,10 @@ TABLE_XGW_SRV=5
 
 LAN_INTERFACE=eth0
 
+make
+
+insmod xtun-clt.ko
+
 echo scalable > /proc/sys/net/ipv4/tcp_congestion_control
 echo 4096 > /proc/sys/net/ipv4/tcp_max_reordering
 echo  300 > /proc/sys/net/ipv4/tcp_reordering
