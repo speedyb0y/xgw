@@ -339,6 +339,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
+    // TODO: FIXME: pskb vs skb??? sera que vai te rque fazer skb_copy() e depois *pskb = skb ?
+    // e aí faz ou não kfree_skb()?
+    if (skb_linearize(skb))
+        goto drop;
+
     const xtun_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xtun_path_s);
 
     XTUN_ASSERT(!skb->data_len);
@@ -573,9 +578,9 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     skb->mac_len          = ETH_HLEN;
 
     // TODO: SE itfcUp FOR TRUE, ENTAO hdr->itfc JÁ É TRUE
-    if (!(hdr->isUp && hdr->itfcUp && hdr->itfc))
+    if (!(hdr->isUp && hdr->itfcUp && hdr->itfc && hdr->itfc->flags & IFF_UP))
         goto drop;
-
+    
     // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
     skb->dev = hdr->itfc;
 
