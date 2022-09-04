@@ -110,11 +110,11 @@ static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restr
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
-        const u8 orig = BE8(*(u8*)data);
+        const u8 orig = *(u8*)data;
         u32 value = orig;
         value += swap32(k, size);
         value &= 0xFFU;
-        *(u8*)data = BE8(value);
+        *(u8*)data = value;
         k += swap32(k, orig);
         k += swap32(orig, k);
     }
@@ -147,10 +147,10 @@ static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restr
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
-        u32 orig = BE8(*(u8*)data);
+        u32 orig = *(u8*)data;
         orig -= swap32(k, size);
         orig &= 0xFFU;
-        *(u8*)data = BE8(orig);
+        *(u8*)data = orig;
         k += swap32(k, orig);
         k += swap32(orig, k);
     }
@@ -187,11 +187,11 @@ static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restr
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
-        const u8 orig = BE8(*(u8*)data);
+        const u8 orig = *(u8*)data;
         u64 value = orig;
         value += swap64(k, size);
         value &= 0xFFU;
-        *(u8*)data = BE8(value);
+        *(u8*)data = value;
         k += swap64(orig, k);
         k += swap64(k, orig);
     }
@@ -225,10 +225,10 @@ static u16 xtun_crypto_shift64_1_decode (const xtun_crypto_params_s* const restr
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
-        u64 orig = BE8(*(u8*)data);
+        u64 orig = *(u8*)data;
         orig -= swap64(k, size);
         orig &= 0xFFU;
-        *(u8*)data = BE8(orig);
+        *(u8*)data = orig;
         k += swap64(orig, k);
         k += swap64(k, orig);
     }
@@ -276,14 +276,14 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restr
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
-        const u8 orig = BE8(*(u8*)data);
+        const u8 orig = *(u8*)data;
         u64 value = orig;
         value += swap64(a, size);
         value += swap64(b, size);
         value += swap64(c, size);
         value += swap64(d, size);
         value &= 0xFFU;
-        *(u8*)data = BE8(value);
+        *(u8*)data = value;
         a += swap64(b, orig);
         b += swap64(orig, a);
     }
@@ -331,13 +331,13 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_params_s* const restr
     while (size) {
         size -= sizeof(u8);
         data -= sizeof(u8);
-        u64 orig = BE8(*(u8*)data);
+        u64 orig = *(u8*)data;
         orig -= swap64(d, size);
         orig -= swap64(c, size);
         orig -= swap64(b, size);
         orig -= swap64(a, size);
         orig &= 0xFFU;
-        *(u8*)data = BE8(orig);
+        *(u8*)data = orig;
         a += swap64(b, orig);
         b += swap64(orig, a);
     }

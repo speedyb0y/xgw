@@ -46,7 +46,6 @@ typedef struct net_device_ops net_device_ops_s;
 
 #define foreach(i, t) for (uint i = 0; i != (t); i++)
 
-static inline u8  BE8 (u8  x) { return                   x;  }
 static inline u16 BE16(u16 x) { return __builtin_bswap16(x); }
 static inline u32 BE32(u32 x) { return __builtin_bswap32(x); }
 static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
@@ -366,7 +365,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
      || skb->data_len
      || hdr->eType     != BE16(ETH_P_IP)
      || hdr->iVersion  != 0x45
-     || hdr->iProtocol != BE8(IPPROTO_UDP)
+     || hdr->iProtocol != IPPROTO_UDP
 #if XTUN_SERVER
      || nid >= XTUN_NODES_N
 #else
@@ -475,21 +474,21 @@ drop:
 
 static u64 xtun_flow_hash (const void* const flow) {
 
-    u64 hash = BE8(*(u8*)flow) >> 4;
+    u64 hash = *(u8*)flow >> 4;
 
     if (hash == 4) {
         // IPV4
-        hash = BE8(*(u8*)(flow + 9));
+        hash = *(u8*)(flow + 9);
         if (hash == IPPROTO_TCP
          || hash == IPPROTO_UDP
          || hash == IPPROTO_UDPLITE
          || hash == IPPROTO_SCTP
          || hash == IPPROTO_DCCP)
-            hash += *(u32*)(flow + (BE8(*(u8*)flow) & 0x0F)*4);
+            hash += *(u32*)(flow + (*(u8*)flow & 0x0F)*4);
         hash += *(u64*)(flow + 12);
     } elif (hash == 6) {
         // IPV6
-        hash = BE8(*(u8*)(flow + 6));
+        hash = *(u8*)(flow + 6);
         if (hash == IPPROTO_TCP
          || hash == IPPROTO_UDP
          || hash == IPPROTO_UDPLITE
