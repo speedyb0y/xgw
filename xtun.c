@@ -525,7 +525,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     XTUN_ASSERT((PTR(payload) + payloadSize) == SKB_TAIL(skb));
     XTUN_ASSERT(PTR(hdr) >= PTR(skb->head));
 
-    if (PTR(hdr) < PTR(skb->head))
+    if (PTR(hdr) < PTR(skb->head) || skb->data_len)
         goto drop;
 
     // TODO: FIXME: payloadSize tem que caber no MTU final
