@@ -660,9 +660,7 @@ static void xtun_dev_setup (net_device_s* const dev) {
 #define ypath spath
 #endif
 
-static void xtun_path_init (const xtun_cfg_node_s* const cfg, xtun_node_s* const node, const uint nid, const uint pid) {
-
-    xtun_path_s* const path = &node->paths[pid];
+static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xtun_path_s* const restrict path, const uint pid, const xtun_cfg_node_s* const restrict cfg) {
 
     const xtun_cfg_path_s* const cpath = &cfg->clt.paths[pid];
     const xtun_cfg_path_s* const spath = &cfg->srv.paths[pid];
@@ -851,7 +849,7 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
 
     // INITIALIZE ITS PATHS
     foreach (pid, XTUN_PATHS_N)
-        xtun_path_init(cfg, node, nid, pid);
+        xtun_path_init(node, nid, &node->paths[pid], pid, cfg);
 
     // INITIALIZE ITS FLOWS
     xtun_node_flows_update(node);
