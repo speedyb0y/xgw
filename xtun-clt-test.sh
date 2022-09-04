@@ -35,3 +35,12 @@ ip -4 addr add dev xgw 172.16.${NID}.20/24 noprefixroute
 
 ip -4 route add table ${TABLE_XGW_SRV} dev xgw src 172.16.${NID}.20 default
 ip -4 route add table ${TABLE_XGW_LAN} dev ${LAN_INTERFACE} src 172.16.${NID}.20 172.16.${NID}.0/24
+
+ip -4 route flush cache
+ip -6 route flush cache
+
+sleep 1
+
+for PID in 0 1 2 ; do
+    ping 172.16.${NID}.0 -m $[30000+${PID}] -c 2
+done
