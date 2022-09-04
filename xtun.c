@@ -192,14 +192,6 @@ typedef struct xtun_node_s {
     xtun_path_s paths[XTUN_PATHS_N];
 } xtun_node_s;
 
-#if XTUN_SERVER
-#define MINE srv
-#define YOUR clt
-#else
-#define MINE clt
-#define YOUR srv
-#endif
-
 typedef struct xtun_cfg_path_s {
     char itfc[IFNAMSIZ];
     u8 mac[ETH_ALEN];
@@ -211,21 +203,18 @@ typedef struct xtun_cfg_path_s {
     uint band; // TOTAL DE PACOTES A CADA CIRCULADA
 } xtun_cfg_path_s;
 
+typedef struct xtun_cfg_node_srv_s {
+    uint mtu;
+    uint pkts;
+    xtun_crypto_params_s cryptoParams;
+    xtun_crypto_algo_e cryptoAlgo;
+    xtun_cfg_path_s paths[XTUN_PATHS_N];
+} xtun_cfg_node_side_s;
+
 typedef struct xtun_cfg_node_s {
-    struct xtun_cfg_node_clt_s {
-        uint mtu;
-        uint pkts;
-        xtun_crypto_params_s cryptoParams;
-        xtun_crypto_algo_e cryptoAlgo;
-        xtun_cfg_path_s paths[XTUN_PATHS_N];
-    } clt;
-    struct xtun_cfg_node_srv_s  {
-        uint mtu;
-        uint pkts;
-        xtun_crypto_params_s cryptoParams;
-        xtun_crypto_algo_e cryptoAlgo;
-        xtun_cfg_path_s paths[XTUN_PATHS_N];
-    } srv;
+    uint id;
+    xtun_cfg_node_side_s clt;
+    xtun_cfg_node_side_s srv;
 } xtun_cfg_node_s;
 
 #if XTUN_SERVER
@@ -247,9 +236,8 @@ static const xtun_cfg_node_s cfgNode[1] =
 
     },
 #endif
-
 #if (XTUN_SERVER && XTUN_NODES_N > 1) || XTUN_NODE_ID == 1
-    {
+    { .id = 1,
         .clt = { .mtu = XGW_XTUN_NODE_0_MTU, .pkts = XGW_XTUN_NODE_0_CLT_PKTS, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
             { .itfc = XGW_XTUN_NODE_0_CLT_PATH_0_ITFC, .band = XGW_XTUN_NODE_0_CLT_PATH_0_BAND, .mac = XGW_XTUN_NODE_0_CLT_PATH_0_MAC, .gw = XGW_XTUN_NODE_0_CLT_PATH_0_GW, .addr = {XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_0,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_1,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_2,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_3}, .tos = XGW_XTUN_NODE_0_CLT_PATH_0_TOS, .ttl = XGW_XTUN_NODE_0_CLT_PATH_0_TTL, .port = XGW_XTUN_NODE_0_CLT_PATH_0_PORT, },
 #if XTUN_PATHS_N > 1
@@ -667,9 +655,13 @@ static void xtun_dev_setup (net_device_s* const dev) {
 }
 
 #if XTUN_SERVER
+#define mside srv
+#define yside clt
 #define mpath spath
 #define ypath cpath
 #else
+#define mside clt
+#define yside srv
 #define mpath cpath
 #define ypath spath
 #endif
@@ -759,16 +751,12 @@ static void xtun_path_init (const xtun_cfg_node_s* const cfg, xtun_node_s* const
         printk("XTUN: NODE %u: PATH %u: INTERFACE NOT FOUND\n", nid, pid);
 }
 
-static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
+static void xtun_print_side (const char* const restrict sideName, const xtun_cfg_node_side_s* const restrict side) {
 
-    printk("XTUN: NODE %u: INITIALIZING WITH"
-        " CLT MTU %u PKTS %u"
-        " SRV MTU %u PKTS %u",
-        nid,
-        cfg->clt.mtu, cfg->clt.pkts,
-        cfg->srv.mtu, cfg->srv.pkts);
+    printk(" %s MTU %u PKTS %u ",
+        sideName, side->mtu, side->pkts);
 
-    switch (cfg->MINE.cryptoAlgo) {
+    switch (side->cryptoAlgo) {
 #if      XGW_XTUN_CRYPTO_ALGO_NULL0
         case XTUN_CRYPTO_ALGO_NULL0:
             printk("CRYPTO ALGO NULL0");
@@ -777,7 +765,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
 #if      XGW_XTUN_CRYPTO_ALGO_NULLX
         case XTUN_CRYPTO_ALGO_NULLX:
             printk("CRYPTO ALGO NULLX X 0x%016llX",
-                (uintll)cfg->MINE.cryptoParams.nullx.x);
+                (uintll)side->cryptoParams.nullx.x);
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SUM32
@@ -793,56 +781,73 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
         case XTUN_CRYPTO_ALGO_SHIFT32_1:
             printk("CRYPTO ALGO SHIFT32_1 KEYS 0x%016llX",
-                (uintll)cfg->MINE.cryptoParams.shift32_1.k);
+                (uintll)side->cryptoParams.shift32_1.k);
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
         case XTUN_CRYPTO_ALGO_SHIFT64_1:
             printk("CRYPTO ALGO SHIFT64_1 KEYS 0x%016llX",
-                (uintll)cfg->MINE.cryptoParams.shift64_1.k);
+                (uintll)side->cryptoParams.shift64_1.k);
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
         case XTUN_CRYPTO_ALGO_SHIFT64_2:
             printk("CRYPTO ALGO SHIFT64_2 KEYS 0x%016llX 0x%016llX",
-                (uintll)cfg->MINE.cryptoParams.shift64_2.a,
-                (uintll)cfg->MINE.cryptoParams.shift64_2.b);
+                (uintll)side->cryptoParams.shift64_2.a,
+                (uintll)side->cryptoParams.shift64_2.b);
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
         case XTUN_CRYPTO_ALGO_SHIFT64_3:
             printk("CRYPTO ALGO SHIFT64_3 KEYS 0x%016llX 0x%016llX 0x%016llX",
-                (uintll)cfg->MINE.cryptoParams.shift64_3.a,
-                (uintll)cfg->MINE.cryptoParams.shift64_3.b,
-                (uintll)cfg->MINE.cryptoParams.shift64_3.c);
+                (uintll)side->cryptoParams.shift64_3.a,
+                (uintll)side->cryptoParams.shift64_3.b,
+                (uintll)side->cryptoParams.shift64_3.c);
             break;
 #endif
 #if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
         case XTUN_CRYPTO_ALGO_SHIFT64_4:
             printk("CRYPTO ALGO SHIFT64_4 KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX",
-                (uintll)cfg->MINE.cryptoParams.shift64_4.a,
-                (uintll)cfg->MINE.cryptoParams.shift64_4.b,
-                (uintll)cfg->MINE.cryptoParams.shift64_4.c,
-                (uintll)cfg->MINE.cryptoParams.shift64_4.d);
+                (uintll)side->cryptoParams.shift64_4.a,
+                (uintll)side->cryptoParams.shift64_4.b,
+                (uintll)side->cryptoParams.shift64_4.c,
+                (uintll)side->cryptoParams.shift64_4.d);
             break;
 #endif
         default:
             printk("CRYPTO ALGO UNKNOWN");
     }
+}
+
+static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
+
+    const xtun_cfg_node_side_s* const clt = &cfg->clt;
+    const xtun_cfg_node_side_s* const srv = &cfg->srv;
+
+#if XTUN_SERVER
+    char name[IFNAMSIZ]; snprintf(name, sizeof(name), "xgw-%u", nid);
+#else
+    const char* const name = "xgw";
+#endif
+
+    printk("XTUN: NODE %u: INITIALIZING", nid);
+
+    xtun_print_side("CLT", clt);
+    xtun_print_side("SRV", srv);
 
     node->dev           = NULL;
-    node->mtu           = cfg->MINE.mtu;
-    node->cryptoAlgo    = cfg->MINE.cryptoAlgo;
+    node->mtu           = mside->mtu;
+    node->cryptoAlgo    = mside->cryptoAlgo;
     node->reserved      = 0;
     node->reserved2     = 0;
     node->flowRemaining = 0;
     node->flowShift     = 0;
-    node->flowPackets   = cfg->MINE.pkts;
+    node->flowPackets   = mside->pkts;
  // node->flowPackets
  // node->flows
  // node->paths
 
-    memcpy(&node->cryptoParams, &cfg->MINE.cryptoParams, sizeof(xtun_crypto_params_s));
+    memcpy(&node->cryptoParams, &mside->cryptoParams, sizeof(xtun_crypto_params_s));
 
     // INITIALIZE ITS PATHS
     foreach (pid, XTUN_PATHS_N)
@@ -853,12 +858,6 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     xtun_node_flows_print(node);
 
     // CREATE THE VIRTUAL INTERFACE
-#if XTUN_SERVER
-    char name[IFNAMSIZ];
-    snprintf(name, sizeof(name), "xgw-%u", nid);
-#else
-    const char* const name = "xgw";
-#endif
     net_device_s* const dev = alloc_netdev(XTUN_DEV_PRIV_SIZE, name, NET_NAME_USER, xtun_dev_setup);
 
     if (!dev) {
@@ -889,7 +888,7 @@ static int __init xtun_init(void) {
     // INITIALIZE TUNNELS
 #if XTUN_SERVER
     foreach (nid, XTUN_NODES_N) {
-        if (cfgNodes[nid].MINE.mtu)
+        if (cfgNodes[nid].clt.mtu)
             xtun_node_init(&nodes[nid], nid, &cfgNodes[nid]);
         else
             memset(&nodes[nid], 0, sizeof(xtun_node_s));
