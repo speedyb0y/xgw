@@ -835,8 +835,13 @@ static int __init xtun_init(void) {
 
     // INITIALIZE TUNNELS
 #if XTUN_SERVER
-    foreach (nid, XTUN_NODES_N)
-        xtun_node_init(&nodes[nid], nid, &cfgNodes[nid]);
+    foreach (nid, XTUN_NODES_N) {
+        if (cfgNodes[nid].mtu
+         || cfgNodes[nid].pkts)
+            xtun_node_init(&nodes[nid], nid, &cfgNodes[nid]);
+        else
+            memset(&nodes[nid], 0, sizeof(xtun_node_s));
+    }
 #else
         xtun_node_init(node, XTUN_NODE_ID, cfgNode);
 #endif
