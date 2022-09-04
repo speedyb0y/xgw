@@ -285,29 +285,25 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
         }
     }
 
-    u8  flows[XTUN_FLOWS_N];
-    u8* flow = flows;
+    u8* flow = node->flows;
     uint pid = maiorP;
 
     if (total) {
         do {
-            uint q = ( (uintll)XTUN_FLOWS_N
+            for (uint q = ( (uintll)XTUN_FLOWS_N
               * node->paths[pid].isUp
               * node->paths[pid].autoUp
               * node->paths[pid].itfcUp
               * node->paths[pid].mBand
-                ) / total;
-            while (q--)
+                ) / total; q; q--)
                 *flow++ = pid;
             pid = (pid + 1) % XTUN_PATHS_N;
-        } while (flow != &flows[XTUN_FLOWS_N] && pid != maiorP);
+        } while (flow != &node->flows[XTUN_FLOWS_N] && pid != maiorP);
     }
 
     // O QUE SOBRAR DEIXA COM O MAIOR PATH
-    while (flow != &flows[XTUN_FLOWS_N])
-        *flow++ = pid;
-
-    memcpy(node->flows, flows, XTUN_FLOWS_N);
+    while (flow != &node->flows[XTUN_FLOWS_N])
+          *flow++ = pid;
 
     // PRINT IT
     char flowsStr[XTUN_FLOWS_N + 1];
