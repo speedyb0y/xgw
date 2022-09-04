@@ -393,8 +393,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     if (unlikely(path->hash != hash)) {
         path->hash = hash;
 
-        if (path->flags & XTUN_PATH_F_U_DST_LEARN)
-            path->uDst = hdr->uSrc;
         if (path->flags & XTUN_PATH_F_ITFC_LEARN) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
             path->itfc = itfc;
         if (path->flags & XTUN_PATH_F_E_SRC_LEARN)
@@ -405,7 +403,9 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
             memcpy(path->iSrc, hdr->iDst, 4);
         if (path->flags & XTUN_PATH_F_I_DST_LEARN)
             memcpy(path->iDst, hdr->iSrc, 4);
-
+        if (path->flags & XTUN_PATH_F_U_DST_LEARN)
+            path->uDst = hdr->uSrc;
+            
         printk("XTUN: NODE %u: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
             " SRC %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n"
             " DST %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n",
