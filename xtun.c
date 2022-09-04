@@ -238,7 +238,7 @@ static const xtun_cfg_node_s cfgNode[1] =
 {
 #if XTUN_SERVER || XTUN_NODE_ID == 0
     {
-        
+
     },
 #endif
 #if XTUN_SERVER || XTUN_NODE_ID == 1
@@ -257,7 +257,7 @@ static const xtun_cfg_node_s cfgNode[1] =
 #endif
 #if XTUN_SERVER || XTUN_NODE_ID == 2
     {
-        
+
     },
 #endif
 };
@@ -472,42 +472,38 @@ drop:
     return RX_HANDLER_CONSUMED;
 }
 
-static u64 xtun_flow_hash (const void* const flow) {
+// SE ESTAMOS ENVIANDO O PACOTE É PORQUE JÁ SABE QUE OS HEADERS ESTÃO CORRETOS
+// WE ONLY ALLOW IPV4/IPV6
+// WE ONLY ALLOW IPV4 WITHOUT OPTIONS
+// WE ONLY ALLOW TRANSPORTS TCP/UDP/SCTP/DCCP
+static uint xtun_flow_hash (const void* const payload) {
 
-    u64 hash = *(u8*)flow >> 4;
+    u64 hash;
 
-    if (hash == 4) {
+    if (*(u8*)payload == 0x45) {
         // IPV4
-        hash = *(u8*)(flow + 9);
-        if (hash == IPPROTO_TCP
-         || hash == IPPROTO_UDP
-         || hash == IPPROTO_UDPLITE
-         || hash == IPPROTO_SCTP
-         || hash == IPPROTO_DCCP)
-            hash += *(u32*)(flow + (*(u8*)flow & 0x0F)*4);
-        hash += *(u64*)(flow + 12);
-    } elif (hash == 6) {
+        hash  = *(u8* )(payload + 9); // IP PROTOCOL
+        hash += *(u64*)(payload + 12); // IP SOURCE AND IP DESTINATION
+        hash += *(u32*)(payload + 20); // TRANSPORT SOURCE AND DESTINATION PORTS
+    } else {
         // IPV6
-        hash = *(u8*)(flow + 6);
-        if (hash == IPPROTO_TCP
-         || hash == IPPROTO_UDP
-         || hash == IPPROTO_UDPLITE
-         || hash == IPPROTO_SCTP
-         || hash == IPPROTO_DCCP)
-            hash += *(u32*)(flow + 40);
-        // TODO: FIXME: Flow label
-        hash += *(u64*)(flow + 8);
-        hash += *(u64*)(flow + 16);
-        hash += *(u64*)(flow + 24);
-        hash += *(u64*)(flow + 32);
-    } else
-        // UNKNOWN
-        hash = 0;
+#if 0
+        hash  = *(u8* )(payload    ) & 0x000FFFFFFFFFFFFFULL; // FLOW LABEL
+#else
+        hash  = *(u8* )(payload    ) & 0xFFFFFFFFFFFF0F00ULL; // FLOW LABEL
+#endif
+        hash += *(u8* )(payload + 6); // IP PROTOCOL
+        hash += *(u64*)(payload + 8); // IP SOURCE
+        hash += *(u64*)(payload + 16); // IP SOURCE
+        hash += *(u64*)(payload + 24); // IP DESTINATION
+        hash += *(u64*)(payload + 32); // IP DESTINATION
+        hash += *(u32*)(payload + 40); // TRANSPORT SOURCE AND DESTINATION PORTS
+    }
 
     hash += hash >> 32;
     hash += hash >> 16;
 
-    return hash;
+    return (uint)hash;
 }
 
 static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* const dev) {
@@ -542,7 +538,23 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
         node->flowRemaining--;
 
     // CHOOSE PATH AND ENCAPSULATE
-    memcpy(hdr, &node->paths[node->flows[((u64)node->flowShift + xtun_flow_hash(skb->data)) % XTUN_FLOWS_N]], sizeof(xtun_path_s));
+    memcpy(hdr, &node->paths[
+            (
+                (skb->mark >= 30000) &&
+                (skb->mark <  40000)
+                    ? // PATH BY MARK
+                        skb->mark
+                    : // PATH BY FLOW
+                        node->flows[( node->flowShift + (
+                            (skb->mark >= 40000) &&
+                            (skb->mark <  50000)
+                                ? // FLOW BY MARK
+                                skb->mark
+                                : // FLOW BY HASH
+                                xtun_flow_hash(payload)
+                        )) % XTUN_FLOWS_N]
+            ) % XTUN_PATHS_N
+        ], sizeof(xtun_path_s));
 
     // ENCRYPT AND AUTHENTIFY
     hdr->iHash = xtun_crypto_encode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize);
@@ -872,3 +884,11 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("speedyb0y");
 MODULE_DESCRIPTION("XTUN");
 MODULE_VERSION("0.1");
+
+/*
+
+se for hackear os headers
+    atrelar tambem os tcp/udp/udp-lite/sctp/dccp ports ao connection-id
+
+
+*/
