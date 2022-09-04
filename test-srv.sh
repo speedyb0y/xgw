@@ -8,8 +8,8 @@ SERVER_IP4=45.76.11.87
     iptables -t raw -A PREROUTING -j DROP   -i ${SERVER_ITFC}
     iptables -t raw -A PREROUTING -j DROP                     -d ${SERVER_IP4}
 for ID in $(seq 15) ; do
-    iptables -t raw -A PREROUTING -j ACCEPT -s 172.16.${NID}.0/24   -d 172.16.${NID}.0/24 -i xgw-${NID}
-    iptables -t raw -A PREROUTING -j ACCEPT -s 172.16.${NID}.0/24 ! -d 172.16.0.0/16     -i xgw-${NID}
+    iptables -t raw -A PREROUTING -j ACCEPT -i xgw-${NID} -s 172.16.${NID}.0/24   -d 172.16.${NID}.0/24
+    iptables -t raw -A PREROUTING -j ACCEPT -i xgw-${NID} -s 172.16.${NID}.0/24 ! -d 172.16.0.0/16
 done
     iptables -t raw -A PREROUTING -j DROP   -s 172.16.0.0/16
     iptables -t raw -A PREROUTING -j DROP   -d 172.16.0.0/16
