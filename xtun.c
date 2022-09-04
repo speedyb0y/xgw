@@ -144,8 +144,9 @@ typedef struct xtun_path_s {
 #else
     u64 reserved2;
 #endif
-    u32 reserved;
-    u16 reserved3;
+    u16 reserved;
+    u16 flags;
+    u16 band;
 #define ETH_HDR_SIZE 14
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
@@ -153,10 +154,7 @@ typedef struct xtun_path_s {
 #define IP4_HDR_SIZE 20
     u8  iVersion;
     u8  iTOS;
-    union {
-        u16 iSize;
-        u16 flags;
-    };
+    u16 iSize;
     u16 iHash; // A CHECKSUM TO CONFIRM THE AUTHENTICITY OF THE PACKET
     u16 iFrag;
     u8  iTTL;
@@ -167,10 +165,7 @@ typedef struct xtun_path_s {
 #define UDP_HDR_SIZE 8
     u16 uSrc;
     u16 uDst; // THE XTUN_SERVER PORT WILL DETERMINE THE NODE AND PATH
-    union {
-        u16 uSize;
-        u16 band;
-    };
+    u16 uSize;
     u16 uCksum;
 } xtun_path_s;
 
@@ -375,6 +370,11 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     xtun_path_s* const path = &node->paths[pid];
 
+    // DETECT AND UPDATE PATH AVAILABILITY
+    if (unlikely(!(path->flags & XTUN_PATH_F_UP_AUTO))) {
+        path->flags |= XTUN_PATH_F_UP_AUTO; // TODO: FIXME: IMPLEMENTAR E USAR ISSO
+        xtun_node_flows_update(node);
+    }
 #if XTUN_SERVER
     // DETECT AND UPDATE PATH CHANGES
     net_device_s* const itfc = skb->dev;
@@ -402,7 +402,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
             memcpy(path->iDst, hdr->iSrc, 4);
         if (path->flags & XTUN_PATH_F_U_DST_LEARN)
             path->uDst = hdr->uSrc;
-            
+
         printk("XTUN: NODE %u: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
             " SRC %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n"
             " DST %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n",
@@ -412,11 +412,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     }
 #endif
 
-    // DETECT AND UPDATE PATH AVAILABILITY
-    if (unlikely(!(path->flags & XTUN_PATH_F_UP_AUTO))) {
-        path->flags |= XTUN_PATH_F_UP_AUTO; // TODO: FIXME: IMPLEMENTAR E USAR ISSO
-        xtun_node_flows_update(node);
-    }
     // NOTE: MAKE SURE WE DO THE EQUIVALENT OF TRIM
     // pskb_trim(skb, payloadSize);
 
