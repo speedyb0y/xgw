@@ -218,11 +218,13 @@ typedef struct xtun_cfg_node_s {
 } xtun_cfg_node_s;
 
 #if XTUN_SERVER
+#define NODE(nid) (&nodes[nid])
 #define NODE_ID(node) ((uint)((node) - nodes))
 static xtun_node_s nodes[XTUN_NODES_N];
 #else
-static xtun_node_s node[1];
+#define NODE(nid) (node)
 #define NODE_ID(node) XTUN_NODE_ID
+static xtun_node_s node[1];
 #endif
 
 #if XTUN_SERVER
@@ -348,6 +350,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
+    // TODO: FIXME: DESCOBRIR O QUE CAUSA TANTOS SKBS NAO LINEARES AQUI
     // TODO: FIXME: pskb vs skb??? sera que vai te rque fazer skb_copy() e depois *pskb = skb ?
     // e aí faz ou não kfree_skb()?
     if (skb_linearize(skb))
@@ -355,7 +358,6 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 
     const xtun_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xtun_path_s);
 
-    XTUN_ASSERT(!skb->data_len);
     XTUN_ASSERT(PTR(skb_network_header(skb)) == skb->data);
     XTUN_ASSERT((PTR(skb_network_header(skb)) + skb->len) == SKB_TAIL(skb));
     XTUN_ASSERT(PTR(PATH_ETH(hdr)) >= PTR(skb->head));
@@ -530,7 +532,9 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     const uint payloadSize = skb->len;
 
     xtun_path_s* const hdr = PTR(payload) - sizeof(xtun_path_s);
+#if XTUN_SERVER
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
+#endif
 
     XTUN_ASSERT(!skb->data_len);
     // APARENTMENTE, PODE TER SIM, CASO O ESTEJA FORWARDING
@@ -641,9 +645,9 @@ static void xtun_dev_setup (net_device_s* const dev) {
     dev->type            = ARPHRD_NONE;
     dev->hard_header_len = sizeof(xtun_path_s); // ETH_HLEN
     dev->min_header_len  = sizeof(xtun_path_s);
-    dev->mtu             = 1500 - 28 - XTUN_PATH_SIZE_WIRE; // ETH_DATA_LEN
-    dev->min_mtu         = 1500 - 28 - XTUN_PATH_SIZE_WIRE; // ETH_MIN_MTU
-    dev->max_mtu         = 1500 - 28 - XTUN_PATH_SIZE_WIRE; // ETH_MAX_MTU
+    dev->mtu             = ETH_DATA_LEN - XTUN_PATH_SIZE_WIRE;
+    dev->min_mtu         = ETH_MIN_MTU  - XTUN_PATH_SIZE_WIRE;
+    dev->max_mtu         = ETH_MAX_MTU  - XTUN_PATH_SIZE_WIRE;
     dev->addr_len        = 0;
     dev->tx_queue_len    = 0; // EFAULT_TX_QUEUE_LEN
     dev->flags           = IFF_NOARP; // IFF_BROADCAST | IFF_MULTICAST
@@ -678,7 +682,7 @@ static void xtun_path_init (const xtun_cfg_node_s* const cfg, xtun_node_s* const
         " SRV BAND %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n",
         nid, pid,
         cpath->band, cpath->itfc, _MAC(cpath->mac), _MAC(cpath->gw), _IP4(cpath->addr), cpath->port, cpath->tos, cpath->ttl,
-        spath->band, spath->itfc, _MAC(spath->mac), _MAC(spath->gw), _IP4(spath->addr), spath->port,   spath->tos, spath->ttl
+        spath->band, spath->itfc, _MAC(spath->mac), _MAC(spath->gw), _IP4(spath->addr), spath->port, spath->tos, spath->ttl
     );
 
     path->isUp       = 1;
@@ -819,7 +823,13 @@ static void xtun_print_side (const char* const restrict sideName, const xtun_cfg
     }
 }
 
-static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
+static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
+
+    const uint nid = cfg->id;
+
+#if XTUN_SERVER
+    xtun_node_s* const node = &nodes[nid];
+#endif
 
     const xtun_cfg_node_side_s* const clt = &cfg->clt;
     const xtun_cfg_node_side_s* const srv = &cfg->srv;
@@ -866,7 +876,10 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     }
 
     // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
-    XTUN_DEV_NODE(dev) = node;
+    dev->mtu             = mside->mtu - XTUN_PATH_SIZE_WIRE;
+    dev->min_mtu         = mside->mtu - XTUN_PATH_SIZE_WIRE;
+    dev->max_mtu         = mside->mtu - XTUN_PATH_SIZE_WIRE;
+    XTUN_DEV_NODE(dev)   = node;
 
     // MAKE IT VISIBLE IN THE SYSTEM
     if (register_netdev(dev)) {
@@ -887,14 +900,14 @@ static int __init xtun_init(void) {
 
     // INITIALIZE TUNNELS
 #if XTUN_SERVER
-    foreach (nid, XTUN_NODES_N) {
-        if (cfgNodes[nid].clt.mtu)
-            xtun_node_init(&nodes[nid], nid, &cfgNodes[nid]);
-        else
-            memset(&nodes[nid], 0, sizeof(xtun_node_s));
-    }
+    //
+    memset(nodes, 0, sizeof(nodes));
+    //
+    foreach (i, ARRAY_COUNT(cfgNodes))
+        if (cfgNodes[i].clt.mtu)
+            xtun_node_init(&cfgNodes[i]);
 #else
-        xtun_node_init(node, XTUN_NODE_ID, cfgNode);
+        xtun_node_init(cfgNode);
 #endif
 
     return 0;
