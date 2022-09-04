@@ -629,13 +629,13 @@ static void xtun_dev_setup (net_device_s* const dev) {
 }
 
 #if XTUN_SERVER
-#define mside srv
-#define yside clt
+#define this srv
+#define peer clt
 #define mpath spath
 #define ypath cpath
 #else
-#define mside clt
-#define yside srv
+#define this clt
+#define peer srv
 #define mpath cpath
 #define ypath spath
 #endif
@@ -646,8 +646,8 @@ static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xt
     const xtun_cfg_path_s* const spath = &cfg->srv.paths[pid];
 
     printk("XTUN: NODE %u: PATH %u: INITIALIZING\n"
-        " CLT BAND %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n"
-        " SRV BAND %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n",
+        " CLT BAND %8u ITFC %16s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %5u TOS 0x%02X TTL %3u\n"
+        " SRV BAND %8u ITFC %16s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %5u TOS 0x%02X TTL %3u\n",
         nid, pid,
         cpath->band, cpath->itfc, _MAC(cpath->mac), _MAC(cpath->gw), _IP4(cpath->addr), cpath->port, cpath->tos, cpath->ttl,
         spath->band, spath->itfc, _MAC(spath->mac), _MAC(spath->gw), _IP4(spath->addr), spath->port, spath->tos, spath->ttl
@@ -795,11 +795,9 @@ static void xtun_print_side (const char* const restrict sideName, const xtun_cfg
 static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
 
     const uint nid = cfg->id;
-
 #if XTUN_SERVER
     xtun_node_s* const node = &nodes[nid];
 #endif
-
     const xtun_cfg_node_side_s* const clt = &cfg->clt;
     const xtun_cfg_node_side_s* const srv = &cfg->srv;
 
@@ -811,27 +809,26 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
 
     printk("XTUN: NODE %u: INITIALIZING", nid);
 
-    xtun_print_side("CLT", clt);
-    xtun_print_side("SRV", srv);
+    xtun_print_side("THIS", this);
+    xtun_print_side("PEER", peer);
 
     node->dev           = NULL;
-    node->mtu           = mside->mtu;
-    node->cryptoAlgo    = mside->cryptoAlgo;
+    node->mtu           = this->mtu;
+    node->cryptoAlgo    = this->cryptoAlgo;
     node->reserved      = 0;
     node->reserved2     = 0;
     node->flowRemaining = 0;
     node->flowShift     = 0;
-    node->flowPackets   = mside->pkts;
+    node->flowPackets   = this->pkts;
  // node->flowPackets
  // node->flows
  // node->paths
 
-    memcpy(&node->cryptoParams, &mside->cryptoParams, sizeof(xtun_crypto_params_s));
+    memcpy(&node->cryptoParams, &this->cryptoParams, sizeof(xtun_crypto_params_s));
 
     // INITIALIZE ITS PATHS
     foreach (pid, XTUN_PATHS_N)
         xtun_path_init(node, nid, &node->paths[pid], pid, cfg);
-
     // INITIALIZE ITS FLOWS
     xtun_node_flows_update(node);
 
@@ -844,9 +841,9 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
     }
 
     // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
-    dev->mtu             = mside->mtu - XTUN_PATH_SIZE_WIRE + ETH_HLEN; // O ETHERNET HEADER NÃO É DESCONTADO NO MTU
-    dev->min_mtu         = mside->mtu - XTUN_PATH_SIZE_WIRE + ETH_HLEN; //   ...  E ALIÁS, JÁ SERIA COLOCADO UM MESMO
-    dev->max_mtu         = mside->mtu - XTUN_PATH_SIZE_WIRE + ETH_HLEN;
+    dev->mtu             = this->mtu - XTUN_PATH_SIZE_WIRE + ETH_HLEN; // O ETHERNET HEADER NÃO É DESCONTADO NO MTU
+    dev->min_mtu         = this->mtu - XTUN_PATH_SIZE_WIRE + ETH_HLEN; //   ...  E ALIÁS, JÁ SERIA COLOCADO UM MESMO
+    dev->max_mtu         = this->mtu - XTUN_PATH_SIZE_WIRE + ETH_HLEN;
     XTUN_DEV_NODE(dev)   = node;
 
     // MAKE IT VISIBLE IN THE SYSTEM
@@ -860,7 +857,11 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
 
 static int __init xtun_init(void) {
 
-    printk("XTUN: INIT\n");
+#if XTUN_SERVER
+    printk("XTUN: SERVER INIT\n");
+#else
+    printk("XTUN: CLIENT INIT\n");
+#endif
 
     BUILD_BUG_ON(sizeof(xtun_crypto_params_s) != XTUN_CRYPTO_PARAMS_SIZE);
     BUILD_BUG_ON(sizeof(xtun_path_s) != XTUN_PATH_SIZE);
