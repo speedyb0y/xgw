@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ip link set dev enp5s0 up
 ip link set dev enp6s0 up
 

@@ -124,8 +124,14 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define PATH_UDP(path) PTR(&(path)->uSrc)
 
 // NOTE: O CLIENTE PRECISA SABER DO SERVIDOR POIS É CONFIGURADO NELE E REPASSADO AO SERVIDOR
-#define cltPkts iSize
-#define srvPkts uSize
+#define cltBand iSize
+#define srvBand uSize
+
+#if XTUN_SERVER
+#define mBand srvBand
+#else
+#define mBand cltBand
+#endif
 
 typedef struct xtun_path_s {
     net_device_s* itfc;
@@ -196,7 +202,7 @@ typedef struct xtun_cfg_path_s {
         u16 port;
         u8 tos;
         u8 ttl;
-        uint pkts; // TOTAL DE PACOTES A CADA CIRCULADA
+        uint band; // TOTAL DE PACOTES A CADA CIRCULADA
     } clt;
     struct xtun_cfg_path_srv_s {
         char itfc[IFNAMSIZ];
@@ -205,12 +211,13 @@ typedef struct xtun_cfg_path_s {
         u8 addr[4];
         u8 tos;
         u8 ttl;
-        uint pkts;
+        uint band;
     } srv;
 } xtun_cfg_path_s;
 
 typedef struct xtun_cfg_node_s {
     uint mtu;
+    uint pkts;
     xtun_crypto_params_s cryptoParams;
     xtun_crypto_algo_e cryptoAlgo;
     xtun_cfg_path_s paths[XTUN_PATHS_N];
@@ -230,16 +237,16 @@ static const xtun_cfg_node_s cfgNodes[XTUN_NODES_N] =
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
-    { .mtu = 1500 - 28, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
+    { .mtu = 1500 - 28, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .pkts = 50000, .paths = {
         {
-            .clt = { .itfc = "enp5s0", .pkts =  1000, .mac = MAC(d0,50,99,10,10,10), .gw = MAC(54,9F,06,F4,C7,A0), .addr = {192,168,0,20},    .tos = 0, .ttl = 64, .port = 2000, },
-            .srv = { .itfc = "eth0",   .pkts = 11000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
+            .clt = { .itfc = "eth0", .band = 100, .mac = MAC(d0,50,99,ae,de,92), .gw = MAC(54,9f,06,f4,c7,a0), .addr = {192,168,0,20},    .tos = 0, .ttl = 64, .port = 2000, },
+            .srv = { .itfc = "enp1s0", .band = 490, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {45,76,11,87}, .tos = 0, .ttl = 64, },
         }, {
-            .clt = { .itfc = "enp5s0", .pkts =  500, .mac = MAC(d0,50,99,11,11,11), .gw = MAC(CC,ED,21,96,99,C0), .addr = {192,168,100,20},  .tos = 0, .ttl = 64, .port = 2111, },
-            .srv = { .itfc = "eth0",   .pkts = 4000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
+            .clt = { .itfc = "eth0", .band = 30, .mac = MAC(d0,50,99,ae,de,92), .gw = MAC(cc,ed,21,96,99,c0), .addr = {192,168,100,20},  .tos = 0, .ttl = 64, .port = 2111, },
+            .srv = { .itfc = "enp1s0", .band = 90, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {45,76,11,87}, .tos = 0, .ttl = 64, },
         }, {
-            .clt = { .itfc = "enp5s0", .pkts =  1300, .mac = MAC(d0,50,99,12,12,12), .gw = MAC(90,55,DE,A1,CD,F0), .addr = {192,168,1,20},    .tos = 0, .ttl = 64, .port = 2222 },
-            .srv = { .itfc = "eth0",   .pkts = 12000, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {200,200,200,200}, .tos = 0, .ttl = 64, },
+            .clt = { .itfc = "eth0", .band = 180, .mac = MAC(d0,50,99,ae,de,92), .gw = MAC(90,55,de,a1,cd,f0), .addr = {192,168,1,20},    .tos = 0, .ttl = 64, .port = 2222 },
+            .srv = { .itfc = "enp1s0", .band = 595, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {45,76,11,87}, .tos = 0, .ttl = 64, },
         },
     }},
 };
@@ -256,12 +263,6 @@ static void xtun_node_flows_print (const xtun_node_s* const node) {
         NODE_ID(node), node->flowPackets, node->flowRemaining, flows);
 }
 
-#if XTUN_SERVER
-#define mpkts srvPkts
-#else
-#define mpkts cltPkts
-#endif
-
 static int xtun_node_flows_update (xtun_node_s* const node) {
 
     uint total = 0;
@@ -271,7 +272,7 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
     foreach (pid, XTUN_PATHS_N) {
         const uint b = node->paths[pid].isUp
                      * node->paths[pid].itfcUp
-                     * node->paths[pid].mpkts;
+                     * node->paths[pid].mBand;
         // CALCULA O TOTAL
         total += b;
         // LEMBRA O PATH COM MAIOR BANDWIDTH
@@ -291,7 +292,7 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
             uint q = ( (uintll)XTUN_FLOWS_N
               * node->paths[pid].isUp
               * node->paths[pid].itfcUp
-              * node->paths[pid].mpkts
+              * node->paths[pid].mBand
                 ) / total;
             while (q--)
                 *flow++ = pid;
@@ -302,7 +303,7 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
     // O QUE SOBRAR DEIXA COM O MAIOR PATH
     while (flow != &flows[XTUN_FLOWS_N])
         *flow++ = pid;
-
+#if 0
     //
     total /= XTUN_FLOWS_N;
 
@@ -317,6 +318,7 @@ static int xtun_node_flows_update (xtun_node_s* const node) {
     if (node->flowPackets > total)
         node->flowRemaining = 0;
     node->flowPackets = total;
+#endif
     memcpy(node->flows, flows, XTUN_FLOWS_N);
 
     return 1;
@@ -624,11 +626,11 @@ static void xtun_dev_setup (net_device_s* const dev) {
 static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_path_s* const path, const uint pid, const xtun_cfg_path_s* const cfg) {
 
     printk("XTUN: NODE %u: PATH %u: INITIALIZING\n"
-        " CLT PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n"
-        " SRV PKTS %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n",
+        " CLT BAND %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n"
+        " SRV BAND %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n",
         nid, pid,
-        cfg->clt.pkts, cfg->clt.itfc, _MAC(cfg->clt.mac), _MAC(cfg->clt.gw), _IP4(cfg->clt.addr), cfg->clt.port, cfg->clt.tos, cfg->clt.ttl,
-        cfg->srv.pkts, cfg->srv.itfc, _MAC(cfg->srv.mac), _MAC(cfg->srv.gw), _IP4(cfg->srv.addr), PORT(nid, pid), cfg->srv.tos, cfg->srv.ttl
+        cfg->clt.band, cfg->clt.itfc, _MAC(cfg->clt.mac), _MAC(cfg->clt.gw), _IP4(cfg->clt.addr), cfg->clt.port, cfg->clt.tos, cfg->clt.ttl,
+        cfg->srv.band, cfg->srv.itfc, _MAC(cfg->srv.mac), _MAC(cfg->srv.gw), _IP4(cfg->srv.addr), PORT(nid, pid), cfg->srv.tos, cfg->srv.ttl
     );
 
     path->isUp       = 1;
@@ -646,8 +648,8 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
     path->reserved2  = 0;
 #endif
     path->reserved   = 0;
-    path->cltPkts    = cfg->clt.pkts;
-    path->srvPkts    = cfg->srv.pkts;
+    path->cltBand    = cfg->clt.band;
+    path->srvBand    = cfg->srv.band;
     path->eType      = BE16(ETH_P_IP);
     path->iVersion   = 0x45;
     path->iTOS       = cfg->this.tos;
@@ -708,8 +710,8 @@ static void xtun_path_init (const xtun_node_s* const node, const uint nid, xtun_
 
 static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_cfg_node_s* const cfg) {
 
-    printk("XTUN: NODE %u: INITIALIZING WITH MTU %u ",
-        nid, cfg->mtu);
+    printk("XTUN: NODE %u: INITIALIZING WITH MTU %u PKTS %u ",
+        nid, cfg->mtu, cfg->pkts);
 
     switch (cfg->cryptoAlgo) {
 #if      XGW_XTUN_CRYPTO_ALGO_NULL0
@@ -780,6 +782,7 @@ static void xtun_node_init (xtun_node_s* const node, const uint nid, const xtun_
     node->reserved2     = 0;
     node->flowRemaining = 0;
     node->flowShift     = 0;
+    node->flowPackets   = cfg->pkts;
  // node->flowPackets
  // node->flows
  // node->paths
