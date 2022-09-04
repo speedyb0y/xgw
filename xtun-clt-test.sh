@@ -9,6 +9,10 @@ TABLE_XGW_SRV=5
 
 LAN_INTERFACE=eth0
 
+echo scalable > /proc/sys/net/ipv4/tcp_congestion_control
+echo 4096 > /proc/sys/net/ipv4/tcp_max_reordering
+echo  300 > /proc/sys/net/ipv4/tcp_reordering
+
 ip link set dev enp5s0 up
 ip link set dev enp6s0 up
 ip link set dev xgw up
