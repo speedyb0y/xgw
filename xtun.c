@@ -792,11 +792,10 @@ static void xtun_print_side (const char* const restrict sideName, const xtun_cfg
     }
 }
 
-static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
+static void xtun_node_init (const xtun_cfg_node_s* const cfg, const uint nid) {
 
     const xtun_cfg_node_side_s* const clt = &cfg->clt;
     const xtun_cfg_node_side_s* const srv = &cfg->srv;
-    const uint nid = cfg->id;
 #if XTUN_SERVER
     xtun_node_s* const node = &nodes[nid];
     char name[IFNAMSIZ]; snprintf(name, sizeof(name), "xgw-%u", nid);
@@ -873,7 +872,7 @@ static int __init xtun_init(void) {
 #endif
     //
     foreach (i, ARRAY_COUNT(cfgNodes))
-        xtun_node_init(&cfgNodes[i]);
+        xtun_node_init(&cfgNodes[i], cfgNodes[i].id);
 
     return 0;
 }
