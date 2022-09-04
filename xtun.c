@@ -237,6 +237,12 @@ static const xtun_cfg_node_s cfgNodes[XTUN_NODES_N] =
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
+#if XTUN_SERVER || XTUN_NODE_ID == 0
+    {
+        
+    },
+#endif
+#if XTUN_SERVER || XTUN_NODE_ID == 1
     { .mtu = 1500 - 28, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .pkts = 50000, .paths = {
         {
             .clt = { .itfc = "eth0", .band = 100, .mac = MAC(d0,50,99,ae,de,92), .gw = MAC(54,9f,06,f4,c7,a0), .addr = {192,168,0,20},    .tos = 0, .ttl = 64, .port = 2000, },
@@ -249,6 +255,12 @@ static const xtun_cfg_node_s cfgNode[1] =
             .srv = { .itfc = "enp1s0", .band = 595, .mac = MAC(00,00,00,00,00,00), .gw = MAC(00,00,00,00,00,00), .addr = {45,76,11,87}, .tos = 0, .ttl = 64, },
         },
     }},
+#endif
+#if XTUN_SERVER || XTUN_NODE_ID == 2
+    {
+        
+    },
+#endif
 };
 
 static void xtun_node_flows_print (const xtun_node_s* const node) {
