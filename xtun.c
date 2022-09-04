@@ -233,14 +233,9 @@ static const xtun_cfg_node_s cfgNodes[XTUN_NODES_N] =
 static const xtun_cfg_node_s cfgNode[1] =
 #endif
 {
-#if XTUN_SERVER || XTUN_NODE_ID == 0
-    {
-
-    },
-#endif
 #if (XTUN_SERVER && XTUN_NODES_N > 1) || XTUN_NODE_ID == 1
     { .id = 1,
-        .clt = { .mtu = XGW_XTUN_NODE_0_MTU, .pkts = XGW_XTUN_NODE_0_CLT_PKTS, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
+        .clt = { .mtu = XGW_XTUN_NODE_0_CLT_MTU, .pkts = XGW_XTUN_NODE_0_CLT_PKTS, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
             { .itfc = XGW_XTUN_NODE_0_CLT_PATH_0_ITFC, .band = XGW_XTUN_NODE_0_CLT_PATH_0_BAND, .mac = XGW_XTUN_NODE_0_CLT_PATH_0_MAC, .gw = XGW_XTUN_NODE_0_CLT_PATH_0_GW, .addr = {XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_0,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_1,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_2,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_3}, .tos = XGW_XTUN_NODE_0_CLT_PATH_0_TOS, .ttl = XGW_XTUN_NODE_0_CLT_PATH_0_TTL, .port = XGW_XTUN_NODE_0_CLT_PATH_0_PORT, },
 #if XTUN_PATHS_N > 1
             { .itfc = XGW_XTUN_NODE_0_CLT_PATH_1_ITFC, .band = XGW_XTUN_NODE_0_CLT_PATH_1_BAND, .mac = XGW_XTUN_NODE_0_CLT_PATH_1_MAC, .gw = XGW_XTUN_NODE_0_CLT_PATH_1_GW, .addr = {XGW_XTUN_NODE_0_CLT_PATH_1_ADDR_0,XGW_XTUN_NODE_0_CLT_PATH_1_ADDR_1,XGW_XTUN_NODE_0_CLT_PATH_1_ADDR_2,XGW_XTUN_NODE_0_CLT_PATH_1_ADDR_3}, .tos = XGW_XTUN_NODE_0_CLT_PATH_1_TOS, .ttl = XGW_XTUN_NODE_0_CLT_PATH_1_TTL, .port = XGW_XTUN_NODE_0_CLT_PATH_1_PORT, },
@@ -252,7 +247,7 @@ static const xtun_cfg_node_s cfgNode[1] =
 #endif
 #endif
         }},
-        .srv = { .mtu = XGW_XTUN_NODE_0_MTU, .pkts = XGW_XTUN_NODE_0_SRV_PKTS, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
+        .srv = { .mtu = XGW_XTUN_NODE_0_SRV_MTU, .pkts = XGW_XTUN_NODE_0_SRV_PKTS, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
             { .itfc = XGW_XTUN_NODE_0_SRV_PATH_0_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_0_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_0_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_0_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_0_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_0_TTL, .port = PORT(0, 0), },
 #if XTUN_PATHS_N > 1
             { .itfc = XGW_XTUN_NODE_0_SRV_PATH_1_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_1_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_1_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_1_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_1_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_1_TTL, .port = PORT(0, 1), },
@@ -264,11 +259,6 @@ static const xtun_cfg_node_s cfgNode[1] =
 #endif
 #endif
         }}
-    },
-#endif
-#if XTUN_SERVER || XTUN_NODE_ID == 2
-    {
-
     },
 #endif
 };
@@ -904,8 +894,7 @@ static int __init xtun_init(void) {
     memset(nodes, 0, sizeof(nodes));
     //
     foreach (i, ARRAY_COUNT(cfgNodes))
-        if (cfgNodes[i].clt.mtu)
-            xtun_node_init(&cfgNodes[i]);
+        xtun_node_init(&cfgNodes[i]);
 #else
         xtun_node_init(cfgNode);
 #endif
