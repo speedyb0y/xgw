@@ -200,7 +200,7 @@ typedef struct xtun_node_s {
 #define YOUR srv
 #endif
 
-typedef struct xtun_cfg_clt_path_s {
+typedef struct xtun_cfg_path_s {
     char itfc[IFNAMSIZ];
     u8 mac[ETH_ALEN];
     u8 gw[ETH_ALEN];
@@ -209,17 +209,7 @@ typedef struct xtun_cfg_clt_path_s {
     u8 tos;
     u8 ttl;
     uint band; // TOTAL DE PACOTES A CADA CIRCULADA
-} xtun_cfg_clt_path_s;
-
-typedef struct xtun_cfg_srv_path_s {
-    char itfc[IFNAMSIZ];
-    u8 mac[ETH_ALEN];
-    u8 gw[ETH_ALEN];
-    u8 addr[4];
-    u8 tos;
-    u8 ttl;
-    uint band;
-} xtun_cfg_srv_path_s;
+} xtun_cfg_path_s;
 
 typedef struct xtun_cfg_node_s {
     struct xtun_cfg_node_clt_s {
@@ -227,14 +217,14 @@ typedef struct xtun_cfg_node_s {
         uint pkts;
         xtun_crypto_params_s cryptoParams;
         xtun_crypto_algo_e cryptoAlgo;
-        xtun_cfg_clt_path_s paths[XTUN_PATHS_N];
+        xtun_cfg_path_s paths[XTUN_PATHS_N];
     } clt;
     struct xtun_cfg_node_srv_s  {
         uint mtu;
         uint pkts;
         xtun_crypto_params_s cryptoParams;
         xtun_crypto_algo_e cryptoAlgo;
-        xtun_cfg_srv_path_s paths[XTUN_PATHS_N];
+        xtun_cfg_path_s paths[XTUN_PATHS_N];
     } srv;
 } xtun_cfg_node_s;
 
@@ -263,18 +253,18 @@ static const xtun_cfg_node_s cfgNode[1] =
         .clt = { .mtu = XGW_XTUN_NODE_0_MTU, .pkts = XGW_XTUN_NODE_0_CLT_PKTS, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, },
         .srv = { .mtu = XGW_XTUN_NODE_0_MTU, .pkts = XGW_XTUN_NODE_0_SRV_PKTS, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, },
             .clt.paths[0] = { .itfc = XGW_XTUN_NODE_0_CLT_PATH_0_ITFC, .band = XGW_XTUN_NODE_0_CLT_PATH_0_BAND, .mac = XGW_XTUN_NODE_0_CLT_PATH_0_MAC, .gw = XGW_XTUN_NODE_0_CLT_PATH_0_GW, .addr = {XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_0,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_1,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_2,XGW_XTUN_NODE_0_CLT_PATH_0_ADDR_3}, .tos = XGW_XTUN_NODE_0_CLT_PATH_0_TOS, .ttl = XGW_XTUN_NODE_0_CLT_PATH_0_TTL, .port = XGW_XTUN_NODE_0_CLT_PATH_0_PORT, },
-            .srv.paths[0] = { .itfc = XGW_XTUN_NODE_0_SRV_PATH_0_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_0_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_0_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_0_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_0_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_0_TTL, },
+            .srv.paths[0] = { .itfc = XGW_XTUN_NODE_0_SRV_PATH_0_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_0_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_0_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_0_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_0_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_0_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_0_TTL, .port = PORT(0, 0), },
 #if XTUN_PATHS_N > 1
             .clt.paths[1] = { .itfc = XGW_XTUN_NODE_0_CLT_PATH_1_ITFC, .band = XGW_XTUN_NODE_0_CLT_PATH_1_BAND, .mac = XGW_XTUN_NODE_0_CLT_PATH_1_MAC, .gw = XGW_XTUN_NODE_0_CLT_PATH_1_GW, .addr = {XGW_XTUN_NODE_0_CLT_PATH_1_ADDR_0,XGW_XTUN_NODE_0_CLT_PATH_1_ADDR_1,XGW_XTUN_NODE_0_CLT_PATH_1_ADDR_2,XGW_XTUN_NODE_0_CLT_PATH_1_ADDR_3}, .tos = XGW_XTUN_NODE_0_CLT_PATH_1_TOS, .ttl = XGW_XTUN_NODE_0_CLT_PATH_1_TTL, .port = XGW_XTUN_NODE_0_CLT_PATH_1_PORT, },
-            .srv.paths[1] = { .itfc = XGW_XTUN_NODE_0_SRV_PATH_1_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_1_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_1_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_1_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_1_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_1_TTL, },
+            .srv.paths[1] = { .itfc = XGW_XTUN_NODE_0_SRV_PATH_1_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_1_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_1_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_1_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_1_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_1_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_1_TTL, .port = PORT(0, 1), },
 #endif
 #if XTUN_PATHS_N > 2
             .clt.paths[2] = { .itfc = XGW_XTUN_NODE_0_CLT_PATH_2_ITFC, .band = XGW_XTUN_NODE_0_CLT_PATH_2_BAND, .mac = XGW_XTUN_NODE_0_CLT_PATH_2_MAC, .gw = XGW_XTUN_NODE_0_CLT_PATH_2_GW, .addr = {XGW_XTUN_NODE_0_CLT_PATH_2_ADDR_0,XGW_XTUN_NODE_0_CLT_PATH_2_ADDR_1,XGW_XTUN_NODE_0_CLT_PATH_2_ADDR_2,XGW_XTUN_NODE_0_CLT_PATH_2_ADDR_3}, .tos = XGW_XTUN_NODE_0_CLT_PATH_2_TOS, .ttl = XGW_XTUN_NODE_0_CLT_PATH_2_TTL, .port = XGW_XTUN_NODE_0_CLT_PATH_2_PORT },
-            .srv.paths[2] = { .itfc = XGW_XTUN_NODE_0_SRV_PATH_2_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_2_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_2_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_2_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_2_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_2_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_2_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_2_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_2_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_2_TTL, },
+            .srv.paths[2] = { .itfc = XGW_XTUN_NODE_0_SRV_PATH_2_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_2_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_2_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_2_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_2_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_2_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_2_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_2_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_2_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_2_TTL, .port = PORT(0, 2), },
 #endif
 #if XTUN_PATHS_N > 3
             .clt.paths[3] = { .itfc = XGW_XTUN_NODE_0_CLT_PATH_3_ITFC, .band = XGW_XTUN_NODE_0_CLT_PATH_3_BAND, .mac = XGW_XTUN_NODE_0_CLT_PATH_3_MAC, .gw = XGW_XTUN_NODE_0_CLT_PATH_3_GW, .addr = {XGW_XTUN_NODE_0_CLT_PATH_3_ADDR_0,XGW_XTUN_NODE_0_CLT_PATH_3_ADDR_1,XGW_XTUN_NODE_0_CLT_PATH_3_ADDR_2,XGW_XTUN_NODE_0_CLT_PATH_3_ADDR_3}, .tos = XGW_XTUN_NODE_0_CLT_PATH_3_TOS, .ttl = XGW_XTUN_NODE_0_CLT_PATH_3_TTL, .port = XGW_XTUN_NODE_0_CLT_PATH_3_PORT },
-            .srv.paths[3] = { .itfc = XGW_XTUN_NODE_0_SRV_PATH_3_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_3_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_3_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_3_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_3_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_3_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_3_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_3_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_3_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_3_TTL, },
+            .srv.paths[3] = { .itfc = XGW_XTUN_NODE_0_SRV_PATH_3_ITFC, .band = XGW_XTUN_NODE_0_SRV_PATH_3_BAND, .mac = XGW_XTUN_NODE_0_SRV_PATH_3_MAC, .gw = XGW_XTUN_NODE_0_SRV_PATH_3_GW, .addr = {XGW_XTUN_NODE_0_SRV_PATH_3_ADDR_0,XGW_XTUN_NODE_0_SRV_PATH_3_ADDR_1,XGW_XTUN_NODE_0_SRV_PATH_3_ADDR_2,XGW_XTUN_NODE_0_SRV_PATH_3_ADDR_3}, .tos = XGW_XTUN_NODE_0_SRV_PATH_3_TOS, .ttl = XGW_XTUN_NODE_0_SRV_PATH_3_TTL, .port = PORT(0, 3), },
 #endif
     },
 #endif
@@ -680,17 +670,15 @@ static void xtun_path_init (const xtun_cfg_node_s* const cfg, xtun_node_s* const
 
     xtun_path_s* const path = &node->paths[pid];
 
-    const xtun_cfg_clt_path_s* const cpath = &cfg->clt.paths[pid];
-    const xtun_cfg_srv_path_s* const spath = &cfg->srv.paths[pid];
-
-    const uint spathPort = PORT(nid, pid);
+    const xtun_cfg_path_s* const cpath = &cfg->clt.paths[pid];
+    const xtun_cfg_path_s* const spath = &cfg->srv.paths[pid];
 
     printk("XTUN: NODE %u: PATH %u: INITIALIZING\n"
         " CLT BAND %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n"
         " SRV BAND %u ITFC %s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %u TOS 0x%02X TTL %u\n",
         nid, pid,
         cpath->band, cpath->itfc, _MAC(cpath->mac), _MAC(cpath->gw), _IP4(cpath->addr), cpath->port, cpath->tos, cpath->ttl,
-        spath->band, spath->itfc, _MAC(spath->mac), _MAC(spath->gw), _IP4(spath->addr), spathPort,   spath->tos, spath->ttl
+        spath->band, spath->itfc, _MAC(spath->mac), _MAC(spath->gw), _IP4(spath->addr), spath->port,   spath->tos, spath->ttl
     );
 
     path->isUp       = 1;
@@ -719,13 +707,8 @@ static void xtun_path_init (const xtun_cfg_node_s* const cfg, xtun_node_s* const
     path->iTTL       = mpath->ttl;
     path->iProtocol  = IPPROTO_UDP;
     path->iCksum     = 0;
-#if XTUN_SERVER
-    path->uSrc       = BE16(spathPort);
-    path->uDst       = BE16(cpath->port);
-#else
-    path->uSrc       = BE16(spathPort);
-    path->uDst       = BE16(PORT(nid, pid));
-#endif
+    path->uSrc       = BE16(mpath->port);
+    path->uDst       = BE16(ypath->port);
  // path->uSize
     path->uCksum     = 0;
 
