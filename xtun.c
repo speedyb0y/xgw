@@ -228,12 +228,7 @@ static xtun_node_s nodes[XTUN_NODES_N];
 static xtun_node_s node[1];
 #endif
 
-#if XTUN_SERVER
-static const xtun_cfg_node_s cfgNodes[XTUN_NODES_N] =
-#else
-static const xtun_cfg_node_s cfgNode[1] =
-#endif
-{
+static const xtun_cfg_node_s cfgNodes[] = {
 #if (XTUN_SERVER && XTUN_NODES_N > 1) || XTUN_NODE_ID == 1
     { .id = 1,
         .clt = { .mtu = XGW_XTUN_NODE_0_CLT_MTU, .pkts = XGW_XTUN_NODE_0_CLT_PKTS, .cryptoAlgo = XTUN_CRYPTO_ALGO_NULL0, .paths = {
@@ -849,9 +844,9 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg) {
     }
 
     // INITIALIZE IT, AS WE CAN'T PASS IT TO alloc_netdev()
-    dev->mtu             = mside->mtu - XTUN_PATH_SIZE_WIRE;
-    dev->min_mtu         = mside->mtu - XTUN_PATH_SIZE_WIRE;
-    dev->max_mtu         = mside->mtu - XTUN_PATH_SIZE_WIRE;
+    dev->mtu             = mside->mtu - XTUN_PATH_SIZE_WIRE + ETH_HLEN; // O ETHERNET HEADER NÃO É DESCONTADO NO MTU
+    dev->min_mtu         = mside->mtu - XTUN_PATH_SIZE_WIRE + ETH_HLEN; //   ...  E ALIÁS, JÁ SERIA COLOCADO UM MESMO
+    dev->max_mtu         = mside->mtu - XTUN_PATH_SIZE_WIRE + ETH_HLEN;
     XTUN_DEV_NODE(dev)   = node;
 
     // MAKE IT VISIBLE IN THE SYSTEM
@@ -872,15 +867,15 @@ static int __init xtun_init(void) {
     BUILD_BUG_ON(sizeof(xtun_node_s) != XTUN_NODE_SIZE);
 
     // INITIALIZE TUNNELS
-#if XTUN_SERVER
     //
+#if XTUN_SERVER
     memset(nodes, 0, sizeof(nodes));
+#else
+    memset(node, 0, sizeof(node));
+#endif
     //
     foreach (i, ARRAY_COUNT(cfgNodes))
         xtun_node_init(&cfgNodes[i]);
-#else
-        xtun_node_init(cfgNode);
-#endif
 
     return 0;
 }
