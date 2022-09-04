@@ -495,6 +495,7 @@ static u64 xtun_flow_hash (const void* const flow) {
          || hash == IPPROTO_SCTP
          || hash == IPPROTO_DCCP)
             hash += *(u32*)(flow + 40);
+        // TODO: FIXME: Flow label
         hash += *(u64*)(flow + 8);
         hash += *(u64*)(flow + 16);
         hash += *(u64*)(flow + 24);
