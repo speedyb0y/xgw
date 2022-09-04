@@ -122,15 +122,20 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define PATH_IP(path)  PTR(&(path)->iVersion)
 #define PATH_UDP(path) PTR(&(path)->uSrc)
 
-// NOTE: O CLIENTE PRECISA SABER DO SERVIDOR POIS É CONFIGURADO NELE E REPASSADO AO SERVIDOR
-#define cltBand iSize
-#define srvBand uSize
-
+#define XTUN_PATH_F_UP                 0b0000000000000001U // ADMINISTRATIVELY
+#define XTUN_PATH_F_UP_AUTO            0b0000000000000010U // SE DER TIMEOUT VAI DESATIVAR ISSO
+#define XTUN_PATH_F_UP_ITFC            0b0000000000000100U // WATCH INTERFACE EVENTS AND SET THIS TODO: INICIALIZAR COMO 0 E CARREGAR ISSO NO DEVICE NOTIFIER
 #if XTUN_SERVER
-#define mBand srvBand
-#else
-#define mBand cltBand
+#define XTUN_PATH_F_ITFC_LEARN         0b0000000000001000U
+#define XTUN_PATH_F_E_SRC_LEARN        0b0000000000010000U
+#define XTUN_PATH_F_E_DST_LEARN        0b0000000000100000U
+#define XTUN_PATH_F_I_SRC_LEARN        0b0000000001000000U
+#define XTUN_PATH_F_I_DST_LEARN        0b0000000010000000U    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO
+#define XTUN_PATH_F_U_DST_LEARN        0b0000000100000000U
 #endif
+
+#define FLAGS_IS_UP(f) (((f) & (XTUN_PATH_F_UP | XTUN_PATH_F_UP_AUTO | XTUN_PATH_F_UP_ITFC)) \
+                            == (XTUN_PATH_F_UP | XTUN_PATH_F_UP_AUTO | XTUN_PATH_F_UP_ITFC))
 
 typedef struct xtun_path_s {
     net_device_s* itfc;
@@ -140,18 +145,7 @@ typedef struct xtun_path_s {
     u64 reserved2;
 #endif
     u32 reserved;
-    u16 isUp:1, // ADMINISTRATIVELY
-        autoUp:1, // SE DER TIMEOUT VAI DESATIVAR ISSO
-        itfcUp:1, // WATCH INTERFACE EVENTS AND SET THIS
-#if XTUN_SERVER
-        itfcLearn:1,
-        eSrcLearn:1,
-        eDstLearn:1,
-        iSrcLearn:1,
-        iDstLearn:1,    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO
-        uDstLearn:1,
-#endif
-        _reserved:7;
+    u16 reserved3;
 #define ETH_HDR_SIZE 14
     u8  eDst[ETH_ALEN];
     u8  eSrc[ETH_ALEN];
@@ -159,7 +153,10 @@ typedef struct xtun_path_s {
 #define IP4_HDR_SIZE 20
     u8  iVersion;
     u8  iTOS;
-    u16 iSize;
+    union {
+        u16 iSize;
+        u16 flags;
+    };
     u16 iHash; // A CHECKSUM TO CONFIRM THE AUTHENTICITY OF THE PACKET
     u16 iFrag;
     u8  iTTL;
@@ -170,7 +167,10 @@ typedef struct xtun_path_s {
 #define UDP_HDR_SIZE 8
     u16 uSrc;
     u16 uDst; // THE XTUN_SERVER PORT WILL DETERMINE THE NODE AND PATH
-    u16 uSize;
+    union {
+        u16 uSize;
+        u16 band;
+    };
     u16 uCksum;
 } xtun_path_s;
 
@@ -271,10 +271,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
     uint maiorP = 0;
 
     foreach (pid, XTUN_PATHS_N) {
-        const uint b = node->paths[pid].isUp
-                     * node->paths[pid].autoUp
-                     * node->paths[pid].itfcUp
-                     * node->paths[pid].mBand;
+        const uint b = FLAGS_IS_UP(node->paths[pid].flags) * node->paths[pid].band;
         // CALCULA O TOTAL
         total += b;
         // LEMBRA O PATH COM MAIOR BANDWIDTH
@@ -290,11 +287,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
 
     if (total) {
         do {
-            for (uint q = ( (uintll)XTUN_FLOWS_N
-              * node->paths[pid].isUp
-              * node->paths[pid].autoUp
-              * node->paths[pid].itfcUp
-              * node->paths[pid].mBand
+            for (uint q = ( (uintll)XTUN_FLOWS_N * FLAGS_IS_UP(node->paths[pid].flags) * node->paths[pid].band
                 ) / total; q; q--)
                 *flow++ = pid;
             pid = (pid + 1) % XTUN_PATHS_N;
@@ -400,17 +393,17 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     if (unlikely(path->hash != hash)) {
         path->hash = hash;
 
-        if (path->uDstLearn)
+        if (path->flags & XTUN_PATH_F_U_DST_LEARN)
             path->uDst = hdr->uSrc;
-        if (path->itfcLearn) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
+        if (path->flags & XTUN_PATH_F_ITFC_LEARN) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
             path->itfc = itfc;
-        if (path->eSrcLearn)
+        if (path->flags & XTUN_PATH_F_E_SRC_LEARN)
             memcpy(path->eSrc, hdr->eDst, ETH_ALEN);
-        if (path->eDstLearn)
+        if (path->flags & XTUN_PATH_F_E_DST_LEARN)
             memcpy(path->eDst, hdr->eSrc, ETH_ALEN);
-        if (path->iSrcLearn)
+        if (path->flags & XTUN_PATH_F_I_SRC_LEARN)
             memcpy(path->iSrc, hdr->iDst, 4);
-        if (path->iDstLearn)
+        if (path->flags & XTUN_PATH_F_I_DST_LEARN)
             memcpy(path->iDst, hdr->iSrc, 4);
 
         printk("XTUN: NODE %u: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
@@ -423,8 +416,8 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
 #endif
 
     // DETECT AND UPDATE PATH AVAILABILITY
-    if (unlikely(!path->autoUp)) {
-        path->autoUp = 1; // TODO: FIXME: IMPLEMENTAR E USAR ISSO
+    if (unlikely(!(path->flags & XTUN_PATH_F_UP_AUTO))) {
+        path->flags |= XTUN_PATH_F_UP_AUTO; // TODO: FIXME: IMPLEMENTAR E USAR ISSO
         xtun_node_flows_update(node);
     }
     // NOTE: MAKE SURE WE DO THE EQUIVALENT OF TRIM
@@ -564,9 +557,9 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
 
-    // TODO: SE itfcUp FOR TRUE, ENTAO hdr->itfc JÁ É TRUE
+    // TODO: SE XTUN_PATH_F_UP_ITFC FOR TRUE, ENTAO hdr->itfc JÁ É TRUE
     // TODO: FIXME: CONSOLIDAR TODOS ESSES CHECKS EM UMA COISA SO TODA VEZ QUE ALTERAR ALGUM DELES
-    if (!(hdr->isUp && hdr->autoUp && hdr->itfcUp && hdr->itfc && hdr->itfc->flags & IFF_UP))
+    if (!(FLAGS_IS_UP(hdr->flags) && hdr->itfc && hdr->itfc->flags & IFF_UP))
         goto drop;
 
     // TODO: AO TROCAR TEM QUE DAR dev_put(skb->dev) ?
@@ -658,24 +651,27 @@ static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xt
         peerPath->band, peerPath->itfc, _MAC(peerPath->mac), _MAC(peerPath->gw), _IP4(peerPath->addr), peerPath->port, peerPath->tos, peerPath->ttl
     );
 
-    path->isUp       = 1;
-    path->autoUp     = 1;
+    path->flags =
+          (XTUN_PATH_F_UP          * !0)
+        | (XTUN_PATH_F_UP_AUTO     * !0)
+#if XTUN_SERVER
+        | (XTUN_PATH_F_ITFC_LEARN  * !0)
+        | (XTUN_PATH_F_E_SRC_LEARN * !0)
+        | (XTUN_PATH_F_E_DST_LEARN * !0)
+        | (XTUN_PATH_F_I_SRC_LEARN * !0)
+        | (XTUN_PATH_F_I_DST_LEARN * !0)
+        | (XTUN_PATH_F_U_DST_LEARN * !0)
+#endif
+        ;
     path->itfc       = NULL;
-    path->itfcUp     = 0; // TODO: INICIALIZAR COMO 0 E CARREGAR ISSO NO DEVICE NOTIFIER
 #if XTUN_SERVER
     path->hash       = 0;
-    path->itfcLearn  = !0;
-    path->eSrcLearn  = !0;
-    path->eDstLearn  = !0;
-    path->iSrcLearn  = !0;
-    path->iDstLearn  = !0;
-    path->uDstLearn  = !0;
+
 #else
     path->reserved2  = 0;
 #endif
     path->reserved   = 0;
-    path->cltBand    = cpath->band;
-    path->srvBand    = spath->band;
+    path->band       = thisPath->band;
     path->eType      = BE16(ETH_P_IP);
     path->iVersion   = 0x45;
     path->iTOS       = thisPath->tos;
@@ -720,7 +716,7 @@ static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xt
         rtnl_unlock();
 
         if (path->itfc) { // TODO:
-            path->itfcUp = 1;
+            path->flags |= XTUN_PATH_F_UP_ITFC;
         } else { // TODO: LEMBRAR O NOME ENTÃO - APONTAR PARA O CONFIG?
             printk("XTUN: NODE %u: PATH %u: INTERFACE NOT HOOKED\n", nid, pid);
             dev_put(itfc);
