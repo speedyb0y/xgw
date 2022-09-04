@@ -519,7 +519,8 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
     xtun_node_s* const node = XTUN_DEV_NODE(dev);
 
     XTUN_ASSERT(!skb->data_len);
-    XTUN_ASSERT(!skb->mac_len);
+    // APARENTMENTE, PODE TER SIM, CASO O ESTEJA FORWARDING
+    //XTUN_ASSERT(!skb->mac_len);
     XTUN_ASSERT(PTR(payload) == PTR(skb_mac_header(skb)));
     XTUN_ASSERT(PTR(payload) == PTR(skb_network_header(skb)));
     XTUN_ASSERT((PTR(payload) + payloadSize) == SKB_TAIL(skb));
