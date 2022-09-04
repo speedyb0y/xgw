@@ -345,8 +345,8 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     XTUN_ASSERT(!skb->data_len);
     XTUN_ASSERT(PTR(skb_network_header(skb)) == skb->data);
     XTUN_ASSERT((PTR(skb_network_header(skb)) + skb->len) == SKB_TAIL(skb));
-    XTUN_ASSERT(PTR(hdr) >= PTR(skb->head));
-    XTUN_ASSERT((PTR(hdr) + sizeof(xtun_path_s)) <= SKB_TAIL(skb));
+    XTUN_ASSERT(PTR(PATH_ETH(hdr)) >= PTR(skb->head));
+    XTUN_ASSERT((PTR(PATH_ETH(hdr)) + XTUN_PATH_SIZE_WIRE) <= SKB_TAIL(skb));
 
     // IDENTIFY NODE AND PATH IDS FROM SERVER PORT
 #if XTUN_SERVER
