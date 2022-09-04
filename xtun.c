@@ -336,12 +336,10 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     const uint pid = PORT_PID(port);
 
     // CONFIRM PACKET SIZE
-    // IGNORE NON-LINEAR SKB
     // CONFIRM THIS IS ETHERNET/IPV4/UDP
     // VALIDATE NODE ID
     // VALIDATE PATH ID
     if (skb->len <= XTUN_PATH_SIZE_WIRE
-     || skb->data_len
      || hdr->eType     != BE16(ETH_P_IP)
      || hdr->iVersion  != 0x45
      || hdr->iProtocol != IPPROTO_UDP
@@ -367,8 +365,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     // THE PAYLOAD SIZE IS EVERYTHING EXCEPT OUR ENCAPSULATION
     const uint payloadSize = BE16(hdr->iSize) - IP4_HDR_SIZE - UDP_HDR_SIZE;
 
-    // DROP EMPTY PAYLOADS
-    // DROP INCOMPLETE PAYLOADS
+    // DROP EMPTY/INCOMPLETE PAYLOADS
     if ((payloadSize == 0) || (payload + payloadSize) > SKB_TAIL(skb))
         goto drop;
 
