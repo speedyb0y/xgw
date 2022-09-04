@@ -307,7 +307,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
         flowsStr[fid] = '0' + node->flows[fid];
     flowsStr[XTUN_FLOWS_N] = '\0';
 
-    printk("XTUN: NODE %u: FLOW UPDATED: PACKETS %u REMAINING %u FLOWS %s\n",
+    printk("XTUN: NODE %u: FLOWS UPDATED: PACKETS %u REMAINING %u FLOWS %s\n",
         NODE_ID(node), node->flowPackets, node->flowRemaining, flowsStr);
 }
 
