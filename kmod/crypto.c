@@ -479,47 +479,38 @@ typedef enum xtun_crypto_algo_e {
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
 typedef u16 (*xtun_crypto_algo_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 
-static const xtun_crypto_algo_f _xtun_algos [XGW_CRYPTO_ALGOS_N*2] = {
+static const xtun_crypto_algo_f _xtun_encode [XGW_CRYPTO_ALGOS_N] = {
 #if XCONF_XGW_CRYPTO_ALGO_NULL0
              xtun_crypto_null0_encode,
-             xtun_crypto_null0_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_NULLX
              xtun_crypto_nullx_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
-             xtun_crypto_nullx_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SUM32
              xtun_crypto_sum32_encode,
-             xtun_crypto_sum32_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SUM64
              xtun_crypto_sum64_encode,
-             xtun_crypto_sum64_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
              xtun_crypto_shift32_1_encode,
-             xtun_crypto_shift32_1_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
              xtun_crypto_shift64_1_encode,
-             xtun_crypto_shift64_1_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
              xtun_crypto_shift64_2_encode,
-             xtun_crypto_shift64_2_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
              xtun_crypto_shift64_3_encode,
-             xtun_crypto_shift64_3_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
              xtun_crypto_shift64_4_encode,
-             xtun_crypto_shift64_4_decode,
 #endif
 };
 
-#define xtun_crypto_encode(algo, params, data, size) _xtun_algos[((algo)<<1)|0](params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) _xtun_algos[((algo)<<1)|1](params, data, size)
+#define xtun_crypto_encode(algo, params, data, size) _xtun_encode[algo](params, data, size)
+#define xtun_crypto_decode(algo, params, data, size) _xtun_decode[algo](params, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_NULL0
 #define xtun_crypto_encode(algo, params, data, size) xtun_crypto_null0_encode(data, size)
 #define xtun_crypto_decode(algo, params, data, size) xtun_crypto_null0_decode(data, size)
