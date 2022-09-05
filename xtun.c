@@ -447,25 +447,32 @@ drop:
 // WE ONLY ALLOW IPV4/IPV6
 // WE ONLY ALLOW IPV4 WITHOUT OPTIONS
 // WE ONLY ALLOW TRANSPORTS TCP/UDP/SCTP/DCCP
-static uint xtun_flow_hash (const void* const payload) {
+static uint xtun_flow_hash (const u64* const payload) {
 
-    u64 hash = *(u8*)payload;
+    u64 hash;
 
-    if (hash == 0x45) { // IPV4
-        hash += *(u8* )(payload +  9); // IP PROTOCOL
-        hash += *(u64*)(payload + 12); // IP SOURCE AND IP DESTINATION
-        hash += *(u32*)(payload + 20); // TRANSPORT SOURCE AND DESTINATION PORTS
+    if (*(u8*)payload == 0x45) { // IPV4
+#if 0
+        hash  = payload[1] & 0x00FF0000FFFFFFFFULL; // PROTOCOL + SOURCE
+#else
+        hash  = payload[1] & 0xFFFFFFFF0000FF00ULL;
+#endif
+        hash += payload[2]; // DESTINATION + PORTS
     } else { // IPV6
 #if 0
-        hash  = *(u64*)(payload +  0) & 0xF00FFFFF0000FF00ULL; // IP VERSION + FLOW LABEL + IP PROTOCOL
+        hash  = payload[0] & 0xF00FFFFF0000FF00ULL; // VERSION + FLOW LABEL + PROTOCOL
 #else
-        hash  = *(u64*)(payload +  0) & 0x00FF0000FFFF0FF0ULL; // IP VERSION + FLOW LABEL + IP PROTOCOL
-#endif                                 
-        hash += *(u64*)(payload +  8); // IP SOURCE
-        hash += *(u64*)(payload + 16); // IP SOURCE
-        hash += *(u64*)(payload + 24); // IP DESTINATION
-        hash += *(u64*)(payload + 32); // IP DESTINATION
-        hash += *(u32*)(payload + 40); // TRANSPORT SOURCE AND DESTINATION PORTS
+        hash  = payload[0] & 0x00FF0000FFFF0FF0ULL; // VERSION + FLOW LABEL + PROTOCOL
+#endif
+        hash += payload[1]; // SOURCE
+        hash += payload[2]; // SOURCE
+        hash += payload[3]; // DESTINATION
+        hash += payload[4]; // DESTINATION
+#if 0
+        hash += payload[5] & 0xFFFFFFFF00000000ULL; // PORTS
+#else
+        hash += payload[5] & 0x00000000FFFFFFFFULL; // PORTS
+#endif
     }
 
     hash += hash >> 32;
