@@ -21,7 +21,7 @@ obj-m += srv.o
 obj-m += clt.o
 
 default:
-    $(MAKE) -C $(KBUILD) M=$(PWD) modules
+	$(MAKE) -C $(KBUILD) M=$(PWD) modules
 
 clean:
-    $(MAKE) -C $(KBUILD) M=$(PWD) clean
+	$(MAKE) -C $(KBUILD) M=$(PWD) clean

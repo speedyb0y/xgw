@@ -1,5 +1,4 @@
 
-#ifndef XGW
 #define XGW_XTUN_ASSERT 1
 #define XGW_XTUN_SERVER_IS 1
 #define XGW_XTUN_SERVER_PORT 10000
@@ -90,5 +89,3 @@
 #define XGW_XTUN_NODE_1_SRV_PATH_2_BAND 595
 #define XGW_XTUN_NODE_1_SRV_PATH_2_TTL 64
 #define XGW_XTUN_NODE_1_SRV_PATH_2_TOS 0
-
-#endif
