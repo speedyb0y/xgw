@@ -3,25 +3,25 @@
 KBUILD:=/lib/modules/$(shell uname -r)/build/
 
 #menuconfig:
-#	$(MAKE) -C $(KBUILD) M=$(PWD) menuconfig
+#   $(MAKE) -C $(KBUILD) M=$(PWD) menuconfig
 
-CFLAGS_xtun-srv.o += -Wfatal-errors
-CFLAGS_xtun-srv.o += -Werror
-CFLAGS_xtun-srv.o += -Wno-declaration-after-statement
-CFLAGS_xtun-srv.o += -Wno-error=unused-function
-CFLAGS_xtun-srv.o += -mpopcnt
+CFLAGS_srv.o += -Wfatal-errors
+CFLAGS_srv.o += -Werror
+CFLAGS_srv.o += -Wno-declaration-after-statement
+CFLAGS_srv.o += -Wno-error=unused-function
+CFLAGS_srv.o += -mpopcnt
 
-CFLAGS_xtun-clt.o += -Wfatal-errors
-CFLAGS_xtun-clt.o += -Werror
-CFLAGS_xtun-clt.o += -Wno-declaration-after-statement
-CFLAGS_xtun-clt.o += -Wno-error=unused-function
-CFLAGS_xtun-clt.o += -mpopcnt
+CFLAGS_clt.o += -Wfatal-errors
+CFLAGS_clt.o += -Werror
+CFLAGS_clt.o += -Wno-declaration-after-statement
+CFLAGS_clt.o += -Wno-error=unused-function
+CFLAGS_clt.o += -mpopcnt
 
-obj-m += xtun-srv.o
-obj-m += xtun-clt.o
+obj-m += srv.o
+obj-m += clt.o
 
 default:
-	$(MAKE) -C $(KBUILD) M=$(PWD) modules
+    $(MAKE) -C $(KBUILD) M=$(PWD) modules
 
 clean:
-	$(MAKE) -C $(KBUILD) M=$(PWD) clean
+    $(MAKE) -C $(KBUILD) M=$(PWD) clean
