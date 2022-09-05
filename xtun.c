@@ -455,7 +455,7 @@ static uint xtun_flow_hash (const u64* const payload) {
 #if 0
         hash  = payload[1] & 0x00FF0000FFFFFFFFULL; // PROTOCOL + SOURCE
 #else
-        hash  = payload[1] & 0xFFFFFFFF0000FF00ULL;
+        hash  = payload[1] & 0xFFFFFFFF0000FF00ULL; // PROTOCOL + SOURCE
 #endif
         hash += payload[2]; // DESTINATION + PORTS
     } else { // IPV6
