@@ -41,7 +41,7 @@ typedef uint64_t u64;
 
 #define CACHE_LINE_SIZE 64
 
-#include "xtun-crypto.c"
+#include "kmod/crypto.c"
 
 #ifndef TEST_CHUNK_SIZE_MIN
 #define TEST_CHUNK_SIZE_MIN 128
