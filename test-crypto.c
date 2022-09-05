@@ -146,11 +146,11 @@ int main (void) {
                 err("FAILED TO WRITE: INCOMPLETE");
 
 #if 1
-			print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
-				(uintll)cryptoKey.w64[0],
-				(uintll)cryptoKey.w64[1],
-				(uintll)cryptoKey.w64[2],
-				(uintll)cryptoKey.w64[3]);
+            print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+                (uintll)cryptoKey.w64[0],
+                (uintll)cryptoKey.w64[1],
+                (uintll)cryptoKey.w64[2],
+                (uintll)cryptoKey.w64[3]);
 #endif
 
 #if TEST_DECODE
