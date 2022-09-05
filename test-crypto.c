@@ -133,15 +133,19 @@ int main (void) {
                 err("FAILED TO WRITE: %s", strerror(errno));
             if (written != chunkSize)
                 err("FAILED TO WRITE: INCOMPLETE");
+#if TEST_DECODE
+            const u64 hashNew = xgw_crypto_decode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
+#endif
 #if TEST_PRINT
+#if TEST_ENCODE
             print(" -- HASH 0x%04X KEY 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+#else
+            print(" --             KEY 0x%016llX 0x%016llX 0x%016llX 0x%016llX",
+#endif
                 (uintll)cryptoKey.w64[0],
                 (uintll)cryptoKey.w64[1],
                 (uintll)cryptoKey.w64[2],
                 (uintll)cryptoKey.w64[3]);
-#endif
-#if TEST_DECODE
-            const u64 hashNew = xgw_crypto_decode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
 #endif
 #if TEST_VERIFY_DATA
             if (memcmp(chunk, chunkRW, chunkSize))
