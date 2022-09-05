@@ -85,11 +85,7 @@ typedef uint64_t u64;
 #define TEST_CRYPTO_PARAMS 1
 #endif
 
-#if TEST_PRINT
 #define print(fmt, ...) fprintf(stderr, fmt "\n", ##__VA_ARGS__)
-#else
-#define print(...) ({})
-#endif
 
 #define err(fmt, ...) ({ fprintf(stderr, "ERROR: " fmt "\n", ##__VA_ARGS__); return 1; })
 
@@ -113,48 +109,40 @@ int main (void) {
     int chunkSize;
 
     while ((chunkSize = read(STDIN_FILENO, chunk, (TEST_CHUNK_SIZE_MIN + (myrandom() % (TEST_CHUNK_SIZE_MAX - TEST_CHUNK_SIZE_MIN))))) > 0) {
-
+#if TEST_PRINT
             print("SIZE %u", chunkSize);
+#endif
 #if !TEST_ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
 #endif
         for (uint c = TEST_LOOPS; c; c--) {
-
 #if TEST_ORIGINAL
             memcpy(chunkRW, chunk, chunkSize);
 #endif
-
 #if TEST_CRYPTO_PARAMS
             cryptoKey.w64[0] += (u64)myrandom();
             cryptoKey.w64[1] += (u64)myrandom();
             cryptoKey.w64[2] += (u64)myrandom();
             cryptoKey.w64[3] += (u64)myrandom();
 #endif
-
-            // ENCODE
 #if TEST_ENCODE
             const u16 hashOriginal = xgw_crypto_encode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
-#else
-            const u16 hashOriginal = 0;
 #endif
             const int written = write(STDOUT_FILENO, chunkRW, chunkSize);
-
             if (written == -1)
                 err("FAILED TO WRITE: %s", strerror(errno));
-
             if (written != chunkSize)
                 err("FAILED TO WRITE: INCOMPLETE");
-
-#if 1
-            print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+#if TEST_PRINT
+            print(" -- HASH 0x%04X KEY 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
                 (uintll)cryptoKey.w64[0],
                 (uintll)cryptoKey.w64[1],
                 (uintll)cryptoKey.w64[2],
                 (uintll)cryptoKey.w64[3]);
 #endif
-
 #if TEST_DECODE
             const u64 hashNew = xgw_crypto_decode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
+#endif
 #if TEST_VERIFY_DATA
             if (memcmp(chunk, chunkRW, chunkSize))
                 err("DATA MISMATCH");
@@ -162,7 +150,6 @@ int main (void) {
 #if TEST_VERIFY_HASH
             if (hashNew != hashOriginal)
                 err("HASH MISMATCH");
-#endif
 #endif
         }
     }
