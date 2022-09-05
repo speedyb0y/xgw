@@ -461,10 +461,10 @@ typedef enum xtun_crypto_algo_e {
 #if XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
         XTUN_CRYPTO_ALGO_SHIFT64_4,
 #endif
-        XTUN_CRYPTO_ALGOS_N
 } xtun_crypto_algo_e;
 
-#if (XGW_XTUN_CRYPTO_ALGO_NULL0 \
+#define XTUN_CRYPTO_ALGOS_N ( \
+     XGW_XTUN_CRYPTO_ALGO_NULL0 \
    + XGW_XTUN_CRYPTO_ALGO_NULLX \
    + XGW_XTUN_CRYPTO_ALGO_SUM32 \
    + XGW_XTUN_CRYPTO_ALGO_SUM64 \
@@ -473,7 +473,9 @@ typedef enum xtun_crypto_algo_e {
    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_2 \
    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_3 \
    + XGW_XTUN_CRYPTO_ALGO_SHIFT64_4 \
-    ) > 1
+    )
+
+#if XTUN_CRYPTO_ALGOS_N > 1
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
 typedef u16 (*xtun_crypto_algo_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
 
