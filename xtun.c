@@ -443,6 +443,16 @@ drop:
     return RX_HANDLER_CONSUMED;
 }
 
+#if 0
+#define V4_PROTO_SOURCE        0x00FF0000FFFFFFFFULL
+#define V6_VERSION_FLOW_PROTO  0xF00FFFFF0000FF00ULL
+#define V6_PORTS               0xFFFFFFFF00000000ULL
+#else
+#define V4_PROTO_SOURCE        0xFFFFFFFF0000FF00ULL
+#define V6_VERSION_FLOW_PROTO  0x00FF0000FFFF0FF0ULL
+#define V6_PORTS               0x00000000FFFFFFFFULL
+#endif
+
 // SE ESTAMOS ENVIANDO O PACOTE É PORQUE JÁ SABE QUE OS HEADERS ESTÃO CORRETOS
 // WE ONLY ALLOW IPV4/IPV6
 // WE ONLY ALLOW IPV4 WITHOUT OPTIONS
@@ -452,27 +462,15 @@ static uint xtun_flow_hash (const u64 payload[]) {
     u64 hash;
 
     if (*(u8*)payload == 0x45) { // IPV4
-#if 0
-        hash  = payload[1] & 0x00FF0000FFFFFFFFULL; // PROTOCOL + SOURCE
-#else
-        hash  = payload[1] & 0xFFFFFFFF0000FF00ULL; // PROTOCOL + SOURCE
-#endif
+        hash  = payload[1] & V4_PROTO_SOURCE; // PROTOCOL + SOURCE
         hash += payload[2]; // DESTINATION + PORTS
     } else { // IPV6
-#if 0
-        hash  = payload[0] & 0xF00FFFFF0000FF00ULL; // VERSION + FLOW LABEL + PROTOCOL
-#else
-        hash  = payload[0] & 0x00FF0000FFFF0FF0ULL; // VERSION + FLOW LABEL + PROTOCOL
-#endif
+        hash  = payload[0] & V6_VERSION_FLOW_PROTO; // VERSION + FLOW LABEL + PROTOCOL
         hash += payload[1]; // SOURCE
         hash += payload[2]; // SOURCE
         hash += payload[3]; // DESTINATION
         hash += payload[4]; // DESTINATION
-#if 0
-        hash += payload[5] & 0xFFFFFFFF00000000ULL; // PORTS
-#else
-        hash += payload[5] & 0x00000000FFFFFFFFULL; // PORTS
-#endif
+        hash += payload[5] & V6_PORTS; // PORTS
     }
 
     hash += hash >> 32;
