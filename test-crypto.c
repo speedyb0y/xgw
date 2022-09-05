@@ -178,59 +178,10 @@ int main (void) {
 #endif
 
 #if TEST_CRYPTO_PARAMS
-            switch (cryptoAlgo) {
-#if              XCONF_XGW_CRYPTO_ALGO_NULL0
-                case XGW_CRYPTO_ALGO_NULL0:
-                    // NOTHING
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_NULLX
-                case XGW_CRYPTO_ALGO_NULLX:
-                    cryptoKey.nullx.x++;
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SUM32
-                case XGW_CRYPTO_ALGO_SUM32:
-
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SUM64
-                case XGW_CRYPTO_ALGO_SUM64:
-
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-                case XGW_CRYPTO_ALGO_SHIFT32_1:
-                    cryptoKey.shift32_1.k += (u64)myrandom();
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-                case XGW_CRYPTO_ALGO_SHIFT64_1:
-                    cryptoKey.shift64_1.k += (u64)myrandom();
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-                case XGW_CRYPTO_ALGO_SHIFT64_2:
-                    cryptoKey.shift64_2.a += (u64)myrandom();
-                    cryptoKey.shift64_2.b += (u64)myrandom();
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-                case XGW_CRYPTO_ALGO_SHIFT64_3:
-                    cryptoKey.shift64_3.a += (u64)myrandom();
-                    cryptoKey.shift64_3.b += (u64)myrandom();
-                    cryptoKey.shift64_3.c += (u64)myrandom();
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-                case XGW_CRYPTO_ALGO_SHIFT64_4:
-                    cryptoKey.shift64_4.a += (u64)myrandom();
-                    cryptoKey.shift64_4.b += (u64)myrandom();
-                    cryptoKey.shift64_4.c += (u64)myrandom();
-                    cryptoKey.shift64_4.d += (u64)myrandom();
-                    break;
-#endif
-            }
+			cryptoKey[0] += (u64)myrandom();
+			cryptoKey[1] += (u64)myrandom();
+			cryptoKey[2] += (u64)myrandom();
+			cryptoKey[3] += (u64)myrandom();
 #endif
 
             // ENCODE
