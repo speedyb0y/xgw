@@ -1,4 +1,6 @@
 
+#include "kmod/config.h"
+
 #undef XGW_XTUN_CRYPTO_ALGO_NULL0
 #undef XGW_XTUN_CRYPTO_ALGO_NULLX
 #undef XGW_XTUN_CRYPTO_ALGO_SUM32

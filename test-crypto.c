@@ -5,8 +5,7 @@
     openssl aes-256-cbc -salt -in /dev/zero -out /proc/self/fd/1 -pass stdin <<< $(sha256sum <<< ewewgewew) | pv > /dev/null
 */
 
-#include "config.h"
-#include "config-crypto-test.h"
+#include "config-test-crypto.h"
 
 #include <stdint.h>
 #include <string.h>
