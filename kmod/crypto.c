@@ -49,51 +49,20 @@ typedef union xgw_crypto_params_s {
       u16 w16[XGW_CRYPTO_PARAMS_SIZE/sizeof(u16)];
       u32 w32[XGW_CRYPTO_PARAMS_SIZE/sizeof(u32)];
       u64 w64[XGW_CRYPTO_PARAMS_SIZE/sizeof(u64)];
-#if XCONF_XGW_CRYPTO_ALGO_NULL0
-    // NOTHING
-#endif
-#if    XCONF_XGW_CRYPTO_ALGO_NULLX
-    struct xgw_crypto_params_nullx_s {
-        u64 x;
-    } nullx;
-#endif
-#if    XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-    struct xgw_crypto_params_shift32_1_s {
-        u32 k;
-    } shift32_1;
-#endif
-#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-    struct xgw_crypto_params_shift64_1_s {
-        u64 k;
-    } shift64_1;
-#endif
-#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-    struct xgw_crypto_params_shift64_2_s {
-        u64 a;
-        u64 b;
-    } shift64_2;
-#endif
-#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-    struct xgw_crypto_params_shift64_3_s {
-        u64 a;
-        u64 b;
-        u64 c;
-    } shift64_3;
-#endif
-#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-    struct xgw_crypto_params_shift64_4_s {
-        u64 a;
-        u64 b;
-        u64 c;
-        u64 d;
-    } shift64_4;
-#endif
 } xgw_crypto_params_s;
 
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
 static u16 xgw_crypto_shift32_1_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u32 k = params->shift32_1.k;
+    u32 k = params->w32[0]
+          + params->w32[1]
+          + params->w32[2]
+          + params->w32[3]
+          + params->w32[4]
+          + params->w32[5]
+          + params->w32[6]
+          + params->w32[7]
+    ;
 
     k += swap32(k, size);
 
@@ -131,7 +100,15 @@ static u16 xgw_crypto_shift32_1_encode (const xgw_crypto_params_s* const restric
 
 static u16 xgw_crypto_shift32_1_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u32 k = params->shift32_1.k;
+    u32 k = params->w32[0]
+          + params->w32[1]
+          + params->w32[2]
+          + params->w32[3]
+          + params->w32[4]
+          + params->w32[5]
+          + params->w32[6]
+          + params->w32[7]
+    ;
 
     k += swap32(k, size);
 
@@ -170,7 +147,11 @@ static u16 xgw_crypto_shift32_1_decode (const xgw_crypto_params_s* const restric
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
 static u16 xgw_crypto_shift64_1_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k = params->shift64_1.k;
+    u64 k = params->w64[0]
+          + params->w64[1]
+          + params->w64[2]
+          + params->w64[3]
+    ;
 
     k += swap64(k, size);
 
@@ -209,7 +190,11 @@ static u16 xgw_crypto_shift64_1_encode (const xgw_crypto_params_s* const restric
 
 static u16 xgw_crypto_shift64_1_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 k = params->shift64_1.k;
+    u64 k = params->w64[0]
+          + params->w64[1]
+          + params->w64[2]
+          + params->w64[3]
+    ;
 
     k += swap64(k, size);
 
@@ -248,10 +233,10 @@ static u16 xgw_crypto_shift64_1_decode (const xgw_crypto_params_s* const restric
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
 static u16 xgw_crypto_shift64_4_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 a = params->shift64_4.a;
-    u64 b = params->shift64_4.b;
-    u64 c = params->shift64_4.c;
-    u64 d = params->shift64_4.d;
+    u64 a = params->w64[0];
+    u64 b = params->w64[1];
+    u64 c = params->w64[2];
+    u64 d = params->w64[3];
 
     a += swap64(d, size);
     b += swap64(c, size);
@@ -304,10 +289,10 @@ static u16 xgw_crypto_shift64_4_encode (const xgw_crypto_params_s* const restric
 
 static u16 xgw_crypto_shift64_4_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
-    u64 a = params->shift64_4.a;
-    u64 b = params->shift64_4.b;
-    u64 c = params->shift64_4.c;
-    u64 d = params->shift64_4.d;
+    u64 a = params->w64[0];
+    u64 b = params->w64[1];
+    u64 c = params->w64[2];
+    u64 d = params->w64[3];
 
     a += swap64(d, size);
     b += swap64(c, size);
