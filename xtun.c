@@ -449,22 +449,20 @@ drop:
 // WE ONLY ALLOW TRANSPORTS TCP/UDP/SCTP/DCCP
 static uint xtun_flow_hash (const void* const payload) {
 
-    u64 hash;
+    u64 hash = *(u8*)payload;
 
-    if (*(u8*)payload == 0x45) {
-        // IPV4
-        hash  = *(u8* )(payload + 9); // IP PROTOCOL
+    if (hash == 0x45) { // IPV4
+        hash += *(u8* )(payload +  9); // IP PROTOCOL
         hash += *(u64*)(payload + 12); // IP SOURCE AND IP DESTINATION
         hash += *(u32*)(payload + 20); // TRANSPORT SOURCE AND DESTINATION PORTS
-    } else {
-        // IPV6
+    } else { // IPV6
 #if 0
-        hash  = *(u8* )(payload    ) & 0x000FFFFFFFFFFFFFULL; // FLOW LABEL
+        hash  = *(u64* )(payload    ) & 0xF00FFFFFFFFFFFFFULL; // IP VERSION + FLOW LABEL
 #else
-        hash  = *(u8* )(payload    ) & 0xFFFFFFFFFFFF0F00ULL; // FLOW LABEL
+        hash  = *(u64* )(payload    ) & 0xFFFFFFFFFFFF0F0FULL; // IP VERSION + FLOW LABEL
 #endif
-        hash += *(u8* )(payload + 6); // IP PROTOCOL
-        hash += *(u64*)(payload + 8); // IP SOURCE
+        hash += *(u8* )(payload +  6); // IP PROTOCOL
+        hash += *(u64*)(payload +  8); // IP SOURCE
         hash += *(u64*)(payload + 16); // IP SOURCE
         hash += *(u64*)(payload + 24); // IP DESTINATION
         hash += *(u64*)(payload + 32); // IP DESTINATION
@@ -506,7 +504,7 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
 
     // ENVIA flowPackets, E AÍ AVANCA flowShift
     if (node->flowRemaining == 0) {
-        node->flowRemaining = node->flowPackets;
+        node->flowRemaining = node->flowPackets / XTUN_FLOWS_N;
         node->flowShift++;
     } else
         node->flowRemaining--;

@@ -29,7 +29,10 @@ done
     iptables -t raw -A PREROUTING -j DROP -s 172.16.0.0/16
     iptables -t raw -A PREROUTING -j DROP -d 172.16.0.0/16
 
-iptables -t nat -A POSTROUTING -s 172.16.0.0/16 -o ${SERVER_ITFC} -j MASQUERADE
+    iptables -t nat -A PREROUTING -i ${SERVER_ITFC} -p tcp --dport 10000:65000 -j DNAT --to-destination 172.16.1.20
+    iptables -t nat -A PREROUTING -i ${SERVER_ITFC} -p udp --dport 10000:65000 -j DNAT --to-destination 172.16.1.20
+
+    iptables -t nat -A POSTROUTING -s 172.16.0.0/16 -o ${SERVER_ITFC} -j MASQUERADE
 
 for NID in $(seq 15) ; do
     if [ -e /proc/sys/net/ipv4/conf/xgw-${NID} ] ; then
@@ -43,4 +46,3 @@ for NID in $(seq 15) ; do
 done
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
-

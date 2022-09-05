@@ -40,6 +40,9 @@ ip -4 addr add dev xgw 172.16.${NID}.20/24 noprefixroute
 ip -4 route add table ${TABLE_XGW_SRV} dev xgw src 172.16.${NID}.20 default
 ip -4 route add table ${TABLE_XGW_LAN} dev ${LAN_INTERFACE} src 172.16.${NID}.20 172.16.${NID}.0/24
 
+#
+sudo ip -4 rule add priority 30000 table ${TABLE_XGW_SRV}
+
 ip -4 route flush cache
 ip -6 route flush cache
 
