@@ -1,17 +1,8 @@
 #!/bin/bash
 
-SERVER_IP4=45.76.11.87
+. test-config
 
-NID=1
-
-TABLE_XGW_LAN=4
-TABLE_XGW_SRV=5
-
-LAN_INTERFACE=eth0
-
-make
-
-insmod xtun-clt.ko
+( cd kmod && make && insmod clt.ko)
 
 echo scalable > /proc/sys/net/ipv4/tcp_congestion_control
 echo 4096 > /proc/sys/net/ipv4/tcp_max_reordering

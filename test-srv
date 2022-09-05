@@ -1,12 +1,8 @@
 #!/bin/bash
 
-SERVER_ITFC=enp1s0
+. test-config
 
-SERVER_IP4=45.76.11.87
-
-make
-
-insmod xtun-srv.ko
+(cd kmod && make && insmod srv.ko)
 
 echo scalable > /proc/sys/net/ipv4/tcp_congestion_control
 echo 4096 > /proc/sys/net/ipv4/tcp_max_reordering
