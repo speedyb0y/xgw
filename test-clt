@@ -2,7 +2,7 @@
 
 . test-config
 
-( cd kmod && make && insmod clt.ko)
+(cd kmod && make && insmod clt.ko)
 
 echo scalable > /proc/sys/net/ipv4/tcp_congestion_control
 echo 4096 > /proc/sys/net/ipv4/tcp_max_reordering
@@ -20,15 +20,17 @@ ip -4 rule add priority 13 table isp-2 to ${SERVER_IP4}
 # XGW SERVER <-> XGW LAN
 ip -4 rule add priority 14 table ${TABLE_XGW_LAN} iif xgw
 ip -4 rule add priority 15 table ${TABLE_XGW_SRV} oif xgw
-ip -4 rule add priority 16 table ${TABLE_XGW_SRV} to  172.16.${NID}.0
-ip -4 rule add priority 17 table ${TABLE_XGW_LAN} to  172.16.${NID}.0/24
-ip -4 rule add priority 18 table ${TABLE_XGW_LAN} from 172.16.${NID}.0
+ip -4 rule add priority 17 table ${TABLE_XGW_LAN} to 172.16.${NID}.0/24
+ip -4 rule add priority 16 table ${TABLE_XGW_SRV} to 172.16.0.0/16
 ip -4 rule add priority 19 table ${TABLE_XGW_SRV} from 172.16.${NID}.0/24
+ip -4 rule add priority 18 table ${TABLE_XGW_LAN} from 172.16.0.0/16
 
 #
 ip -4 addr add dev xgw 172.16.${NID}.20/24 noprefixroute
 
-ip -4 route add table ${TABLE_XGW_SRV} dev xgw src 172.16.${NID}.20 default
+#rttvar TIME (Linux 2.3.15+ only)
+#ssthresh NUMBER (Linux 2.3.15+ only)
+ip -4 route add table ${TABLE_XGW_SRV} dev xgw src 172.16.${NID}.20 default rtt 210ms rto_min 400ms
 ip -4 route add table ${TABLE_XGW_LAN} dev ${LAN_INTERFACE} src 172.16.${NID}.20 172.16.${NID}.0/24
 
 #
