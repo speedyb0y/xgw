@@ -1,6 +1,6 @@
 /*
 
-    gcc -fwhole-program -Wall -Wextra -O2 -march=native xtun-crypto-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512]
+    gcc -fwhole-program -Wall -Wextra -O2 -march=native xgw-crypto-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512]
 
     openssl aes-256-cbc -salt -in /dev/zero -out /proc/self/fd/1 -pass stdin <<< $(sha256sum <<< ewewgewew) | pv > /dev/null
 */
@@ -107,59 +107,8 @@ static inline u64 myrandom (void) {
 
 int main (void) {
 
-    xtun_crypto_algo_e cryptoAlgo;
-    xtun_crypto_params_s cryptoKey;
-
-    switch ((cryptoAlgo = TEST_CRYPTO_ALGO)) {
-#if      XCONF_XGW_CRYPTO_ALGO_NULL0
-        case XGW_CRYPTO_ALGO_NULL0:
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_NULLX
-        case XGW_CRYPTO_ALGO_NULLX:
-            cryptoKey.nullx.x = 0x1234;
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SUM32
-        case XGW_CRYPTO_ALGO_SUM32:
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SUM64
-        case XGW_CRYPTO_ALGO_SUM64:
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-        case XGW_CRYPTO_ALGO_SHIFT32_1:
-            cryptoKey.shift32_1.k = 0x05547898U;
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-        case XGW_CRYPTO_ALGO_SHIFT64_1:
-            cryptoKey.shift64_1.k = 0x464564456ULL;
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-        case XGW_CRYPTO_ALGO_SHIFT64_2:
-            cryptoKey.shift64_2.a = 0x464564456ULL;
-            cryptoKey.shift64_2.b = 0xE34232045ULL;
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-        case XGW_CRYPTO_ALGO_SHIFT64_3:
-            cryptoKey.shift64_3.a = 0x464564456ULL;
-            cryptoKey.shift64_3.b = 0xE34232045ULL;
-            cryptoKey.shift64_3.c = 0x004560464ULL;
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-        case XGW_CRYPTO_ALGO_SHIFT64_4:
-            cryptoKey.shift64_4.a = 0x464564456ULL;
-            cryptoKey.shift64_4.b = 0xE34232045ULL;
-            cryptoKey.shift64_4.c = 0x004560464ULL;
-            cryptoKey.shift64_4.d = 0x352532532ULL;
-            break;
-#endif
-    }
+    xgw_crypto_algo_e cryptoAlgo = TEST_CRYPTO_ALGO;
+    xgw_crypto_key_s cryptoKey = { .str = "huauauauhhauhua" };
 
     u8 chunk  [TEST_CHUNK_SIZE_MAX];
     u8 chunkRW[TEST_CHUNK_SIZE_MAX];
@@ -178,15 +127,15 @@ int main (void) {
 #endif
 
 #if TEST_CRYPTO_PARAMS
-			cryptoKey[0] += (u64)myrandom();
-			cryptoKey[1] += (u64)myrandom();
-			cryptoKey[2] += (u64)myrandom();
-			cryptoKey[3] += (u64)myrandom();
+            cryptoKey.w64[0] += (u64)myrandom();
+            cryptoKey.w64[1] += (u64)myrandom();
+            cryptoKey.w64[2] += (u64)myrandom();
+            cryptoKey.w64[3] += (u64)myrandom();
 #endif
 
             // ENCODE
 #if TEST_ENCODE
-            const u16 hashOriginal = xtun_crypto_encode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
+            const u16 hashOriginal = xgw_crypto_encode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
 #else
             const u16 hashOriginal = 0;
 #endif
@@ -198,66 +147,16 @@ int main (void) {
             if (written != chunkSize)
                 err("FAILED TO WRITE: INCOMPLETE");
 
-            switch (cryptoAlgo) {
-#if              XCONF_XGW_CRYPTO_ALGO_NULL0
-                case XGW_CRYPTO_ALGO_NULL0:
-                    print(" -- HASH 0x%04X", hashOriginal);
-                    break;
+#if 1
+                print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+                    (uintll)cryptoKey.w64[0],
+                    (uintll)cryptoKey.w64[1],
+                    (uintll)cryptoKey.w64[2],
+                    (uintll)cryptoKey.w64[3]);
 #endif
-#if              XCONF_XGW_CRYPTO_ALGO_NULLX
-                case XGW_CRYPTO_ALGO_NULLX:
-                    print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
-                        (uintll)cryptoKey.nullx.x);
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SUM32
-                case XGW_CRYPTO_ALGO_SUM32:
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SUM64
-                case XGW_CRYPTO_ALGO_SUM64:
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-                case XGW_CRYPTO_ALGO_SHIFT32_1:
-                    print(" -- HASH 0x%04X KEYS 0x%08llX", hashOriginal,
-                        (uintll)cryptoKey.shift32_1.k);
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-                case XGW_CRYPTO_ALGO_SHIFT64_1:
-                    print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
-                        (uintll)cryptoKey.shift64_1.k);
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-                case XGW_CRYPTO_ALGO_SHIFT64_2:
-                    print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX", hashOriginal,
-                        (uintll)cryptoKey.shift64_2.a,
-                        (uintll)cryptoKey.shift64_2.b);
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-                case XGW_CRYPTO_ALGO_SHIFT64_3:
-                    print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
-                        (uintll)cryptoKey.shift64_3.a,
-                        (uintll)cryptoKey.shift64_3.b,
-                        (uintll)cryptoKey.shift64_3.c);
-                    break;
-#endif
-#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-                case XGW_CRYPTO_ALGO_SHIFT64_4:
-                    print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
-                        (uintll)cryptoKey.shift64_4.a,
-                        (uintll)cryptoKey.shift64_4.b,
-                        (uintll)cryptoKey.shift64_4.c,
-                        (uintll)cryptoKey.shift64_4.d);
-                    break;
-#endif
-            }
 
 #if TEST_DECODE
-            const u64 hashNew = xtun_crypto_decode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
+            const u64 hashNew = xgw_crypto_decode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
 #if TEST_VERIFY_DATA
             if (memcmp(chunk, chunkRW, chunkSize))
                 err("DATA MISMATCH");

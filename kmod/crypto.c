@@ -477,7 +477,7 @@ static inline u16 xgw_crypto_encode (const xgw_crypto_algo_e algo, const xgw_cry
 #endif
 #if    XCONF_XGW_CRYPTO_ALGO_NULLX
         case XGW_CRYPTO_ALGO_NULLX:
-           return xgw_crypto_nullX_encode(key, data, size);
+           return xgw_crypto_nullx_encode(key, data, size);
 #endif
 #if    XCONF_XGW_CRYPTO_ALGO_SUM32
         case XGW_CRYPTO_ALGO_SUM32:
@@ -519,7 +519,7 @@ static inline u16 xgw_crypto_decode (const xgw_crypto_algo_e algo, const xgw_cry
 #endif
 #if    XCONF_XGW_CRYPTO_ALGO_NULLX
         case XGW_CRYPTO_ALGO_NULLX:
-           return xgw_crypto_nullX_decode(key, data, size);
+           return xgw_crypto_nullx_decode(key, data, size);
 #endif
 #if    XCONF_XGW_CRYPTO_ALGO_SUM32
         case XGW_CRYPTO_ALGO_SUM32:
