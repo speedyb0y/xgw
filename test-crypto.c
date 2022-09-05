@@ -1,7 +1,5 @@
 /*
 
-    gcc -fwhole-program -Wall -Wextra -O2 -march=native xgw-crypto-test.c -DCHUNK_SIZE_MIN=$[128*1024] -DCHUNK_SIZE_MAX=$[128*1024+512]
-
     openssl aes-256-cbc -salt -in /dev/zero -out /proc/self/fd/1 -pass stdin <<< $(sha256sum <<< ewewgewew) | pv > /dev/null
 */
 
@@ -148,11 +146,11 @@ int main (void) {
                 err("FAILED TO WRITE: INCOMPLETE");
 
 #if 1
-                print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
-                    (uintll)cryptoKey.w64[0],
-                    (uintll)cryptoKey.w64[1],
-                    (uintll)cryptoKey.w64[2],
-                    (uintll)cryptoKey.w64[3]);
+			print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
+				(uintll)cryptoKey.w64[0],
+				(uintll)cryptoKey.w64[1],
+				(uintll)cryptoKey.w64[2],
+				(uintll)cryptoKey.w64[3]);
 #endif
 
 #if TEST_DECODE
