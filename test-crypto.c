@@ -108,7 +108,7 @@ static inline u64 myrandom (void) {
 int main (void) {
 
     xtun_crypto_algo_e cryptoAlgo;
-    xtun_crypto_params_s cryptoParams;
+    xtun_crypto_params_s cryptoKey;
 
     switch ((cryptoAlgo = TEST_CRYPTO_ALGO)) {
 #if      XCONF_XGW_CRYPTO_ALGO_NULL0
@@ -117,7 +117,7 @@ int main (void) {
 #endif
 #if      XCONF_XGW_CRYPTO_ALGO_NULLX
         case XGW_CRYPTO_ALGO_NULLX:
-            cryptoParams.nullx.x = 0x1234;
+            cryptoKey.nullx.x = 0x1234;
             break;
 #endif
 #if      XCONF_XGW_CRYPTO_ALGO_SUM32
@@ -130,33 +130,33 @@ int main (void) {
 #endif
 #if      XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
         case XGW_CRYPTO_ALGO_SHIFT32_1:
-            cryptoParams.shift32_1.k = 0x05547898U;
+            cryptoKey.shift32_1.k = 0x05547898U;
             break;
 #endif
 #if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
         case XGW_CRYPTO_ALGO_SHIFT64_1:
-            cryptoParams.shift64_1.k = 0x464564456ULL;
+            cryptoKey.shift64_1.k = 0x464564456ULL;
             break;
 #endif
 #if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
         case XGW_CRYPTO_ALGO_SHIFT64_2:
-            cryptoParams.shift64_2.a = 0x464564456ULL;
-            cryptoParams.shift64_2.b = 0xE34232045ULL;
+            cryptoKey.shift64_2.a = 0x464564456ULL;
+            cryptoKey.shift64_2.b = 0xE34232045ULL;
             break;
 #endif
 #if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
         case XGW_CRYPTO_ALGO_SHIFT64_3:
-            cryptoParams.shift64_3.a = 0x464564456ULL;
-            cryptoParams.shift64_3.b = 0xE34232045ULL;
-            cryptoParams.shift64_3.c = 0x004560464ULL;
+            cryptoKey.shift64_3.a = 0x464564456ULL;
+            cryptoKey.shift64_3.b = 0xE34232045ULL;
+            cryptoKey.shift64_3.c = 0x004560464ULL;
             break;
 #endif
 #if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
         case XGW_CRYPTO_ALGO_SHIFT64_4:
-            cryptoParams.shift64_4.a = 0x464564456ULL;
-            cryptoParams.shift64_4.b = 0xE34232045ULL;
-            cryptoParams.shift64_4.c = 0x004560464ULL;
-            cryptoParams.shift64_4.d = 0x352532532ULL;
+            cryptoKey.shift64_4.a = 0x464564456ULL;
+            cryptoKey.shift64_4.b = 0xE34232045ULL;
+            cryptoKey.shift64_4.c = 0x004560464ULL;
+            cryptoKey.shift64_4.d = 0x352532532ULL;
             break;
 #endif
     }
@@ -186,7 +186,7 @@ int main (void) {
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_NULLX
                 case XGW_CRYPTO_ALGO_NULLX:
-                    cryptoParams.nullx.x++;
+                    cryptoKey.nullx.x++;
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SUM32
@@ -201,33 +201,33 @@ int main (void) {
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
                 case XGW_CRYPTO_ALGO_SHIFT32_1:
-                    cryptoParams.shift32_1.k += (u64)myrandom();
+                    cryptoKey.shift32_1.k += (u64)myrandom();
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
                 case XGW_CRYPTO_ALGO_SHIFT64_1:
-                    cryptoParams.shift64_1.k += (u64)myrandom();
+                    cryptoKey.shift64_1.k += (u64)myrandom();
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
                 case XGW_CRYPTO_ALGO_SHIFT64_2:
-                    cryptoParams.shift64_2.a += (u64)myrandom();
-                    cryptoParams.shift64_2.b += (u64)myrandom();
+                    cryptoKey.shift64_2.a += (u64)myrandom();
+                    cryptoKey.shift64_2.b += (u64)myrandom();
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
                 case XGW_CRYPTO_ALGO_SHIFT64_3:
-                    cryptoParams.shift64_3.a += (u64)myrandom();
-                    cryptoParams.shift64_3.b += (u64)myrandom();
-                    cryptoParams.shift64_3.c += (u64)myrandom();
+                    cryptoKey.shift64_3.a += (u64)myrandom();
+                    cryptoKey.shift64_3.b += (u64)myrandom();
+                    cryptoKey.shift64_3.c += (u64)myrandom();
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
                 case XGW_CRYPTO_ALGO_SHIFT64_4:
-                    cryptoParams.shift64_4.a += (u64)myrandom();
-                    cryptoParams.shift64_4.b += (u64)myrandom();
-                    cryptoParams.shift64_4.c += (u64)myrandom();
-                    cryptoParams.shift64_4.d += (u64)myrandom();
+                    cryptoKey.shift64_4.a += (u64)myrandom();
+                    cryptoKey.shift64_4.b += (u64)myrandom();
+                    cryptoKey.shift64_4.c += (u64)myrandom();
+                    cryptoKey.shift64_4.d += (u64)myrandom();
                     break;
 #endif
             }
@@ -235,7 +235,7 @@ int main (void) {
 
             // ENCODE
 #if TEST_ENCODE
-            const u16 hashOriginal = xtun_crypto_encode(cryptoAlgo, &cryptoParams, chunkRW, chunkSize);
+            const u16 hashOriginal = xtun_crypto_encode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
 #else
             const u16 hashOriginal = 0;
 #endif
@@ -256,7 +256,7 @@ int main (void) {
 #if              XCONF_XGW_CRYPTO_ALGO_NULLX
                 case XGW_CRYPTO_ALGO_NULLX:
                     print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
-                        (uintll)cryptoParams.nullx.x);
+                        (uintll)cryptoKey.nullx.x);
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SUM32
@@ -270,43 +270,43 @@ int main (void) {
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
                 case XGW_CRYPTO_ALGO_SHIFT32_1:
                     print(" -- HASH 0x%04X KEYS 0x%08llX", hashOriginal,
-                        (uintll)cryptoParams.shift32_1.k);
+                        (uintll)cryptoKey.shift32_1.k);
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
                 case XGW_CRYPTO_ALGO_SHIFT64_1:
                     print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
-                        (uintll)cryptoParams.shift64_1.k);
+                        (uintll)cryptoKey.shift64_1.k);
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
                 case XGW_CRYPTO_ALGO_SHIFT64_2:
                     print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX", hashOriginal,
-                        (uintll)cryptoParams.shift64_2.a,
-                        (uintll)cryptoParams.shift64_2.b);
+                        (uintll)cryptoKey.shift64_2.a,
+                        (uintll)cryptoKey.shift64_2.b);
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
                 case XGW_CRYPTO_ALGO_SHIFT64_3:
                     print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
-                        (uintll)cryptoParams.shift64_3.a,
-                        (uintll)cryptoParams.shift64_3.b,
-                        (uintll)cryptoParams.shift64_3.c);
+                        (uintll)cryptoKey.shift64_3.a,
+                        (uintll)cryptoKey.shift64_3.b,
+                        (uintll)cryptoKey.shift64_3.c);
                     break;
 #endif
 #if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
                 case XGW_CRYPTO_ALGO_SHIFT64_4:
                     print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
-                        (uintll)cryptoParams.shift64_4.a,
-                        (uintll)cryptoParams.shift64_4.b,
-                        (uintll)cryptoParams.shift64_4.c,
-                        (uintll)cryptoParams.shift64_4.d);
+                        (uintll)cryptoKey.shift64_4.a,
+                        (uintll)cryptoKey.shift64_4.b,
+                        (uintll)cryptoKey.shift64_4.c,
+                        (uintll)cryptoKey.shift64_4.d);
                     break;
 #endif
             }
 
 #if TEST_DECODE
-            const u64 hashNew = xtun_crypto_decode(cryptoAlgo, &cryptoParams, chunkRW, chunkSize);
+            const u64 hashNew = xtun_crypto_decode(cryptoAlgo, &cryptoKey, chunkRW, chunkSize);
 #if TEST_VERIFY_DATA
             if (memcmp(chunk, chunkRW, chunkSize))
                 err("DATA MISMATCH");

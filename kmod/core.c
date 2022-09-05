@@ -172,7 +172,7 @@ typedef struct xgw_path_s {
 
 typedef struct xgw_node_s {
     net_device_s* dev;
-    xgw_crypto_params_s cryptoParams;
+    xgw_crypto_params_s cryptoKey;
     u64 reserved2;
     u16 cryptoAlgo;
     u16 reserved;
@@ -198,7 +198,7 @@ typedef struct xgw_cfg_path_s {
 typedef struct xgw_cfg_node_srv_s {
     uint mtu;
     uint pkts;
-    xgw_crypto_params_s cryptoParams;
+    xgw_crypto_params_s cryptoKey;
     xgw_crypto_algo_e cryptoAlgo;
     xgw_cfg_path_s paths[XGW_PATHS_N];
 } xgw_cfg_node_side_s;
@@ -227,7 +227,7 @@ static xgw_node_s node[1];
 static const xgw_cfg_node_s cfgNodes[] = {
 #if (XGW_SERVER && XGW_NODES_N > 1) || XGW_NODE_ID == 1
     { CONF_ID(1),
-        .clt = { .mtu = XCONF_XGW_NODE_1_CLT_MTU, .pkts = XCONF_XGW_NODE_1_CLT_PKTS, .cryptoAlgo = XGW_CRYPTO_ALGO_NULL0, .paths = {
+        .clt = { .mtu = XCONF_XGW_NODE_1_CLT_MTU, .pkts = XCONF_XGW_NODE_1_CLT_PKTS, .cryptoAlgo = XGW_CRYPTO_ALGO_NULL0, .cryptoKey = { .str = XCONF_XGW_NODE_1_CRYPTO_KEY }, .paths = {
             { .itfc = XCONF_XGW_NODE_1_CLT_PATH_0_ITFC, .band = XCONF_XGW_NODE_1_CLT_PATH_0_BAND, .mac = XCONF_XGW_NODE_1_CLT_PATH_0_MAC, .gw = XCONF_XGW_NODE_1_CLT_PATH_0_GW, .addr = {XCONF_XGW_NODE_1_CLT_PATH_0_ADDR_0,XCONF_XGW_NODE_1_CLT_PATH_0_ADDR_1,XCONF_XGW_NODE_1_CLT_PATH_0_ADDR_2,XCONF_XGW_NODE_1_CLT_PATH_0_ADDR_3}, .tos = XCONF_XGW_NODE_1_CLT_PATH_0_TOS, .ttl = XCONF_XGW_NODE_1_CLT_PATH_0_TTL, .port = XCONF_XGW_NODE_1_CLT_PATH_0_PORT, },
 #if XGW_PATHS_N > 1
             { .itfc = XCONF_XGW_NODE_1_CLT_PATH_1_ITFC, .band = XCONF_XGW_NODE_1_CLT_PATH_1_BAND, .mac = XCONF_XGW_NODE_1_CLT_PATH_1_MAC, .gw = XCONF_XGW_NODE_1_CLT_PATH_1_GW, .addr = {XCONF_XGW_NODE_1_CLT_PATH_1_ADDR_0,XCONF_XGW_NODE_1_CLT_PATH_1_ADDR_1,XCONF_XGW_NODE_1_CLT_PATH_1_ADDR_2,XCONF_XGW_NODE_1_CLT_PATH_1_ADDR_3}, .tos = XCONF_XGW_NODE_1_CLT_PATH_1_TOS, .ttl = XCONF_XGW_NODE_1_CLT_PATH_1_TTL, .port = XCONF_XGW_NODE_1_CLT_PATH_1_PORT, },
@@ -239,7 +239,7 @@ static const xgw_cfg_node_s cfgNodes[] = {
 #endif
 #endif
         }},
-        .srv = { .mtu = XCONF_XGW_NODE_1_SRV_MTU, .pkts = XCONF_XGW_NODE_1_SRV_PKTS, .cryptoAlgo = XGW_CRYPTO_ALGO_NULL0, .paths = {
+        .srv = { .mtu = XCONF_XGW_NODE_1_SRV_MTU, .pkts = XCONF_XGW_NODE_1_SRV_PKTS, .cryptoAlgo = XGW_CRYPTO_ALGO_NULL0, .cryptoKey = { .str = XCONF_XGW_NODE_1_CRYPTO_KEY }, .paths = {
             { .itfc = XCONF_XGW_NODE_1_SRV_PATH_0_ITFC, .band = XCONF_XGW_NODE_1_SRV_PATH_0_BAND, .mac = XCONF_XGW_NODE_1_SRV_PATH_0_MAC, .gw = XCONF_XGW_NODE_1_SRV_PATH_0_GW, .addr = {XCONF_XGW_NODE_1_SRV_PATH_0_ADDR_0,XCONF_XGW_NODE_1_SRV_PATH_0_ADDR_1,XCONF_XGW_NODE_1_SRV_PATH_0_ADDR_2,XCONF_XGW_NODE_1_SRV_PATH_0_ADDR_3}, .tos = XCONF_XGW_NODE_1_SRV_PATH_0_TOS, .ttl = XCONF_XGW_NODE_1_SRV_PATH_0_TTL, .port = PORT(1, 0), },
 #if XGW_PATHS_N > 1
             { .itfc = XCONF_XGW_NODE_1_SRV_PATH_1_ITFC, .band = XCONF_XGW_NODE_1_SRV_PATH_1_BAND, .mac = XCONF_XGW_NODE_1_SRV_PATH_1_MAC, .gw = XCONF_XGW_NODE_1_SRV_PATH_1_GW, .addr = {XCONF_XGW_NODE_1_SRV_PATH_1_ADDR_0,XCONF_XGW_NODE_1_SRV_PATH_1_ADDR_1,XCONF_XGW_NODE_1_SRV_PATH_1_ADDR_2,XCONF_XGW_NODE_1_SRV_PATH_1_ADDR_3}, .tos = XCONF_XGW_NODE_1_SRV_PATH_1_TOS, .ttl = XCONF_XGW_NODE_1_SRV_PATH_1_TTL, .port = PORT(1, 1), },
@@ -361,7 +361,7 @@ static rx_handler_result_t xgw_in (sk_buff_s** const pskb) {
         goto drop;
 
     // DECRYPT AND CONFIRM AUTHENTICITY
-    if (xgw_crypto_decode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize) != hdr->iHash)
+    if (xgw_crypto_decode(node->cryptoAlgo, &node->cryptoKey, payload, payloadSize) != hdr->iHash)
         goto drop;
 
     xgw_path_s* const path = &node->paths[pid];
@@ -533,7 +533,7 @@ static netdev_tx_t xgw_dev_start_xmit (sk_buff_s* const skb, net_device_s* const
         ], sizeof(xgw_path_s));
 
     // ENCRYPT AND AUTHENTIFY
-    hdr->iHash = xgw_crypto_encode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize);
+    hdr->iHash = xgw_crypto_encode(node->cryptoAlgo, &node->cryptoKey, payload, payloadSize);
     hdr->uSize  = BE16(payloadSize + UDP_HDR_SIZE);
     hdr->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
     hdr->iCksum = ip_fast_csum(PATH_IP(hdr), 5);
@@ -717,70 +717,8 @@ static void xgw_path_init (xgw_node_s* const restrict node, const uint nid, xgw_
 
 static void xgw_print_side (const char* const restrict sideName, const xgw_cfg_node_side_s* const restrict side) {
 
-    printk(" %s MTU %u PKTS %u ",
-        sideName, side->mtu, side->pkts);
-
-    switch (side->cryptoAlgo) {
-#if      XCONF_XGW_CRYPTO_ALGO_NULL0
-        case XGW_CRYPTO_ALGO_NULL0:
-            printk("CRYPTO ALGO NULL0");
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_NULLX
-        case XGW_CRYPTO_ALGO_NULLX:
-            printk("CRYPTO ALGO NULLX X 0x%016llX",
-                (uintll)side->cryptoParams.nullx.x);
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SUM32
-        case XGW_CRYPTO_ALGO_SUM32:
-            printk("CRYPTO ALGO SUM32");
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SUM64
-        case XGW_CRYPTO_ALGO_SUM64:
-            printk("CRYPTO ALGO SUM64");
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-        case XGW_CRYPTO_ALGO_SHIFT32_1:
-            printk("CRYPTO ALGO SHIFT32_1 KEYS 0x%016llX",
-                (uintll)side->cryptoParams.shift32_1.k);
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-        case XGW_CRYPTO_ALGO_SHIFT64_1:
-            printk("CRYPTO ALGO SHIFT64_1 KEYS 0x%016llX",
-                (uintll)side->cryptoParams.shift64_1.k);
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-        case XGW_CRYPTO_ALGO_SHIFT64_2:
-            printk("CRYPTO ALGO SHIFT64_2 KEYS 0x%016llX 0x%016llX",
-                (uintll)side->cryptoParams.shift64_2.a,
-                (uintll)side->cryptoParams.shift64_2.b);
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-        case XGW_CRYPTO_ALGO_SHIFT64_3:
-            printk("CRYPTO ALGO SHIFT64_3 KEYS 0x%016llX 0x%016llX 0x%016llX",
-                (uintll)side->cryptoParams.shift64_3.a,
-                (uintll)side->cryptoParams.shift64_3.b,
-                (uintll)side->cryptoParams.shift64_3.c);
-            break;
-#endif
-#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-        case XGW_CRYPTO_ALGO_SHIFT64_4:
-            printk("CRYPTO ALGO SHIFT64_4 KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX",
-                (uintll)side->cryptoParams.shift64_4.a,
-                (uintll)side->cryptoParams.shift64_4.b,
-                (uintll)side->cryptoParams.shift64_4.c,
-                (uintll)side->cryptoParams.shift64_4.d);
-            break;
-#endif
-        default:
-            printk("CRYPTO ALGO UNKNOWN");
-    }
+    printk(" %s MTU %u PKTS %u CRYPTO ALGO %s KEY %s",
+        sideName, side->mtu, side->pkts, "???", side->cryptoKey.str);
 }
 
 static void xgw_node_init (const xgw_cfg_node_s* const cfg, const uint nid) {
@@ -808,7 +746,7 @@ static void xgw_node_init (const xgw_cfg_node_s* const cfg, const uint nid) {
  // node->flows
  // node->paths
 
-    memcpy(&node->cryptoParams, &this->cryptoParams, sizeof(xgw_crypto_params_s));
+    memcpy(&node->cryptoKey, &this->cryptoKey, sizeof(xgw_crypto_params_s));
 
     // INITIALIZE ITS PATHS
     foreach (pid, XGW_PATHS_N)

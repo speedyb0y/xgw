@@ -45,6 +45,7 @@ static inline u64 unswap64 (u64 x, const u64 mask) {
 #define XGW_CRYPTO_PARAMS_SIZE 32
 
 typedef union xgw_crypto_params_s {
+     char str[XGW_CRYPTO_PARAMS_SIZE/sizeof(char)];
         u8 w8[XGW_CRYPTO_PARAMS_SIZE/sizeof(u8)];
       u16 w16[XGW_CRYPTO_PARAMS_SIZE/sizeof(u16)];
       u32 w32[XGW_CRYPTO_PARAMS_SIZE/sizeof(u32)];
