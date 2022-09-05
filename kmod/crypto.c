@@ -44,50 +44,51 @@ static inline u64 unswap64 (u64 x, const u64 mask) {
 
 #define XGW_CRYPTO_PARAMS_SIZE 32
 
-typedef union xtun_crypto_params_s { char _[XGW_CRYPTO_PARAMS_SIZE];
+typedef union xgw_crypto_params_s {
+         u8 _[XGW_CRYPTO_PARAMS_SIZE];
 #if XCONF_XGW_CRYPTO_ALGO_NULL0
     // NOTHING
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_NULLX
-    struct xtun_crypto_params_nullx_s {
+#if    XCONF_XGW_CRYPTO_ALGO_NULLX
+    struct xgw_crypto_params_nullx_s {
         u64 x;
     } nullx;
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-    struct xtun_crypto_params_shift32_1_s {
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
+    struct xgw_crypto_params_shift32_1_s {
         u32 k;
     } shift32_1;
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-    struct xtun_crypto_params_shift64_1_s {
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
+    struct xgw_crypto_params_shift64_1_s {
         u64 k;
     } shift64_1;
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-    struct xtun_crypto_params_shift64_2_s {
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
+    struct xgw_crypto_params_shift64_2_s {
         u64 a;
         u64 b;
     } shift64_2;
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-    struct xtun_crypto_params_shift64_3_s {
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
+    struct xgw_crypto_params_shift64_3_s {
         u64 a;
         u64 b;
         u64 c;
     } shift64_3;
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-    struct xtun_crypto_params_shift64_4_s {
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
+    struct xgw_crypto_params_shift64_4_s {
         u64 a;
         u64 b;
         u64 c;
         u64 d;
     } shift64_4;
 #endif
-} xtun_crypto_params_s;
+} xgw_crypto_params_s;
 
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift32_1_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     u32 k = params->shift32_1.k;
 
@@ -125,7 +126,7 @@ static u16 xtun_crypto_shift32_1_encode (const xtun_crypto_params_s* const restr
     return (u16)k;
 }
 
-static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift32_1_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     u32 k = params->shift32_1.k;
 
@@ -164,7 +165,7 @@ static u16 xtun_crypto_shift32_1_decode (const xtun_crypto_params_s* const restr
 
 
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift64_1_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     u64 k = params->shift64_1.k;
 
@@ -203,7 +204,7 @@ static u16 xtun_crypto_shift64_1_encode (const xtun_crypto_params_s* const restr
     return (u16)k;
 }
 
-static u16 xtun_crypto_shift64_1_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift64_1_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     u64 k = params->shift64_1.k;
 
@@ -242,7 +243,7 @@ static u16 xtun_crypto_shift64_1_decode (const xtun_crypto_params_s* const restr
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift64_4_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     u64 a = params->shift64_4.a;
     u64 b = params->shift64_4.b;
@@ -298,7 +299,7 @@ static u16 xtun_crypto_shift64_4_encode (const xtun_crypto_params_s* const restr
     return (u16)a;
 }
 
-static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift64_4_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     u64 a = params->shift64_4.a;
     u64 b = params->shift64_4.b;
@@ -354,7 +355,7 @@ static u16 xtun_crypto_shift64_4_decode (const xtun_crypto_params_s* const restr
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_NULL0
-static u16 xtun_crypto_null0_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_null0_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -363,7 +364,7 @@ static u16 xtun_crypto_null0_encode (const xtun_crypto_params_s* const restrict 
     return (u16)0;
 }
 
-static u16 xtun_crypto_null0_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_null0_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -374,7 +375,7 @@ static u16 xtun_crypto_null0_decode (const xtun_crypto_params_s* const restrict 
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_NULLX
-static u16 xtun_crypto_nullx_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_nullx_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -383,7 +384,7 @@ static u16 xtun_crypto_nullx_encode (const xtun_crypto_params_s* const restrict 
     return (u16)0;
 }
 
-static u16 xtun_crypto_nullx_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_nullx_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -394,7 +395,7 @@ static u16 xtun_crypto_nullx_decode (const xtun_crypto_params_s* const restrict 
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_SUM32
-static u16 xtun_crypto_sum32_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_sum32_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -403,7 +404,7 @@ static u16 xtun_crypto_sum32_encode (const xtun_crypto_params_s* const restrict 
     return (u16)0;
 }
 
-static u16 xtun_crypto_sum32_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_sum32_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -414,7 +415,7 @@ static u16 xtun_crypto_sum32_decode (const xtun_crypto_params_s* const restrict 
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_SUM64
-static u16 xtun_crypto_sum64_encode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_sum64_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -423,7 +424,7 @@ static u16 xtun_crypto_sum64_encode (const xtun_crypto_params_s* const restrict 
     return (u16)0;
 }
 
-static u16 xtun_crypto_sum64_decode (const xtun_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_sum64_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
 
     (void)params;
     (void)data;
@@ -433,35 +434,35 @@ static u16 xtun_crypto_sum64_decode (const xtun_crypto_params_s* const restrict 
 }
 #endif
 
-typedef enum xtun_crypto_algo_e {
+typedef enum xgw_crypto_algo_e {
 #if XCONF_XGW_CRYPTO_ALGO_NULL0
-        XGW_CRYPTO_ALGO_NULL0,
+          XGW_CRYPTO_ALGO_NULL0,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_NULLX
-        XGW_CRYPTO_ALGO_NULLX,
+          XGW_CRYPTO_ALGO_NULLX,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SUM32
-        XGW_CRYPTO_ALGO_SUM32,
+          XGW_CRYPTO_ALGO_SUM32,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SUM64
-        XGW_CRYPTO_ALGO_SUM64,
+          XGW_CRYPTO_ALGO_SUM64,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-        XGW_CRYPTO_ALGO_SHIFT32_1,
+          XGW_CRYPTO_ALGO_SHIFT32_1,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-        XGW_CRYPTO_ALGO_SHIFT64_1,
+          XGW_CRYPTO_ALGO_SHIFT64_1,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-        XGW_CRYPTO_ALGO_SHIFT64_2,
+          XGW_CRYPTO_ALGO_SHIFT64_2,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-        XGW_CRYPTO_ALGO_SHIFT64_3,
+          XGW_CRYPTO_ALGO_SHIFT64_3,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-        XGW_CRYPTO_ALGO_SHIFT64_4,
+          XGW_CRYPTO_ALGO_SHIFT64_4,
 #endif
-} xtun_crypto_algo_e;
+} xgw_crypto_algo_e;
 
 #define XGW_CRYPTO_ALGOS_N ( \
      XCONF_XGW_CRYPTO_ALGO_NULL0 \
@@ -477,65 +478,96 @@ typedef enum xtun_crypto_algo_e {
 
 #if XGW_CRYPTO_ALGOS_N > 1
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-typedef u16 (*xtun_crypto_algo_f) (const xtun_crypto_params_s* const restrict params, void* const restrict data, uint size);
+typedef u16 (*xgw_crypto_encode_f) (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size);
+typedef u16 (*xgw_crypto_decode_f) (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size);
 
-static const xtun_crypto_algo_f _xtun_encode [XGW_CRYPTO_ALGOS_N] = {
+static const xgw_crypto_decode_f _xgw_decode [XGW_CRYPTO_ALGOS_N] = {
 #if XCONF_XGW_CRYPTO_ALGO_NULL0
-             xtun_crypto_null0_encode,
+               xgw_crypto_null0_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_NULLX
-             xtun_crypto_nullx_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+               xgw_crypto_nullx_decode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SUM32
-             xtun_crypto_sum32_encode,
+               xgw_crypto_sum32_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SUM64
-             xtun_crypto_sum64_encode,
+               xgw_crypto_sum64_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-             xtun_crypto_shift32_1_encode,
+               xgw_crypto_shift32_1_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-             xtun_crypto_shift64_1_encode,
+               xgw_crypto_shift64_1_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-             xtun_crypto_shift64_2_encode,
+               xgw_crypto_shift64_2_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-             xtun_crypto_shift64_3_encode,
+               xgw_crypto_shift64_3_decode,
 #endif
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-             xtun_crypto_shift64_4_encode,
+               xgw_crypto_shift64_4_decode,
 #endif
 };
 
-#define xtun_crypto_encode(algo, params, data, size) _xtun_encode[algo](params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) _xtun_decode[algo](params, data, size)
+static const xgw_crypto_encode_f _xgw_encode [XGW_CRYPTO_ALGOS_N] = {
+#if XCONF_XGW_CRYPTO_ALGO_NULL0
+               xgw_crypto_null0_encode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_NULLX
+               xgw_crypto_nullx_encode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SUM32
+               xgw_crypto_sum32_encode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SUM64
+               xgw_crypto_sum64_encode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
+               xgw_crypto_shift32_1_encode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
+               xgw_crypto_shift64_1_encode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
+               xgw_crypto_shift64_2_encode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
+               xgw_crypto_shift64_3_encode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
+               xgw_crypto_shift64_4_encode,
+#endif
+};
+
+#define xgw_crypto_encode(algo, params, data, size) _xgw_encode[algo](params, data, size)
+#define xgw_crypto_decode(algo, params, data, size) _xgw_decode[algo](params, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_NULL0
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_null0_encode(data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_null0_decode(data, size)
+#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_null0_encode(data, size)
+#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_null0_decode(data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_NULLX
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_nullx_encode(params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_nullx_decode(params, data, size)
+#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_nullx_encode(params, data, size)
+#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_nullx_decode(params, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SUM32
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_sum32_encode(params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_sum32_decode(params, data, size)
+#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_sum32_encode(params, data, size)
+#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_sum32_decode(params, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SUM64
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_sum64_encode(params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_sum64_decode(params, data, size)
+#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_sum64_encode(params, data, size)
+#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_sum64_decode(params, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift32_1_encode(params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift32_1_decode(params, data, size)
+#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift32_1_encode(params, data, size)
+#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift32_1_decode(params, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift64_1_encode(params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift64_1_decode(params, data, size)
+#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift64_1_encode(params, data, size)
+#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift64_1_decode(params, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift64_2_encode(params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift64_2_decode(params, data, size)
+#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift64_2_encode(params, data, size)
+#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift64_2_decode(params, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift64_3_encode(params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift64_3_decode(params, data, size)
+#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift64_3_encode(params, data, size)
+#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift64_3_decode(params, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-#define xtun_crypto_encode(algo, params, data, size) xtun_crypto_shift64_4_encode(params, data, size)
-#define xtun_crypto_decode(algo, params, data, size) xtun_crypto_shift64_4_decode(params, data, size)
+#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift64_4_encode(params, data, size)
+#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift64_4_decode(params, data, size)
 #endif

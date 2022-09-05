@@ -102,8 +102,8 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 //
 #if 0
-#define XGW_DEV_PRIV_SIZE sizeof(xtun_node_s*)
-#define XGW_DEV_NODE(dev) (*(xtun_node_s**)netdev_priv(dev))
+#define XGW_DEV_PRIV_SIZE sizeof(xgw_node_s*)
+#define XGW_DEV_NODE(dev) (*(xgw_node_s**)netdev_priv(dev))
 #else
 #define XGW_DEV_PRIV_SIZE 0
 #define XGW_DEV_NODE(dev) ((dev)->rx_handler_data)
@@ -133,7 +133,7 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define FLAGS_IS_UP(f) (((f) & (XGW_PATH_F_UP | XGW_PATH_F_UP_AUTO | XGW_PATH_F_UP_ITFC)) \
                             == (XGW_PATH_F_UP | XGW_PATH_F_UP_AUTO | XGW_PATH_F_UP_ITFC))
 
-typedef struct xtun_path_s {
+typedef struct xgw_path_s {
     net_device_s* itfc;
 #if XGW_SERVER
     u64 hash; // THE PATH HASH
@@ -163,16 +163,16 @@ typedef struct xtun_path_s {
     u16 uDst; // THE XGW_SERVER PORT WILL DETERMINE THE NODE AND PATH
     u16 uSize;
     u16 uCksum;
-} xtun_path_s;
+} xgw_path_s;
 
 #define XGW_FLOWS_N 64
 
 // EXPECTED SIZE
 #define XGW_NODE_SIZE ((2 + XGW_PATHS_N)*CACHE_LINE_SIZE)
 
-typedef struct xtun_node_s {
+typedef struct xgw_node_s {
     net_device_s* dev;
-    xtun_crypto_params_s cryptoParams;
+    xgw_crypto_params_s cryptoParams;
     u64 reserved2;
     u16 cryptoAlgo;
     u16 reserved;
@@ -181,10 +181,10 @@ typedef struct xtun_node_s {
     u32 flowRemaining; // QUANTOS PACOTES ENVIAR ATÉ AVANÇAR O FLOW SHIFT
     u32 flowPackets; // O QUE USAR COMO FLOW REMAINING
     u8  flows[XGW_FLOWS_N]; // MAPA FLOW ID -> PATH ID
-    xtun_path_s paths[XGW_PATHS_N];
-} xtun_node_s;
+    xgw_path_s paths[XGW_PATHS_N];
+} xgw_node_s;
 
-typedef struct xtun_cfg_path_s {
+typedef struct xgw_cfg_path_s {
     char itfc[IFNAMSIZ];
     u8 mac[ETH_ALEN];
     u8 gw[ETH_ALEN];
@@ -193,29 +193,29 @@ typedef struct xtun_cfg_path_s {
     u8 tos;
     u8 ttl;
     uint band; // TOTAL DE PACOTES A CADA CIRCULADA
-} xtun_cfg_path_s;
+} xgw_cfg_path_s;
 
-typedef struct xtun_cfg_node_srv_s {
+typedef struct xgw_cfg_node_srv_s {
     uint mtu;
     uint pkts;
-    xtun_crypto_params_s cryptoParams;
-    xtun_crypto_algo_e cryptoAlgo;
-    xtun_cfg_path_s paths[XGW_PATHS_N];
-} xtun_cfg_node_side_s;
+    xgw_crypto_params_s cryptoParams;
+    xgw_crypto_algo_e cryptoAlgo;
+    xgw_cfg_path_s paths[XGW_PATHS_N];
+} xgw_cfg_node_side_s;
 
-typedef struct xtun_cfg_node_s {
+typedef struct xgw_cfg_node_s {
     uint id;
     char name[IFNAMSIZ];
-    xtun_cfg_node_side_s clt;
-    xtun_cfg_node_side_s srv;
-} xtun_cfg_node_s;
+    xgw_cfg_node_side_s clt;
+    xgw_cfg_node_side_s srv;
+} xgw_cfg_node_s;
 
 #if XGW_SERVER
 #define NODE_ID(node) ((uint)((node) - nodes))
-static xtun_node_s nodes[XGW_NODES_N];
+static xgw_node_s nodes[XGW_NODES_N];
 #else
 #define NODE_ID(node) XGW_NODE_ID
-static xtun_node_s node[1];
+static xgw_node_s node[1];
 #endif
 
 #if XGW_SERVER
@@ -224,7 +224,7 @@ static xtun_node_s node[1];
 #define CONF_ID(nid) .id = (nid), .name = "xgw"
 #endif
 
-static const xtun_cfg_node_s cfgNodes[] = {
+static const xgw_cfg_node_s cfgNodes[] = {
 #if (XGW_SERVER && XGW_NODES_N > 1) || XGW_NODE_ID == 1
     { CONF_ID(1),
         .clt = { .mtu = XCONF_XGW_NODE_1_CLT_MTU, .pkts = XCONF_XGW_NODE_1_CLT_PKTS, .cryptoAlgo = XGW_CRYPTO_ALGO_NULL0, .paths = {
@@ -255,7 +255,7 @@ static const xtun_cfg_node_s cfgNodes[] = {
 #endif
 };
 
-static void xtun_node_flows_update (xtun_node_s* const node) {
+static void xgw_node_flows_update (xgw_node_s* const node) {
 
     uint total = 0;
     uint maiorB = 0;
@@ -300,7 +300,7 @@ static void xtun_node_flows_update (xtun_node_s* const node) {
         NODE_ID(node), node->flowPackets, node->flowRemaining, flowsStr);
 }
 
-static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
+static rx_handler_result_t xgw_in (sk_buff_s** const pskb) {
 
     sk_buff_s* const skb = *pskb;
 
@@ -310,7 +310,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
     if (skb_linearize(skb))
         goto drop;
 
-    const xtun_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xtun_path_s);
+    const xgw_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xgw_path_s);
 
     XGW_ASSERT(PTR(skb_network_header(skb)) == skb->data);
     XGW_ASSERT((PTR(skb_network_header(skb)) + skb->len) == SKB_TAIL(skb));
@@ -344,7 +344,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         return RX_HANDLER_PASS;
 
 #if XGW_SERVER
-    xtun_node_s* const node = &nodes[nid];
+    xgw_node_s* const node = &nodes[nid];
 #endif
 
     // CONFIRM WE HAVE THIS TUNNEL
@@ -352,7 +352,7 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         goto drop;
 
     // THE PAYLOAD IS JUST AFTER OUR ENCAPSULATION
-    void* const payload = PTR(hdr) + sizeof(xtun_path_s);
+    void* const payload = PTR(hdr) + sizeof(xgw_path_s);
     // THE PAYLOAD SIZE IS EVERYTHING EXCEPT OUR ENCAPSULATION
     const uint payloadSize = BE16(hdr->iSize) - IP4_HDR_SIZE - UDP_HDR_SIZE;
 
@@ -361,15 +361,15 @@ static rx_handler_result_t xtun_in (sk_buff_s** const pskb) {
         goto drop;
 
     // DECRYPT AND CONFIRM AUTHENTICITY
-    if (xtun_crypto_decode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize) != hdr->iHash)
+    if (xgw_crypto_decode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize) != hdr->iHash)
         goto drop;
 
-    xtun_path_s* const path = &node->paths[pid];
+    xgw_path_s* const path = &node->paths[pid];
 
     // DETECT AND UPDATE PATH AVAILABILITY
     if (unlikely(!(path->flags & XGW_PATH_F_UP_AUTO))) {
         path->flags |= XGW_PATH_F_UP_AUTO; // TODO: FIXME: IMPLEMENTAR E USAR ISSO
-        xtun_node_flows_update(node);
+        xgw_node_flows_update(node);
     }
 #if XGW_SERVER
     // DETECT AND UPDATE PATH CHANGES
@@ -457,7 +457,7 @@ drop:
 // WE ONLY ALLOW IPV4/IPV6
 // WE ONLY ALLOW IPV4 WITHOUT OPTIONS
 // WE ONLY ALLOW TRANSPORTS TCP/UDP/SCTP/DCCP
-static uint xtun_flow_hash (const u64 payload[]) {
+static uint xgw_flow_hash (const u64 payload[]) {
 
     u64 hash;
 
@@ -479,18 +479,18 @@ static uint xtun_flow_hash (const u64 payload[]) {
     return (uint)hash;
 }
 
-static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* const dev) {
+static netdev_tx_t xgw_dev_start_xmit (sk_buff_s* const skb, net_device_s* const dev) {
 
-    // ASSERT: skb->len <= xtun->mtu
-    // ASSERT: skb->len <= xtun->dev->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
-    // ASSERT: skb->len <= xtun->path->itfc->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
+    // ASSERT: skb->len <= xgw->mtu
+    // ASSERT: skb->len <= xgw->dev->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
+    // ASSERT: skb->len <= xgw->path->itfc->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
 
     void* const payload = skb->data;
     const uint payloadSize = skb->len;
 
-    xtun_path_s* const hdr = PTR(payload) - sizeof(xtun_path_s);
+    xgw_path_s* const hdr = PTR(payload) - sizeof(xgw_path_s);
 #if XGW_SERVER
-    xtun_node_s* const node = XGW_DEV_NODE(dev);
+    xgw_node_s* const node = XGW_DEV_NODE(dev);
 #endif
 
     XGW_ASSERT(!skb->data_len);
@@ -527,13 +527,13 @@ static netdev_tx_t xtun_dev_start_xmit (sk_buff_s* const skb, net_device_s* cons
                                 ? // FLOW BY MARK
                                 skb->mark
                                 : // FLOW BY HASH
-                                xtun_flow_hash(payload)
+                                xgw_flow_hash(payload)
                         )) % XGW_FLOWS_N]
             ) % XGW_PATHS_N
-        ], sizeof(xtun_path_s));
+        ], sizeof(xgw_path_s));
 
     // ENCRYPT AND AUTHENTIFY
-    hdr->iHash = xtun_crypto_encode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize);
+    hdr->iHash = xgw_crypto_encode(node->cryptoAlgo, &node->cryptoParams, payload, payloadSize);
     hdr->uSize  = BE16(payloadSize + UDP_HDR_SIZE);
     hdr->iSize  = BE16(payloadSize + UDP_HDR_SIZE + IP4_HDR_SIZE);
     hdr->iCksum = ip_fast_csum(PATH_IP(hdr), 5);
@@ -568,41 +568,41 @@ drop:
     return NETDEV_TX_OK;
 }
 
-static int xtun_dev_up (net_device_s* const dev) {
+static int xgw_dev_up (net_device_s* const dev) {
 
     return 0;
 }
 
-static int xtun_dev_down (net_device_s* const dev) {
+static int xgw_dev_down (net_device_s* const dev) {
 
     return 0;
 }
 
-static int xtun_dev_header_create (sk_buff_s *skb, net_device_s *dev, unsigned short type, const void *daddr, const void *saddr, uint len) {
+static int xgw_dev_header_create (sk_buff_s *skb, net_device_s *dev, unsigned short type, const void *daddr, const void *saddr, uint len) {
 
     return 0;
 }
 
-static const header_ops_s xtunHeaderOps = {
-    .create = xtun_dev_header_create,
+static const header_ops_s xgwHeaderOps = {
+    .create = xgw_dev_header_create,
 };
 
-static const net_device_ops_s xtunDevOps = {
+static const net_device_ops_s xgwDevOps = {
     .ndo_init             =  NULL,
-    .ndo_open             =  xtun_dev_up,
-    .ndo_stop             =  xtun_dev_down,
-    .ndo_start_xmit       =  xtun_dev_start_xmit,
+    .ndo_open             =  xgw_dev_up,
+    .ndo_stop             =  xgw_dev_down,
+    .ndo_start_xmit       =  xgw_dev_start_xmit,
     .ndo_set_mac_address  =  NULL,
     // TODO: SET MTU - NAO PODE SER MAIOR QUE A INTERFACE DE CIMA
 };
 
-static void xtun_dev_setup (net_device_s* const dev) {
+static void xgw_dev_setup (net_device_s* const dev) {
 
-    dev->netdev_ops      = &xtunDevOps;
-    dev->header_ops      = &xtunHeaderOps;
+    dev->netdev_ops      = &xgwDevOps;
+    dev->header_ops      = &xgwHeaderOps;
     dev->type            = ARPHRD_NONE;
-    dev->hard_header_len = sizeof(xtun_path_s); // ETH_HLEN
-    dev->min_header_len  = sizeof(xtun_path_s);
+    dev->hard_header_len = sizeof(xgw_path_s); // ETH_HLEN
+    dev->min_header_len  = sizeof(xgw_path_s);
     dev->mtu             = ETH_DATA_LEN - XGW_PATH_SIZE_WIRE;
     dev->min_mtu         = ETH_MIN_MTU  - XGW_PATH_SIZE_WIRE;
     dev->max_mtu         = ETH_MAX_MTU  - XGW_PATH_SIZE_WIRE;
@@ -628,10 +628,10 @@ static void xtun_dev_setup (net_device_s* const dev) {
 #define peerPath spath
 #endif
 
-static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xtun_path_s* const restrict path, const uint pid, const xtun_cfg_node_s* const restrict cfg) {
+static void xgw_path_init (xgw_node_s* const restrict node, const uint nid, xgw_path_s* const restrict path, const uint pid, const xgw_cfg_node_s* const restrict cfg) {
 
-    const xtun_cfg_path_s* const cpath = &cfg->clt.paths[pid];
-    const xtun_cfg_path_s* const spath = &cfg->srv.paths[pid];
+    const xgw_cfg_path_s* const cpath = &cfg->clt.paths[pid];
+    const xgw_cfg_path_s* const spath = &cfg->srv.paths[pid];
 
     printk("XGW: NODE %u: PATH %u: INITIALIZING\n"
         " THIS BAND %8u ITFC %16s MAC %02X:%02X:%02X:%02X:%02X:%02X GW %02X:%02X:%02X:%02X:%02X:%02X IP %u.%u.%u.%u PORT %5u TOS 0x%02X TTL %3u\n"
@@ -689,14 +689,14 @@ static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xt
         rtnl_lock();
 
         // HOOK INTERFACE
-        if (rcu_dereference(itfc->rx_handler) != xtun_in) {
+        if (rcu_dereference(itfc->rx_handler) != xgw_in) {
             // NOT HOOKED YET
-            if (!netdev_rx_handler_register(itfc, xtun_in, NULL)) {
+            if (!netdev_rx_handler_register(itfc, xgw_in, NULL)) {
                 // HOOK SUCCESS
                 // NOTE: ISSO É PARA QUE POSSA DAR FORWARD NOS PACOTES
                 // NOTE: A INTERFACE JA TEM O ETH_HLEN
-                itfc->hard_header_len += sizeof(xtun_path_s) - ETH_HLEN;
-                itfc->min_header_len  += sizeof(xtun_path_s) - ETH_HLEN;
+                itfc->hard_header_len += sizeof(xgw_path_s) - ETH_HLEN;
+                itfc->min_header_len  += sizeof(xgw_path_s) - ETH_HLEN;
                 //
                 path->itfc = itfc;
             }
@@ -715,7 +715,7 @@ static void xtun_path_init (xtun_node_s* const restrict node, const uint nid, xt
         printk("XGW: NODE %u: PATH %u: INTERFACE NOT FOUND\n", nid, pid);
 }
 
-static void xtun_print_side (const char* const restrict sideName, const xtun_cfg_node_side_s* const restrict side) {
+static void xgw_print_side (const char* const restrict sideName, const xgw_cfg_node_side_s* const restrict side) {
 
     printk(" %s MTU %u PKTS %u ",
         sideName, side->mtu, side->pkts);
@@ -783,18 +783,18 @@ static void xtun_print_side (const char* const restrict sideName, const xtun_cfg
     }
 }
 
-static void xtun_node_init (const xtun_cfg_node_s* const cfg, const uint nid) {
+static void xgw_node_init (const xgw_cfg_node_s* const cfg, const uint nid) {
 
-    const xtun_cfg_node_side_s* const clt = &cfg->clt;
-    const xtun_cfg_node_side_s* const srv = &cfg->srv;
+    const xgw_cfg_node_side_s* const clt = &cfg->clt;
+    const xgw_cfg_node_side_s* const srv = &cfg->srv;
 #if XGW_SERVER
-    xtun_node_s* const node = &nodes[nid];
+    xgw_node_s* const node = &nodes[nid];
 #endif
 
     printk("XGW: NODE %u: INITIALIZING WITH NAME %s", nid, cfg->name);
 
-    xtun_print_side("THIS", this);
-    xtun_print_side("PEER", peer);
+    xgw_print_side("THIS", this);
+    xgw_print_side("PEER", peer);
 
     node->dev           = NULL;
     node->mtu           = this->mtu;
@@ -808,16 +808,16 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg, const uint nid) {
  // node->flows
  // node->paths
 
-    memcpy(&node->cryptoParams, &this->cryptoParams, sizeof(xtun_crypto_params_s));
+    memcpy(&node->cryptoParams, &this->cryptoParams, sizeof(xgw_crypto_params_s));
 
     // INITIALIZE ITS PATHS
     foreach (pid, XGW_PATHS_N)
-        xtun_path_init(node, nid, &node->paths[pid], pid, cfg);
+        xgw_path_init(node, nid, &node->paths[pid], pid, cfg);
     // INITIALIZE ITS FLOWS
-    xtun_node_flows_update(node);
+    xgw_node_flows_update(node);
 
     // CREATE THE VIRTUAL INTERFACE
-    net_device_s* const dev = alloc_netdev(XGW_DEV_PRIV_SIZE, cfg->name, NET_NAME_USER, xtun_dev_setup);
+    net_device_s* const dev = alloc_netdev(XGW_DEV_PRIV_SIZE, cfg->name, NET_NAME_USER, xgw_dev_setup);
 
     if (!dev) {
         printk("XGW: NODE %u: CREATE FAILED - COULD NOT ALLOCATE\n", nid);
@@ -839,7 +839,7 @@ static void xtun_node_init (const xtun_cfg_node_s* const cfg, const uint nid) {
         node->dev = dev;
 }
 
-static int __init xtun_init(void) {
+static int __init xgw_init(void) {
 
 #if XGW_SERVER
     printk("XGW: SERVER INIT\n");
@@ -847,9 +847,9 @@ static int __init xtun_init(void) {
     printk("XGW: CLIENT INIT\n");
 #endif
 
-    BUILD_BUG_ON(sizeof(xtun_crypto_params_s) != XGW_CRYPTO_PARAMS_SIZE);
-    BUILD_BUG_ON(sizeof(xtun_path_s) != XGW_PATH_SIZE);
-    BUILD_BUG_ON(sizeof(xtun_node_s) != XGW_NODE_SIZE);
+    BUILD_BUG_ON(sizeof(xgw_crypto_params_s) != XGW_CRYPTO_PARAMS_SIZE);
+    BUILD_BUG_ON(sizeof(xgw_path_s) != XGW_PATH_SIZE);
+    BUILD_BUG_ON(sizeof(xgw_node_s) != XGW_NODE_SIZE);
 
     // INITIALIZE TUNNELS
     //
@@ -860,17 +860,17 @@ static int __init xtun_init(void) {
 #endif
     //
     foreach (i, ARRAY_COUNT(cfgNodes))
-        xtun_node_init(&cfgNodes[i], cfgNodes[i].id);
+        xgw_node_init(&cfgNodes[i], cfgNodes[i].id);
 
     return 0;
 }
 
-static void __exit xtun_exit(void) {
+static void __exit xgw_exit(void) {
 
 }
 
-module_init(xtun_init);
-module_exit(xtun_exit);
+module_init(xgw_init);
+module_exit(xgw_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("speedyb0y");
