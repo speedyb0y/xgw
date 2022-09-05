@@ -447,7 +447,7 @@ drop:
 // WE ONLY ALLOW IPV4/IPV6
 // WE ONLY ALLOW IPV4 WITHOUT OPTIONS
 // WE ONLY ALLOW TRANSPORTS TCP/UDP/SCTP/DCCP
-static uint xtun_flow_hash (const u64* const payload) {
+static uint xtun_flow_hash (const u64 payload[]) {
 
     u64 hash;
 
