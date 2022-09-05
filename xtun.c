@@ -457,11 +457,10 @@ static uint xtun_flow_hash (const void* const payload) {
         hash += *(u32*)(payload + 20); // TRANSPORT SOURCE AND DESTINATION PORTS
     } else { // IPV6
 #if 0
-        hash  = *(u64* )(payload    ) & 0xF00FFFFFFFFFFFFFULL; // IP VERSION + FLOW LABEL
+        hash  = *(u64*)(payload +  0) & 0xF00FFFFF0000FF00ULL; // IP VERSION + FLOW LABEL + IP PROTOCOL
 #else
-        hash  = *(u64* )(payload    ) & 0xFFFFFFFFFFFF0F0FULL; // IP VERSION + FLOW LABEL
-#endif
-        hash += *(u8* )(payload +  6); // IP PROTOCOL
+        hash  = *(u64*)(payload +  0) & 0x00FF0000FFFF0FF0ULL; // IP VERSION + FLOW LABEL + IP PROTOCOL
+#endif                                 
         hash += *(u64*)(payload +  8); // IP SOURCE
         hash += *(u64*)(payload + 16); // IP SOURCE
         hash += *(u64*)(payload + 24); // IP DESTINATION
