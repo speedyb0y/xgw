@@ -44,25 +44,25 @@ static inline u64 unswap64 (u64 x, const u64 mask) {
 
 #define XGW_CRYPTO_PARAMS_SIZE 32
 
-typedef union xgw_crypto_params_s {
+typedef union xgw_crypto_key_s {
      char str[XGW_CRYPTO_PARAMS_SIZE/sizeof(char)];
         u8 w8[XGW_CRYPTO_PARAMS_SIZE/sizeof(u8)];
       u16 w16[XGW_CRYPTO_PARAMS_SIZE/sizeof(u16)];
       u32 w32[XGW_CRYPTO_PARAMS_SIZE/sizeof(u32)];
       u64 w64[XGW_CRYPTO_PARAMS_SIZE/sizeof(u64)];
-} xgw_crypto_params_s;
+} xgw_crypto_key_s;
 
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-static u16 xgw_crypto_shift32_1_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift32_1_encode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    u32 k = params->w32[0]
-          + params->w32[1]
-          + params->w32[2]
-          + params->w32[3]
-          + params->w32[4]
-          + params->w32[5]
-          + params->w32[6]
-          + params->w32[7]
+    u32 k = key->w32[0]
+          + key->w32[1]
+          + key->w32[2]
+          + key->w32[3]
+          + key->w32[4]
+          + key->w32[5]
+          + key->w32[6]
+          + key->w32[7]
     ;
 
     k += swap32(k, size);
@@ -99,16 +99,16 @@ static u16 xgw_crypto_shift32_1_encode (const xgw_crypto_params_s* const restric
     return (u16)k;
 }
 
-static u16 xgw_crypto_shift32_1_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift32_1_decode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    u32 k = params->w32[0]
-          + params->w32[1]
-          + params->w32[2]
-          + params->w32[3]
-          + params->w32[4]
-          + params->w32[5]
-          + params->w32[6]
-          + params->w32[7]
+    u32 k = key->w32[0]
+          + key->w32[1]
+          + key->w32[2]
+          + key->w32[3]
+          + key->w32[4]
+          + key->w32[5]
+          + key->w32[6]
+          + key->w32[7]
     ;
 
     k += swap32(k, size);
@@ -146,12 +146,12 @@ static u16 xgw_crypto_shift32_1_decode (const xgw_crypto_params_s* const restric
 
 
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-static u16 xgw_crypto_shift64_1_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift64_1_encode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    u64 k = params->w64[0]
-          + params->w64[1]
-          + params->w64[2]
-          + params->w64[3]
+    u64 k = key->w64[0]
+          + key->w64[1]
+          + key->w64[2]
+          + key->w64[3]
     ;
 
     k += swap64(k, size);
@@ -189,12 +189,12 @@ static u16 xgw_crypto_shift64_1_encode (const xgw_crypto_params_s* const restric
     return (u16)k;
 }
 
-static u16 xgw_crypto_shift64_1_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift64_1_decode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    u64 k = params->w64[0]
-          + params->w64[1]
-          + params->w64[2]
-          + params->w64[3]
+    u64 k = key->w64[0]
+          + key->w64[1]
+          + key->w64[2]
+          + key->w64[3]
     ;
 
     k += swap64(k, size);
@@ -232,12 +232,12 @@ static u16 xgw_crypto_shift64_1_decode (const xgw_crypto_params_s* const restric
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-static u16 xgw_crypto_shift64_4_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift64_4_encode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    u64 a = params->w64[0];
-    u64 b = params->w64[1];
-    u64 c = params->w64[2];
-    u64 d = params->w64[3];
+    u64 a = key->w64[0];
+    u64 b = key->w64[1];
+    u64 c = key->w64[2];
+    u64 d = key->w64[3];
 
     a += swap64(d, size);
     b += swap64(c, size);
@@ -288,12 +288,12 @@ static u16 xgw_crypto_shift64_4_encode (const xgw_crypto_params_s* const restric
     return (u16)a;
 }
 
-static u16 xgw_crypto_shift64_4_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_shift64_4_decode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    u64 a = params->w64[0];
-    u64 b = params->w64[1];
-    u64 c = params->w64[2];
-    u64 d = params->w64[3];
+    u64 a = key->w64[0];
+    u64 b = key->w64[1];
+    u64 c = key->w64[2];
+    u64 d = key->w64[3];
 
     a += swap64(d, size);
     b += swap64(c, size);
@@ -344,18 +344,18 @@ static u16 xgw_crypto_shift64_4_decode (const xgw_crypto_params_s* const restric
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_NULL0
-static u16 xgw_crypto_null0_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_null0_encode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    (void)params;
+    (void)key;
     (void)data;
     (void)size;
 
     return (u16)0;
 }
 
-static u16 xgw_crypto_null0_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_null0_decode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    (void)params;
+    (void)key;
     (void)data;
     (void)size;
 
@@ -364,18 +364,18 @@ static u16 xgw_crypto_null0_decode (const xgw_crypto_params_s* const restrict pa
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_NULLX
-static u16 xgw_crypto_nullx_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_nullx_encode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    (void)params;
+    (void)key;
     (void)data;
     (void)size;
 
     return (u16)0;
 }
 
-static u16 xgw_crypto_nullx_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_nullx_decode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    (void)params;
+    (void)key;
     (void)data;
     (void)size;
 
@@ -384,18 +384,18 @@ static u16 xgw_crypto_nullx_decode (const xgw_crypto_params_s* const restrict pa
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_SUM32
-static u16 xgw_crypto_sum32_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_sum32_encode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    (void)params;
+    (void)key;
     (void)data;
     (void)size;
 
     return (u16)0;
 }
 
-static u16 xgw_crypto_sum32_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_sum32_decode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    (void)params;
+    (void)key;
     (void)data;
     (void)size;
 
@@ -404,18 +404,18 @@ static u16 xgw_crypto_sum32_decode (const xgw_crypto_params_s* const restrict pa
 #endif
 
 #if XCONF_XGW_CRYPTO_ALGO_SUM64
-static u16 xgw_crypto_sum64_encode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_sum64_encode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    (void)params;
+    (void)key;
     (void)data;
     (void)size;
 
     return (u16)0;
 }
 
-static u16 xgw_crypto_sum64_decode (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size) {
+static u16 xgw_crypto_sum64_decode (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-    (void)params;
+    (void)key;
     (void)data;
     (void)size;
 
@@ -465,40 +465,95 @@ typedef enum xgw_crypto_algo_e {
    + XCONF_XGW_CRYPTO_ALGO_SHIFT64_4 \
     )
 
-#if XGW_CRYPTO_ALGOS_N > 1
 // RETORNA: HASH OF SECRET + KEY + SIZE + ORIGINAL
-typedef u16 (*xgw_crypto_encode_f) (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size);
-typedef u16 (*xgw_crypto_decode_f) (const xgw_crypto_params_s* const restrict params, void* restrict data, uint size);
+#if XGW_CRYPTO_ALGOS_N > 1
+#if XCONF_XGW_CRYPTO_INLINE
+static inline u16 xgw_crypto_encode (const xgw_crypto_algo_e algo, const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
 
-static const xgw_crypto_decode_f _xgw_decode [XGW_CRYPTO_ALGOS_N] = {
-#if XCONF_XGW_CRYPTO_ALGO_NULL0
-               xgw_crypto_null0_decode,
+    switch (algo) { default:
+#if    XCONF_XGW_CRYPTO_ALGO_NULL0
+        case XGW_CRYPTO_ALGO_NULL0:
+           return xgw_crypto_null0_encode(key, data, size);
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_NULLX
-               xgw_crypto_nullx_decode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+#if    XCONF_XGW_CRYPTO_ALGO_NULLX
+        case XGW_CRYPTO_ALGO_NULLX:
+           return xgw_crypto_nullX_encode(key, data, size);
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SUM32
-               xgw_crypto_sum32_decode,
+#if    XCONF_XGW_CRYPTO_ALGO_SUM32
+        case XGW_CRYPTO_ALGO_SUM32:
+           return xgw_crypto_sum32_encode(key, data, size);
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SUM64
-               xgw_crypto_sum64_decode,
+#if    XCONF_XGW_CRYPTO_ALGO_SUM64
+        case XGW_CRYPTO_ALGO_SUM64:
+           return xgw_crypto_sum64_encode(key, data, size);
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-               xgw_crypto_shift32_1_decode,
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
+        case XGW_CRYPTO_ALGO_SHIFT32_1:
+           return xgw_crypto_shift32_1_encode(key, data, size);
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-               xgw_crypto_shift64_1_decode,
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
+        case XGW_CRYPTO_ALGO_SHIFT64_1:
+           return xgw_crypto_shift64_1_encode(key, data, size);
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-               xgw_crypto_shift64_2_decode,
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
+        case XGW_CRYPTO_ALGO_SHIFT64_2:
+           return xgw_crypto_shift64_2_encode(key, data, size);
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-               xgw_crypto_shift64_3_decode,
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
+        case XGW_CRYPTO_ALGO_SHIFT64_3:
+           return xgw_crypto_shift64_3_encode(key, data, size);
 #endif
-#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-               xgw_crypto_shift64_4_decode,
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
+        case XGW_CRYPTO_ALGO_SHIFT64_4:
+           return xgw_crypto_shift64_4_encode(key, data, size);
 #endif
-};
+    }
+}
+
+static inline u16 xgw_crypto_decode (const xgw_crypto_algo_e algo, const xgw_crypto_key_s* const restrict key, void* restrict data, uint size) {
+
+    switch (algo) { default:
+#if    XCONF_XGW_CRYPTO_ALGO_NULL0
+        case XGW_CRYPTO_ALGO_NULL0:
+           return xgw_crypto_null0_decode(key, data, size);
+#endif
+#if    XCONF_XGW_CRYPTO_ALGO_NULLX
+        case XGW_CRYPTO_ALGO_NULLX:
+           return xgw_crypto_nullX_decode(key, data, size);
+#endif
+#if    XCONF_XGW_CRYPTO_ALGO_SUM32
+        case XGW_CRYPTO_ALGO_SUM32:
+           return xgw_crypto_sum32_decode(key, data, size);
+#endif
+#if    XCONF_XGW_CRYPTO_ALGO_SUM64
+        case XGW_CRYPTO_ALGO_SUM64:
+           return xgw_crypto_sum64_decode(key, data, size);
+#endif
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
+        case XGW_CRYPTO_ALGO_SHIFT32_1:
+           return xgw_crypto_shift32_1_decode(key, data, size);
+#endif
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
+        case XGW_CRYPTO_ALGO_SHIFT64_1:
+           return xgw_crypto_shift64_1_decode(key, data, size);
+#endif
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
+        case XGW_CRYPTO_ALGO_SHIFT64_2:
+           return xgw_crypto_shift64_2_decode(key, data, size);
+#endif
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
+        case XGW_CRYPTO_ALGO_SHIFT64_3:
+           return xgw_crypto_shift64_3_decode(key, data, size);
+#endif
+#if    XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
+        case XGW_CRYPTO_ALGO_SHIFT64_4:
+           return xgw_crypto_shift64_4_decode(key, data, size);
+#endif
+    }
+}
+#else
+typedef u16 (*xgw_crypto_encode_f) (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size);
+typedef u16 (*xgw_crypto_decode_f) (const xgw_crypto_key_s* const restrict key, void* restrict data, uint size);
 
 static const xgw_crypto_encode_f _xgw_encode [XGW_CRYPTO_ALGOS_N] = {
 #if XCONF_XGW_CRYPTO_ALGO_NULL0
@@ -530,33 +585,64 @@ static const xgw_crypto_encode_f _xgw_encode [XGW_CRYPTO_ALGOS_N] = {
 #endif
 };
 
-#define xgw_crypto_encode(algo, params, data, size) _xgw_encode[algo](params, data, size)
-#define xgw_crypto_decode(algo, params, data, size) _xgw_decode[algo](params, data, size)
+static const xgw_crypto_decode_f _xgw_decode [XGW_CRYPTO_ALGOS_N] = {
+#if XCONF_XGW_CRYPTO_ALGO_NULL0
+               xgw_crypto_null0_decode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_NULLX
+               xgw_crypto_nullx_decode, // TODO: FIXME: NESTE MODO SOMENTE COMPUTAR UM CHECKSUM
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SUM32
+               xgw_crypto_sum32_decode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SUM64
+               xgw_crypto_sum64_decode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
+               xgw_crypto_shift32_1_decode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
+               xgw_crypto_shift64_1_decode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
+               xgw_crypto_shift64_2_decode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
+               xgw_crypto_shift64_3_decode,
+#endif
+#if XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
+               xgw_crypto_shift64_4_decode,
+#endif
+};
+
+#define xgw_crypto_encode(algo, key, data, size) _xgw_encode[algo](key, data, size)
+#define xgw_crypto_decode(algo, key, data, size) _xgw_decode[algo](key, data, size)
+#endif
 #elif XCONF_XGW_CRYPTO_ALGO_NULL0
-#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_null0_encode(data, size)
-#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_null0_decode(data, size)
+#define xgw_crypto_encode(algo, key, data, size) xgw_crypto_null0_encode(data, size)
+#define xgw_crypto_decode(algo, key, data, size) xgw_crypto_null0_decode(data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_NULLX
-#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_nullx_encode(params, data, size)
-#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_nullx_decode(params, data, size)
+#define xgw_crypto_encode(algo, key, data, size) xgw_crypto_nullx_encode(key, data, size)
+#define xgw_crypto_decode(algo, key, data, size) xgw_crypto_nullx_decode(key, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SUM32
-#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_sum32_encode(params, data, size)
-#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_sum32_decode(params, data, size)
+#define xgw_crypto_encode(algo, key, data, size) xgw_crypto_sum32_encode(key, data, size)
+#define xgw_crypto_decode(algo, key, data, size) xgw_crypto_sum32_decode(key, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SUM64
-#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_sum64_encode(params, data, size)
-#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_sum64_decode(params, data, size)
+#define xgw_crypto_encode(algo, key, data, size) xgw_crypto_sum64_encode(key, data, size)
+#define xgw_crypto_decode(algo, key, data, size) xgw_crypto_sum64_decode(key, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
-#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift32_1_encode(params, data, size)
-#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift32_1_decode(params, data, size)
+#define xgw_crypto_encode(algo, key, data, size) xgw_crypto_shift32_1_encode(key, data, size)
+#define xgw_crypto_decode(algo, key, data, size) xgw_crypto_shift32_1_decode(key, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
-#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift64_1_encode(params, data, size)
-#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift64_1_decode(params, data, size)
+#define xgw_crypto_encode(algo, key, data, size) xgw_crypto_shift64_1_encode(key, data, size)
+#define xgw_crypto_decode(algo, key, data, size) xgw_crypto_shift64_1_decode(key, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
-#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift64_2_encode(params, data, size)
-#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift64_2_decode(params, data, size)
+#define xgw_crypto_encode(algo, key, data, size) xgw_crypto_shift64_2_encode(key, data, size)
+#define xgw_crypto_decode(algo, key, data, size) xgw_crypto_shift64_2_decode(key, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
-#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift64_3_encode(params, data, size)
-#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift64_3_decode(params, data, size)
+#define xgw_crypto_encode(algo, key, data, size) xgw_crypto_shift64_3_encode(key, data, size)
+#define xgw_crypto_decode(algo, key, data, size) xgw_crypto_shift64_3_decode(key, data, size)
 #elif XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
-#define xgw_crypto_encode(algo, params, data, size) xgw_crypto_shift64_4_encode(params, data, size)
-#define xgw_crypto_decode(algo, params, data, size) xgw_crypto_shift64_4_decode(params, data, size)
+#define xgw_crypto_encode(algo, key, data, size) xgw_crypto_shift64_4_encode(key, data, size)
+#define xgw_crypto_decode(algo, key, data, size) xgw_crypto_shift64_4_decode(key, data, size)
 #endif

@@ -172,7 +172,7 @@ typedef struct xgw_path_s {
 
 typedef struct xgw_node_s {
     net_device_s* dev;
-    xgw_crypto_params_s cryptoKey;
+    xgw_crypto_key_s cryptoKey;
     u64 reserved2;
     u16 cryptoAlgo;
     u16 reserved;
@@ -198,7 +198,7 @@ typedef struct xgw_cfg_path_s {
 typedef struct xgw_cfg_node_srv_s {
     uint mtu;
     uint pkts;
-    xgw_crypto_params_s cryptoKey;
+    xgw_crypto_key_s cryptoKey;
     xgw_crypto_algo_e cryptoAlgo;
     xgw_cfg_path_s paths[XGW_PATHS_N];
 } xgw_cfg_node_side_s;
@@ -746,7 +746,7 @@ static void xgw_node_init (const xgw_cfg_node_s* const cfg, const uint nid) {
  // node->flows
  // node->paths
 
-    memcpy(&node->cryptoKey, &this->cryptoKey, sizeof(xgw_crypto_params_s));
+    memcpy(&node->cryptoKey, &this->cryptoKey, sizeof(xgw_crypto_key_s));
 
     // INITIALIZE ITS PATHS
     foreach (pid, XGW_PATHS_N)
@@ -785,7 +785,7 @@ static int __init xgw_init(void) {
     printk("XGW: CLIENT INIT\n");
 #endif
 
-    BUILD_BUG_ON(sizeof(xgw_crypto_params_s) != XGW_CRYPTO_PARAMS_SIZE);
+    BUILD_BUG_ON(sizeof(xgw_crypto_key_s) != XGW_CRYPTO_PARAMS_SIZE);
     BUILD_BUG_ON(sizeof(xgw_path_s) != XGW_PATH_SIZE);
     BUILD_BUG_ON(sizeof(xgw_node_s) != XGW_NODE_SIZE);
 
