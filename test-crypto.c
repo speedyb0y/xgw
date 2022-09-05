@@ -80,7 +80,7 @@ typedef uint64_t u64;
 #endif
 
 #ifndef TEST_CRYPTO_ALGO
-#define TEST_CRYPTO_ALGO XTUN_CRYPTO_ALGO_NULL0
+#define TEST_CRYPTO_ALGO XGW_CRYPTO_ALGO_NULL0
 #endif
 
 #ifndef TEST_CRYPTO_PARAMS
@@ -111,48 +111,48 @@ int main (void) {
     xtun_crypto_params_s cryptoParams;
 
     switch ((cryptoAlgo = TEST_CRYPTO_ALGO)) {
-#if      XGW_XTUN_CRYPTO_ALGO_NULL0
-        case XTUN_CRYPTO_ALGO_NULL0:
+#if      XCONF_XGW_CRYPTO_ALGO_NULL0
+        case XGW_CRYPTO_ALGO_NULL0:
             break;
 #endif
-#if      XGW_XTUN_CRYPTO_ALGO_NULLX
-        case XTUN_CRYPTO_ALGO_NULLX:
+#if      XCONF_XGW_CRYPTO_ALGO_NULLX
+        case XGW_CRYPTO_ALGO_NULLX:
             cryptoParams.nullx.x = 0x1234;
             break;
 #endif
-#if      XGW_XTUN_CRYPTO_ALGO_SUM32
-        case XTUN_CRYPTO_ALGO_SUM32:
+#if      XCONF_XGW_CRYPTO_ALGO_SUM32
+        case XGW_CRYPTO_ALGO_SUM32:
             break;
 #endif
-#if      XGW_XTUN_CRYPTO_ALGO_SUM64
-        case XTUN_CRYPTO_ALGO_SUM64:
+#if      XCONF_XGW_CRYPTO_ALGO_SUM64
+        case XGW_CRYPTO_ALGO_SUM64:
             break;
 #endif
-#if      XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
-        case XTUN_CRYPTO_ALGO_SHIFT32_1:
+#if      XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
+        case XGW_CRYPTO_ALGO_SHIFT32_1:
             cryptoParams.shift32_1.k = 0x05547898U;
             break;
 #endif
-#if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
-        case XTUN_CRYPTO_ALGO_SHIFT64_1:
+#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
+        case XGW_CRYPTO_ALGO_SHIFT64_1:
             cryptoParams.shift64_1.k = 0x464564456ULL;
             break;
 #endif
-#if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
-        case XTUN_CRYPTO_ALGO_SHIFT64_2:
+#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
+        case XGW_CRYPTO_ALGO_SHIFT64_2:
             cryptoParams.shift64_2.a = 0x464564456ULL;
             cryptoParams.shift64_2.b = 0xE34232045ULL;
             break;
 #endif
-#if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
-        case XTUN_CRYPTO_ALGO_SHIFT64_3:
+#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
+        case XGW_CRYPTO_ALGO_SHIFT64_3:
             cryptoParams.shift64_3.a = 0x464564456ULL;
             cryptoParams.shift64_3.b = 0xE34232045ULL;
             cryptoParams.shift64_3.c = 0x004560464ULL;
             break;
 #endif
-#if      XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
-        case XTUN_CRYPTO_ALGO_SHIFT64_4:
+#if      XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
+        case XGW_CRYPTO_ALGO_SHIFT64_4:
             cryptoParams.shift64_4.a = 0x464564456ULL;
             cryptoParams.shift64_4.b = 0xE34232045ULL;
             cryptoParams.shift64_4.c = 0x004560464ULL;
@@ -179,51 +179,51 @@ int main (void) {
 
 #if TEST_CRYPTO_PARAMS
             switch (cryptoAlgo) {
-#if              XGW_XTUN_CRYPTO_ALGO_NULL0
-                case XTUN_CRYPTO_ALGO_NULL0:
+#if              XCONF_XGW_CRYPTO_ALGO_NULL0
+                case XGW_CRYPTO_ALGO_NULL0:
                     // NOTHING
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_NULLX
-                case XTUN_CRYPTO_ALGO_NULLX:
+#if              XCONF_XGW_CRYPTO_ALGO_NULLX
+                case XGW_CRYPTO_ALGO_NULLX:
                     cryptoParams.nullx.x++;
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SUM32
-                case XTUN_CRYPTO_ALGO_SUM32:
+#if              XCONF_XGW_CRYPTO_ALGO_SUM32
+                case XGW_CRYPTO_ALGO_SUM32:
 
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SUM64
-                case XTUN_CRYPTO_ALGO_SUM64:
+#if              XCONF_XGW_CRYPTO_ALGO_SUM64
+                case XGW_CRYPTO_ALGO_SUM64:
 
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
-                case XTUN_CRYPTO_ALGO_SHIFT32_1:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
+                case XGW_CRYPTO_ALGO_SHIFT32_1:
                     cryptoParams.shift32_1.k += (u64)myrandom();
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
-                case XTUN_CRYPTO_ALGO_SHIFT64_1:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
+                case XGW_CRYPTO_ALGO_SHIFT64_1:
                     cryptoParams.shift64_1.k += (u64)myrandom();
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
-                case XTUN_CRYPTO_ALGO_SHIFT64_2:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
+                case XGW_CRYPTO_ALGO_SHIFT64_2:
                     cryptoParams.shift64_2.a += (u64)myrandom();
                     cryptoParams.shift64_2.b += (u64)myrandom();
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
-                case XTUN_CRYPTO_ALGO_SHIFT64_3:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
+                case XGW_CRYPTO_ALGO_SHIFT64_3:
                     cryptoParams.shift64_3.a += (u64)myrandom();
                     cryptoParams.shift64_3.b += (u64)myrandom();
                     cryptoParams.shift64_3.c += (u64)myrandom();
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
-                case XTUN_CRYPTO_ALGO_SHIFT64_4:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
+                case XGW_CRYPTO_ALGO_SHIFT64_4:
                     cryptoParams.shift64_4.a += (u64)myrandom();
                     cryptoParams.shift64_4.b += (u64)myrandom();
                     cryptoParams.shift64_4.c += (u64)myrandom();
@@ -248,54 +248,54 @@ int main (void) {
                 err("FAILED TO WRITE: INCOMPLETE");
 
             switch (cryptoAlgo) {
-#if              XGW_XTUN_CRYPTO_ALGO_NULL0
-                case XTUN_CRYPTO_ALGO_NULL0:
+#if              XCONF_XGW_CRYPTO_ALGO_NULL0
+                case XGW_CRYPTO_ALGO_NULL0:
                     print(" -- HASH 0x%04X", hashOriginal);
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_NULLX
-                case XTUN_CRYPTO_ALGO_NULLX:
+#if              XCONF_XGW_CRYPTO_ALGO_NULLX
+                case XGW_CRYPTO_ALGO_NULLX:
                     print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.nullx.x);
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SUM32
-                case XTUN_CRYPTO_ALGO_SUM32:
+#if              XCONF_XGW_CRYPTO_ALGO_SUM32
+                case XGW_CRYPTO_ALGO_SUM32:
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SUM64
-                case XTUN_CRYPTO_ALGO_SUM64:
+#if              XCONF_XGW_CRYPTO_ALGO_SUM64
+                case XGW_CRYPTO_ALGO_SUM64:
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT32_1
-                case XTUN_CRYPTO_ALGO_SHIFT32_1:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT32_1
+                case XGW_CRYPTO_ALGO_SHIFT32_1:
                     print(" -- HASH 0x%04X KEYS 0x%08llX", hashOriginal,
                         (uintll)cryptoParams.shift32_1.k);
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_1
-                case XTUN_CRYPTO_ALGO_SHIFT64_1:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_1
+                case XGW_CRYPTO_ALGO_SHIFT64_1:
                     print(" -- HASH 0x%04X KEYS 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_1.k);
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_2
-                case XTUN_CRYPTO_ALGO_SHIFT64_2:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_2
+                case XGW_CRYPTO_ALGO_SHIFT64_2:
                     print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_2.a,
                         (uintll)cryptoParams.shift64_2.b);
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_3
-                case XTUN_CRYPTO_ALGO_SHIFT64_3:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_3
+                case XGW_CRYPTO_ALGO_SHIFT64_3:
                     print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_3.a,
                         (uintll)cryptoParams.shift64_3.b,
                         (uintll)cryptoParams.shift64_3.c);
                     break;
 #endif
-#if              XGW_XTUN_CRYPTO_ALGO_SHIFT64_4
-                case XTUN_CRYPTO_ALGO_SHIFT64_4:
+#if              XCONF_XGW_CRYPTO_ALGO_SHIFT64_4
+                case XGW_CRYPTO_ALGO_SHIFT64_4:
                     print(" -- HASH 0x%04X KEYS 0x%016llX 0x%016llX 0x%016llX 0x%016llX", hashOriginal,
                         (uintll)cryptoParams.shift64_4.a,
                         (uintll)cryptoParams.shift64_4.b,

@@ -7,7 +7,7 @@ if [[ ! -n ${CC} ]] ; then
 fi
 
 if ${CC} -fwhole-program -Wall -Wextra -O2 -march=native xtun-crypto-test.c \
-    -DTEST_CRYPTO_ALGO=XTUN_CRYPTO_ALGO_${ALGO} \
+    -DTEST_CRYPTO_ALGO=XGW_CRYPTO_ALGO_${ALGO} \
     -DTEST_CHUNK_SIZE_MIN=$[128*1024] \
     -DTEST_CHUNK_SIZE_MAX=$[128*1024+512] \
     -DTEST_ENCODE=1 \
