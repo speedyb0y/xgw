@@ -63,16 +63,11 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 
 #define ARRAY_COUNT(a) (sizeof(a)/sizeof((a)[0]))
 
-#define XGW_PATHS_N XCONF_XGW_PATHS_N
-
+#define XGW_PATHS_N     XCONF_XGW_PATHS_N
 #define XGW_SERVER      XCONF_XGW_SERVER_IS
 #define XGW_SERVER_PORT XCONF_XGW_SERVER_PORT
-
-#if XGW_SERVER
-#define XGW_NODES_N XCONF_XGW_NODES_N
-#else
-#define XGW_NODE_ID XCONF_XGW_NODE_ID
-#endif
+#define XGW_NODES_N     XCONF_XGW_NODES_N
+#define XGW_NODE_ID     XCONF_XGW_NODE_ID
 
 #if ! (1 <= XGW_PATHS_N && XGW_PATHS_N <= 4)
 #error "BAD XGW_PATHS_N"
@@ -120,13 +115,6 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define PATH_ETH(path) PTR(&(path)->eDst)
 #define PATH_IP(path)  PTR(&(path)->iVersion)
 #define PATH_UDP(path) PTR(&(path)->uSrc)
-
-#define XGW_PATH_F_UP                 0b0000000000000001U // ADMINISTRATIVELY
-#define XGW_PATH_F_UP_AUTO            0b0000000000000010U // SE DER TIMEOUT VAI DESATIVAR ISSO
-#define XGW_PATH_F_UP_ITFC            0b0000000000000100U // WATCH INTERFACE EVENTS AND SET THIS TODO: INICIALIZAR COMO 0 E CARREGAR ISSO NO DEVICE NOTIFIER
-
-#define FLAGS_IS_UP(f) (((f) & (XGW_PATH_F_UP | XGW_PATH_F_UP_AUTO | XGW_PATH_F_UP_ITFC)) \
-                            == (XGW_PATH_F_UP | XGW_PATH_F_UP_AUTO | XGW_PATH_F_UP_ITFC))
 
 typedef struct xgw_path_s {
     net_device_s* itfc;
@@ -357,10 +345,8 @@ static rx_handler_result_t xgw_in (sk_buff_s** const pskb) {
     xgw_path_s* const path = &node->paths[pid];
 
     // DETECT AND UPDATE PATH AVAILABILITY
-    if (unlikely(!(path->flags & XGW_PATH_F_UP_AUTO))) {
-        path->flags |= XGW_PATH_F_UP_AUTO; // TODO: FIXME: IMPLEMENTAR E USAR ISSO
-        xgw_node_flows_update(node);
-    }
+    // TODO: !!!!!!!!!!
+
 #if XGW_SERVER
     // DETECT AND UPDATE PATH CHANGES
     net_device_s* const itfc = skb->dev;
@@ -519,8 +505,6 @@ static netdev_tx_t xgw_out (sk_buff_s* const skb, net_device_s* const dev) {
     skb->ip_summed        = CHECKSUM_NONE; // CHECKSUM_UNNECESSARY?
     skb->mac_len          = ETH_HLEN;
 
-    // TODO: SE XGW_PATH_F_UP_ITFC FOR TRUE, ENTAO hdr->itfc JÁ É TRUE
-    // TODO: FIXME: CONSOLIDAR TODOS ESSES CHECKS EM UMA COISA SO TODA VEZ QUE ALTERAR ALGUM DELES
     if (!(FLAGS_IS_UP(hdr->flags) && hdr->itfc && hdr->itfc->flags & IFF_UP))
         goto drop;
 
@@ -617,10 +601,7 @@ static void xgw_path_init (xgw_node_s* const restrict node, const uint nid, xgw_
         peerPath->band, peerPath->itfc, _MAC(peerPath->mac), _MAC(peerPath->gw), _IP4(peerPath->addr), peerPath->port, peerPath->tos, peerPath->ttl
     );
 
-    path->flags =
-          (XGW_PATH_F_UP          * !0)
-        | (XGW_PATH_F_UP_AUTO     * !0)
-        ;
+    path->flags      = 0;
     path->itfc       = NULL;
 #if XGW_SERVER
     path->hash       = 0;
@@ -673,9 +654,7 @@ static void xgw_path_init (xgw_node_s* const restrict node, const uint nid, xgw_
 
         rtnl_unlock();
 
-        if (path->itfc) { // TODO:
-            path->flags |= XGW_PATH_F_UP_ITFC;
-        } else { // TODO: LEMBRAR O NOME ENTÃO - APONTAR PARA O CONFIG?
+        if (!path->itfc) { // TODO: LEMBRAR O NOME ENTÃO - APONTAR PARA O CONFIG?
             printk("XGW: NODE %u: PATH %u: INTERFACE NOT HOOKED\n", nid, pid);
             dev_put(itfc);
         }
