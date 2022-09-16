@@ -36,7 +36,10 @@ typedef struct net net_s;
 typedef struct header_ops header_ops_s;
 typedef struct net_device_ops net_device_ops_s;
 
+#define SKB_HEAD(skb) PTR((skb)->head)
+#define SKB_DATA(skb) PTR((skb)->data)
 #define SKB_TAIL(skb) PTR(skb_tail_pointer(skb))
+#define SKB_END(skb)  PTR(skb_end_pointer(skb))
 
 #define PTR(p) ((void*)(p))
 
@@ -121,14 +124,6 @@ static inline u64 BE64(u64 x) { return __builtin_bswap64(x); }
 #define XGW_PATH_F_UP                 0b0000000000000001U // ADMINISTRATIVELY
 #define XGW_PATH_F_UP_AUTO            0b0000000000000010U // SE DER TIMEOUT VAI DESATIVAR ISSO
 #define XGW_PATH_F_UP_ITFC            0b0000000000000100U // WATCH INTERFACE EVENTS AND SET THIS TODO: INICIALIZAR COMO 0 E CARREGAR ISSO NO DEVICE NOTIFIER
-#if XGW_SERVER
-#define XGW_PATH_F_ITFC_LEARN         0b0000000000001000U
-#define XGW_PATH_F_E_SRC_LEARN        0b0000000000010000U
-#define XGW_PATH_F_E_DST_LEARN        0b0000000000100000U
-#define XGW_PATH_F_I_SRC_LEARN        0b0000000001000000U
-#define XGW_PATH_F_I_DST_LEARN        0b0000000010000000U    // TODO: TIME DO ULTIMO RECEBIDO; DESATIVAR O PATH NO SERVIDOR SE NAO RECEBER NADA EM TANTO TEMPO
-#define XGW_PATH_F_U_DST_LEARN        0b0000000100000000U
-#endif
 
 #define FLAGS_IS_UP(f) (((f) & (XGW_PATH_F_UP | XGW_PATH_F_UP_AUTO | XGW_PATH_F_UP_ITFC)) \
                             == (XGW_PATH_F_UP | XGW_PATH_F_UP_AUTO | XGW_PATH_F_UP_ITFC))
@@ -312,11 +307,6 @@ static rx_handler_result_t xgw_in (sk_buff_s** const pskb) {
 
     const xgw_path_s* const hdr = PTR(skb->data) + IP4_HDR_SIZE + UDP_HDR_SIZE - sizeof(xgw_path_s);
 
-    XGW_ASSERT(PTR(skb_network_header(skb)) == skb->data);
-    XGW_ASSERT((PTR(skb_network_header(skb)) + skb->len) == SKB_TAIL(skb));
-    XGW_ASSERT(PTR(PATH_ETH(hdr)) >= PTR(skb->head));
-    XGW_ASSERT((PTR(PATH_ETH(hdr)) + XGW_PATH_SIZE_WIRE) <= SKB_TAIL(skb));
-
     // IDENTIFY NODE AND PATH IDS FROM SERVER PORT
 #if XGW_SERVER
     const uint port = BE16(hdr->uDst);
@@ -385,19 +375,12 @@ static rx_handler_result_t xgw_in (sk_buff_s** const pskb) {
 
     if (unlikely(path->hash != hash)) {
         path->hash = hash;
-
-        if (path->flags & XGW_PATH_F_ITFC_LEARN) // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
-            path->itfc = itfc;
-        if (path->flags & XGW_PATH_F_E_SRC_LEARN)
-            memcpy(path->eSrc, hdr->eDst, ETH_ALEN);
-        if (path->flags & XGW_PATH_F_E_DST_LEARN)
-            memcpy(path->eDst, hdr->eSrc, ETH_ALEN);
-        if (path->flags & XGW_PATH_F_I_SRC_LEARN)
-            memcpy(path->iSrc, hdr->iDst, 4);
-        if (path->flags & XGW_PATH_F_I_DST_LEARN)
-            memcpy(path->iDst, hdr->iSrc, 4);
-        if (path->flags & XGW_PATH_F_U_DST_LEARN)
-            path->uDst = hdr->uSrc;
+        path->itfc = itfc; // NOTE: SE CHEGOU ATÉ AQUI ENTÃO É UMA INTERFACE JÁ HOOKADA
+        path->uDst = hdr->uSrc;
+        memcpy(path->eSrc, hdr->eDst, ETH_ALEN);
+        memcpy(path->eDst, hdr->eSrc, ETH_ALEN);
+        memcpy(path->iSrc, hdr->iDst, 4);
+        memcpy(path->iDst, hdr->iSrc, 4);
 
         printk("XGW: NODE %u: PATH %u: UPDATED WITH HASH 0x%016llX ITFC %s TOS 0x%02X TTL %u\n"
             " SRC %02X:%02X:%02X:%02X:%02X:%02X %u.%u.%u.%u %u\n"
@@ -479,27 +462,16 @@ static uint xgw_flow_hash (const u64 payload[]) {
     return (uint)hash;
 }
 
-static netdev_tx_t xgw_dev_start_xmit (sk_buff_s* const skb, net_device_s* const dev) {
-
-    // ASSERT: skb->len <= xgw->mtu
-    // ASSERT: skb->len <= xgw->dev->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
-    // ASSERT: skb->len <= xgw->path->itfc->mtu  -> MAS DEIXANDO A CARGO DO RESPECTIVO NETWORK STACK/DRIVER
+static netdev_tx_t xgw_out (sk_buff_s* const skb, net_device_s* const dev) {
 
     void* const payload = skb->data;
+
     const uint payloadSize = skb->len;
 
     xgw_path_s* const hdr = PTR(payload) - sizeof(xgw_path_s);
 #if XGW_SERVER
     xgw_node_s* const node = XGW_DEV_NODE(dev);
 #endif
-
-    XGW_ASSERT(!skb->data_len);
-    // APARENTMENTE, PODE TER SIM, CASO O ESTEJA FORWARDING
-    //XGW_ASSERT(!skb->mac_len);
-    XGW_ASSERT(PTR(payload) == PTR(skb_mac_header(skb)));
-    XGW_ASSERT(PTR(payload) == PTR(skb_network_header(skb)));
-    XGW_ASSERT((PTR(payload) + payloadSize) == SKB_TAIL(skb));
-    XGW_ASSERT(PTR(hdr) >= PTR(skb->head));
 
     if (PTR(hdr) < PTR(skb->head) || skb->data_len)
         goto drop;
@@ -568,12 +540,16 @@ drop:
     return NETDEV_TX_OK;
 }
 
-static int xgw_dev_up (net_device_s* const dev) {
+static int xgw_up (net_device_s* const dev) {
+
+    printk("XGW: UP\n");
 
     return 0;
 }
 
-static int xgw_dev_down (net_device_s* const dev) {
+static int xgw_down (net_device_s* const dev) {
+
+    printk("XGW: DOWN\n");
 
     return 0;
 }
@@ -589,14 +565,14 @@ static const header_ops_s xgwHeaderOps = {
 
 static const net_device_ops_s xgwDevOps = {
     .ndo_init             =  NULL,
-    .ndo_open             =  xgw_dev_up,
-    .ndo_stop             =  xgw_dev_down,
-    .ndo_start_xmit       =  xgw_dev_start_xmit,
+    .ndo_open             =  xgw_up,
+    .ndo_stop             =  xgw_down,
+    .ndo_start_xmit       =  xgw_out,
     .ndo_set_mac_address  =  NULL,
     // TODO: SET MTU - NAO PODE SER MAIOR QUE A INTERFACE DE CIMA
 };
 
-static void xgw_dev_setup (net_device_s* const dev) {
+static void xgw_setup (net_device_s* const dev) {
 
     dev->netdev_ops      = &xgwDevOps;
     dev->header_ops      = &xgwHeaderOps;
@@ -644,14 +620,6 @@ static void xgw_path_init (xgw_node_s* const restrict node, const uint nid, xgw_
     path->flags =
           (XGW_PATH_F_UP          * !0)
         | (XGW_PATH_F_UP_AUTO     * !0)
-#if XGW_SERVER
-        | (XGW_PATH_F_ITFC_LEARN  * !0)
-        | (XGW_PATH_F_E_SRC_LEARN * !0)
-        | (XGW_PATH_F_E_DST_LEARN * !0)
-        | (XGW_PATH_F_I_SRC_LEARN * !0)
-        | (XGW_PATH_F_I_DST_LEARN * !0)
-        | (XGW_PATH_F_U_DST_LEARN * !0)
-#endif
         ;
     path->itfc       = NULL;
 #if XGW_SERVER
@@ -755,7 +723,7 @@ static void xgw_node_init (const xgw_cfg_node_s* const cfg, const uint nid) {
     xgw_node_flows_update(node);
 
     // CREATE THE VIRTUAL INTERFACE
-    net_device_s* const dev = alloc_netdev(XGW_DEV_PRIV_SIZE, cfg->name, NET_NAME_USER, xgw_dev_setup);
+    net_device_s* const dev = alloc_netdev(XGW_DEV_PRIV_SIZE, cfg->name, NET_NAME_USER, xgw_setup);
 
     if (!dev) {
         printk("XGW: NODE %u: CREATE FAILED - COULD NOT ALLOCATE\n", nid);
