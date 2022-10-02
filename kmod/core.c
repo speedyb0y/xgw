@@ -1,6 +1,15 @@
 /*
 
     TODO: NO CLIENTE, VAI TER QUE ALTERAR A PORTA DE TEMPOS EM TEMPOS SE NAO ESTIVER FUNCIONANDO
+
+    TODO: CORRIGIR
+no in
+if (skb->len <= XGW_PATH_SIZE_WIRE
+
+NO IN
+e no transmit
+o header nao pode ser CONST!!!
+
 */
 
 #include <linux/init.h>
